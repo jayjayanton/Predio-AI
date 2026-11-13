@@ -12,10 +12,10 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=['GET','
 def health():
     return {'status': 'ok'}
 
-@app.get('/api/predios/{number}')
-async def predio(number: str):
+@app.get('/api/predios/by-cadastral-key/{cadastral_key}')
+async def predio(cadastral_key: str):
     try:
-        data = await lookup_predio(number)
+        data = await lookup_predio(cadastral_key)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except MunicipalError as exc:
