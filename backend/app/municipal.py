@@ -7,11 +7,11 @@ BASE_URL = os.getenv('QUITO_ARCGIS_URL', 'https://geoquito.quito.gob.ec/server/r
 class MunicipalError(Exception):
     pass
 
-async def lookup_predio(number: str):
-    if not re.fullmatch(r'[0-9]{1,25}', number):
-        raise ValueError('Predio number must contain 1–25 digits')
+async def lookup_predio(cadastral_key: str):
+    if not re.fullmatch(r'[0-9]{1,10}', cadastral_key):
+        raise ValueError('Cadastral key must contain 1–10 digits')
     params = {
-        'where': f"n_predio = '{number}'",
+        'where': f"clave_cata = '{cadastral_key}'",
         'outFields': 'fid,predio,n_predio,clave_cata,area_const,area_terre,parroquia,uso_constr,zonificaci',
         'returnGeometry': 'true', 'outSR': '4326', 'f': 'geojson',
         'resultRecordCount': 10,
