@@ -392,12 +392,10 @@ export default function App() {
                   </dl>
 
                   <p className="note">
-                    The highlighted polygon represents
-                    the associated global cadastral lot,
-                    not the individual house footprint.
-                    Área de terreno atribuida represents a
-                    cadastral allocation rather than a
-                    surveyed private lot.
+                    El polígono resaltado corresponde al lote matriz,
+                    no a la huella de la vivienda individual.
+                    El área atribuida es una asignación catastral,
+                    no una medición de terreno de uso exclusivo.
                   </p>
 
                 </div>
