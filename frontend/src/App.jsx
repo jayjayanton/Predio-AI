@@ -11,10 +11,10 @@ const API =
 
 const formatArea = (value) =>
   typeof value === 'number'
-    ? `${value.toLocaleString('en-US', {
+    ? `${value.toLocaleString('es-EC', {
         maximumFractionDigits: 2
       })} m²`
-    : 'Not available';
+    : 'No disponible';
 
 // ============================================================
 // 2. MAIN APPLICATION
@@ -62,7 +62,7 @@ export default function App() {
     setData(null);
 
     if (!/^\d{1,25}$/.test(identifier)) {
-      setError('Enter a valid numeric identifier.');
+      setError('Ingrese un identificador numérico válido.');
       return;
     }
 
@@ -70,7 +70,7 @@ export default function App() {
       identifierType === 'clave_cata' &&
       identifier.length > 10
     ) {
-      setError('Cadastral key cannot exceed 10 digits.');
+      setError('La clave catastral no puede superar los 10 dígitos.');
       return;
     }
 
@@ -87,7 +87,7 @@ export default function App() {
 
       if (!response.ok) {
         throw new Error(
-          body.detail || 'Unable to retrieve property'
+          body.detail || 'No se pudo consultar el predio'
         );
       }
 
@@ -127,7 +127,7 @@ export default function App() {
 
       if (!response.ok) {
         throw new Error(
-          body.detail || 'PDF inspection failed'
+          body.detail || 'No se pudo analizar el PDF'
         );
       }
 
@@ -158,13 +158,13 @@ export default function App() {
             <strong>
               Predio<span>AI</span>
             </strong>
-            <small>PROPERTY INTELLIGENCE</small>
+            <small>INTELIGENCIA PREDIAL</small>
           </div>
         </div>
 
         <div className="header-right">
           <span className="status-dot" />
-          Quito municipal GIS
+          Catastro municipal de Quito
           <span className="version">MVP 0.2</span>
         </div>
 
@@ -181,15 +181,14 @@ export default function App() {
           </div>
 
           <h1>
-            Every property.
+            Cada predio.
             <br />
-            <em>One clear view.</em>
+            <em>Toda su información.</em>
           </h1>
 
           <p className="intro">
-            Explore municipal parcel boundaries,
-            property measurements and architectural
-            documentation.
+            Consulte los límites catastrales, las superficies
+            del predio y su documentación arquitectónica.
           </p>
 
           {/* PROPERTY SEARCH */}
@@ -200,7 +199,7 @@ export default function App() {
           >
 
             <label htmlFor="identifierType">
-              SEARCH PROPERTY BY
+              BUSCAR PREDIO POR
             </label>
 
             <select
@@ -214,11 +213,11 @@ export default function App() {
               }}
             >
               <option value="clave_cata">
-                Cadastral Key
+                Clave catastral
               </option>
 
               <option value="n_predio">
-                Predio Number
+                Número de predio
               </option>
             </select>
 
@@ -232,8 +231,8 @@ export default function App() {
                 }
                 placeholder={
                   identifierType === 'clave_cata'
-                    ? 'e.g. 1041102014'
-                    : 'e.g. 627739'
+                    ? 'Ej.: 1041102014'
+                    : 'Ej.: 627739'
                 }
                 inputMode="numeric"
               />
@@ -243,8 +242,8 @@ export default function App() {
                 disabled={loading}
               >
                 {loading
-                  ? 'Searching…'
-                  : 'Find parcel'}
+                  ? 'Buscando…'
+                  : 'Buscar predio'}
               </button>
 
             </div>
@@ -258,14 +257,14 @@ export default function App() {
             </p>
           )}
 
-          {/* PROPERTY RECORD */}
+          {/* INFORMACIÓN CATASTRAL */}
 
           <div className="section-heading">
-            PROPERTY RECORD
+            INFORMACIÓN CATASTRAL
             <span>
               {properties
-                ? 'FOUND'
-                : 'AWAITING SEARCH'}
+                ? 'ENCONTRADO'
+                : 'SIN CONSULTA'}
             </span>
           </div>
 
@@ -287,9 +286,8 @@ export default function App() {
 
               {isPH && (
                 <p className="note">
-                  Property type: Propiedad Horizontal
-                  (PH). This property shares a global
-                  cadastral lot with other units.
+                  Régimen de propiedad horizontal (PH).
+                  Esta unidad comparte el lote matriz con otras propiedades.
                 </p>
               )}
 
@@ -300,8 +298,8 @@ export default function App() {
                 <div>
                   <small>
                     {isPH
-                      ? 'ATTRIBUTED LAND AREA'
-                      : 'LAND AREA'}
+                      ? 'ÁREA DE TERRENO ATRIBUIDA'
+                      : 'ÁREA DEL TERRENO'}
                   </small>
 
                   <strong>
@@ -311,7 +309,7 @@ export default function App() {
 
                 <div>
                   <small>
-                    TOTAL CONSTRUCTION
+                    ÁREA TOTAL DE CONSTRUCCIÓN
                   </small>
 
                   <strong>
@@ -327,64 +325,64 @@ export default function App() {
 
               <dl>
 
-                <dt>Predio number</dt>
+                <dt>Número de predio</dt>
                 <dd>
                   {properties.n_predio || '—'}
                 </dd>
 
-                <dt>Property type</dt>
+                <dt>Tipo de propiedad</dt>
                 <dd>
                   {properties.tipo_propi || '—'}
                 </dd>
 
-                <dt>Zoning</dt>
+                <dt>Zonificación</dt>
                 <dd>
                   {properties.zonificaci || '—'}
                 </dd>
 
-                <dt>Building use</dt>
+                <dt>Uso de la construcción</dt>
                 <dd>
                   {properties.uso_constr || '—'}
                 </dd>
 
               </dl>
 
-              {/* HORIZONTAL PROPERTY DETAILS */}
+              {/* PROPIEDAD HORIZONTAL DETAILS */}
 
               {isPH && (
 
                 <div className="ph-details">
 
                   <div className="section-heading">
-                    HORIZONTAL PROPERTY
+                    PROPIEDAD HORIZONTAL
                     <span>PH</span>
                   </div>
 
                   <dl>
 
-                    <dt>Global lot area</dt>
+                    <dt>Área del lote matriz</dt>
                     <dd>
                       {formatArea(
                         properties.area_terre
                       )}
                     </dd>
 
-                    <dt>Attributed land area</dt>
+                    <dt>Área de terreno atribuida</dt>
                     <dd>
                       {formatArea(
                         properties.area_ter_1
                       )}
                     </dd>
 
-                    <dt>Ownership share</dt>
+                    <dt>Alícuota</dt>
                     <dd>
                       {typeof properties.alicuota_p ===
                       'number'
                         ? `${properties.alicuota_p.toFixed(2)}%`
-                        : 'Not available'}
+                        : 'No disponible'}
                     </dd>
 
-                    <dt>Total construction</dt>
+                    <dt>Construcción total</dt>
                     <dd>
                       {formatArea(
                         properties.area_const
@@ -397,7 +395,7 @@ export default function App() {
                     The highlighted polygon represents
                     the associated global cadastral lot,
                     not the individual house footprint.
-                    Attributed land area represents a
+                    Área de terreno atribuida represents a
                     cadastral allocation rather than a
                     surveyed private lot.
                   </p>
@@ -409,10 +407,8 @@ export default function App() {
 
               {data.features.length > 1 && (
                 <p className="note">
-                  {data.features.length} matching
-                  records. Displaying the first
-                  record's attributes and all returned
-                  polygons.
+                  {data.features.length} registros encontrados. Se muestran los datos
+                  del primero y los polígonos de todos.
                 </p>
               )}
 
@@ -421,48 +417,47 @@ export default function App() {
           ) : (
 
             <div className="empty">
-              Search by cadastral key or predio number
-              to retrieve municipal property records
-              and locate the associated cadastral lot.
+              Busque por clave catastral o número de predio
+              para consultar los datos municipales
+              y ubicar el lote asociado.
             </div>
 
           )}
 
-          {/* MUNICIPAL DOCUMENTS */}
+          {/* DOCUMENTOS MUNICIPALES */}
 
           <div className="section-heading">
-            MUNICIPAL DOCUMENTS
-            <span>COMING SOON</span>
+            DOCUMENTOS MUNICIPALES
+            <span>PRÓXIMAMENTE</span>
           </div>
 
           <div className="documents">
 
             <div>
               ▤
-              <span>Regulation report (IRM)</span>
-              <small>Not connected</small>
+              <span>Informe de Regulación Metropolitana (IRM)</span>
+              <small>No conectado</small>
             </div>
 
             <div>
               ▤
-              <span>Approved architectural plans</span>
-              <small>Authorization required</small>
+              <span>Planos arquitectónicos aprobados</span>
+              <small>Requiere autorización</small>
             </div>
 
           </div>
 
-          {/* BLUEPRINT INSPECTION */}
+          {/* ANÁLISIS DE PLANOS */}
 
           <div className="section-heading">
-            BLUEPRINT INSPECTION
+            ANÁLISIS DE PLANOS
             <span>EXPERIMENTAL</span>
           </div>
 
           <p className="note">
-            Upload a PDF you are authorized to use.
-            The server inspects page structure without
-            deliberately storing the file.
-            No measurements are inferred yet.
+            Suba un PDF cuyo uso tenga autorizado.
+            El servidor analiza su estructura sin guardarlo
+            deliberadamente. Todavía no calcula medidas.
           </p>
 
           <input
@@ -483,8 +478,8 @@ export default function App() {
             onClick={inspect}
           >
             {inspecting
-              ? 'Inspecting…'
-              : 'Inspect PDF'}
+              ? 'Analizando…'
+              : 'Analizar PDF'}
           </button>
 
           {/* PDF RESULTS */}
@@ -494,16 +489,16 @@ export default function App() {
             <div className="inspection">
 
               <strong>
-                {inspection.pages} page(s)
+                {inspection.pages} página(s)
               </strong>
 
               {inspection.page_info.map((page) => (
                 <p key={page.page}>
-                  Page {page.page}:
+                  Página {page.page}:
                   {' '}
-                  {page.vector_drawings} vector paths
+                  {page.vector_drawings} trazados vectoriales
                   {' · '}
-                  {page.text_characters} text characters
+                  {page.text_characters} caracteres de texto
                 </p>
               ))}
 
@@ -518,11 +513,11 @@ export default function App() {
 
           <div className="map-top">
             <span className="live">
-              ● LIVE MAP
+              ● MAPA INTERACTIVO
             </span>
 
             <span>
-              Esri basemaps · Quito cadastral data
+              Mapas base de Esri · Catastro de Quito
             </span>
           </div>
 
@@ -530,11 +525,11 @@ export default function App() {
 
           <div className="map-bottom">
             <span>
-              Municipal source: predios_a_2024
+              Fuente municipal: predios_a_2024
             </span>
 
             <span>
-              Parcel boundary ≠ building footprint
+              Límite predial ≠ huella de edificación
             </span>
           </div>
 
@@ -545,9 +540,9 @@ export default function App() {
       {/* FOOTER */}
 
       <footer>
-        PredioAI · Research prototype ·
-        Municipal data accuracy and reuse permissions
-        require verification.
+        PredioAI · Prototipo de investigación ·
+        Se deben verificar la precisión y los permisos
+        de reutilización de los datos municipales.
       </footer>
 
     </div>
