@@ -3,7 +3,7 @@
 Full-stack prototype for querying Quito cadastral parcels and inspecting authorized architectural PDFs.
 
 ## Features
-- Search predios by number through municipal ArcGIS REST.
+- Search by cadastral key (`clave_cata`) through municipal ArcGIS REST; retain predio number as a secondary attribute.
 - Leaflet/OpenStreetMap interactive map with automatic zoom to parcel polygons.
 - Display cadastral identifiers, land and construction areas, parish, zoning and building use.
 - IRM and architectural plan placeholders.
@@ -26,9 +26,9 @@ cd frontend
 npm install
 npm run dev
 ```
-Open http://localhost:5173 and search for predio `1`.
+Open http://localhost:5173 and search for cadastral key `1280416019`.
 
-## Configuration
+Example endpoint: `GET /api/predios/by-cadastral-key/1280416019`\n\n## Configuration
 - `QUITO_ARCGIS_URL`: municipal ArcGIS FeatureServer query endpoint.
 - `CORS_ORIGINS`: default `http://localhost:5173`.
 - `VITE_API_URL`: default `http://localhost:8000`.
