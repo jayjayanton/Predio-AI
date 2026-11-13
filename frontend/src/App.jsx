@@ -53,7 +53,27 @@ export default function App() {
         <div className="section-heading">MUNICIPAL DOCUMENTS <span>COMING SOON</span></div><div className="documents"><div>▤ <span>Regulation report (IRM)</span><small>Not connected</small></div><div>▤ <span>Approved architectural plans</span><small>Authorization required</small></div></div>
         <div className="section-heading">BLUEPRINT INSPECTION <span>EXPERIMENTAL</span></div><p className="note">Upload a PDF you are authorized to use. The server inspects page structure without storing the file. No measurements are inferred yet.</p><input className="file-input" type="file" accept="application/pdf,.pdf" onChange={e=>{setPdf(e.target.files?.[0]||null);setInspection(null)}}/><button className="secondary" disabled={!pdf||inspecting} onClick={inspect}>{inspecting?'Inspecting…':'Inspect PDF'}</button>{inspection && <div className="inspection"><strong>{inspection.pages} page(s)</strong>{inspection.page_info.map(p=><p key={p.page}>Page {p.page}: {p.vector_drawings} vector paths · {p.text_characters} text characters</p>)}</div>}
       </aside>
-      <section className="map-section"><div className="map-top"><span className="live">● LIVE MAP</span><span>OpenStreetMap · Quito cadastral data</span></div><ParcelMap data={data}/><div className="map-bottom"><span>Municipal source: predios_a_2024</span><span>Parcel boundary ≠ building footprint</span></div></section>
+      <section className="map-section"><div className="map-top"><span className="live">● LIVE MAP</span><span>OpenStreetMap · Quito cadastral data</span></div>
+        <div
+          style={{
+            height: "100%",
+            minHeight: "600px",
+            background: "#dce8e5",
+            color: "#173a37",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            fontSize: "24px",
+            fontWeight: "bold"
+          }}
+        >
+          PredioAI Map Placeholder
+        </div>
+      <div className="map-bottom">
+        <span>Municipal source: predios_a_2024</span>
+        <span>Parcel boundary ≠ building footprint</span>
+        </div>
+        </section>
     </main><footer>PredioAI · Research prototype · Municipal data accuracy and reuse permissions require verification.</footer>
   </div>;
 }
