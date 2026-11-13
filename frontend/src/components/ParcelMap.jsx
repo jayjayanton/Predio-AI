@@ -78,7 +78,7 @@ export default function ParcelMap({ data }) {
       <div
         className="basemap-switcher"
         role="group"
-        aria-label="Basemap selector"
+        aria-label="Seleccionar mapa base"
       >
         <button
           type="button"
@@ -86,7 +86,7 @@ export default function ParcelMap({ data }) {
           aria-pressed={basemap === 'light'}
           onClick={() => setBasemap('light')}
         >
-          Light Gray
+          Gris claro
         </button>
 
         <button
@@ -95,7 +95,7 @@ export default function ParcelMap({ data }) {
           aria-pressed={basemap === 'topographic'}
           onClick={() => setBasemap('topographic')}
         >
-          Topographic
+          Topográfico
         </button>
 
         <button
@@ -104,7 +104,7 @@ export default function ParcelMap({ data }) {
           aria-pressed={basemap === 'satellite'}
           onClick={() => setBasemap('satellite')}
         >
-          Satellite
+          Satélite
         </button>
       </div>
 
