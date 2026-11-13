@@ -16,7 +16,7 @@ def test_query_params():
         client.get.return_value = response
         response.raise_for_status.return_value = None
         response.json.return_value = payload
-        assert asyncio.run(lookup_predio('123')) == payload
+        assert asyncio.run(lookup_predio('1280416019')) == payload
         params = client.get.call_args.kwargs['params']
-        assert params['where'] == "n_predio = '123'"
+        assert params['where'] == "clave_cata = '1280416019'"
         assert params['outSR'] == '4326'
