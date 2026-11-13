@@ -1,62 +1,172 @@
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;color:#eaf2f1;background:#0b151a;font-synthesis:none}*{box-sizing:border-box}body{margin:0}button,input{font:inherit}button{cursor:pointer}.shell{min-height:100vh;display:flex;flex-direction:column}.header{height:74px;display:flex;align-items:center;justify-content:space-between;padding:0 34px;border-bottom:1px solid #25363a;background:#0d1b20}.brand{display:flex;align-items:center;gap:13px}.brand-mark{background:#17b6aa;color:#062522;border-radius:11px;padding:9px 13px;font-size:26px}.brand strong{font-size:23px;letter-spacing:-1px}.brand strong span{color:#20c9b8}.brand small{display:block;color:#82999d;font-size:9px;letter-spacing:2px;margin-top:2px}.header-right{color:#a9bdbf;font-size:12px;display:flex;align-items:center;gap:10px}.status-dot{width:7px;height:7px;border-radius:50%;background:#28d6a2}.version{border:1px solid #34494c;border-radius:20px;padding:5px 10px;margin-left:12px}.layout{flex:1;display:grid;grid-template-columns:420px minmax(0,1fr);min-height:calc(100vh - 110px)}.sidebar{padding:30px 28px;overflow:auto;max-height:calc(100vh - 110px);background:#101f24;border-right:1px solid #263b3f}.eyebrow{font-size:10px;letter-spacing:2.5px;color:#26c8b8;font-weight:700}h1{font-size:33px;line-height:1.13;letter-spacing:-1.2px;margin:16px 0 12px}h1 em{font-style:normal;color:#28c9b8}.intro{font-size:13px;line-height:1.7;color:#94aaad;margin-bottom:27px}.search-form label{display:block;color:#90a9ab;font-size:10px;font-weight:700;letter-spacing:1.4px;margin-bottom:9px}.search-row{display:flex;gap:8px}.search-row input{min-width:0;flex:1;background:#172c32;border:1px solid #385056;border-radius:8px;color:#fff;padding:13px}.search-row button,.secondary{background:#20b7aa;color:#042522;border:0;border-radius:8px;padding:0 16px;font-weight:700;font-size:12px}.search-row button:disabled,.secondary:disabled{opacity:.5;cursor:not-allowed}.section-heading{display:flex;justify-content:space-between;align-items:center;color:#d5e5e5;font-size:11px;font-weight:750;letter-spacing:1.2px;margin:32px 0 12px}.section-heading span{font-size:9px;letter-spacing:.6px;color:#83a09e}.empty,.property,.documents,.inspection{border:1px solid #2a4347;border-radius:10px;padding:16px;color:#9ab0b2;font-size:12px;line-height:1.7;background:#14272d}.property-title{display:flex;justify-content:space-between;gap:8px;align-items:center}.property-title strong{color:#fff;font-size:18px}.property-title span{color:#21bcae}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:17px 0}.stats div{background:#1c3439;border-radius:8px;padding:12px}.stats small{display:block;font-size:9px;letter-spacing:1px}.stats strong{color:#fff;font-size:17px}dl{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0}dt{color:#82999d}dd{margin:0;color:#e5eeee;text-align:right;overflow-wrap:anywhere}.documents{padding:5px 14px}.documents div{display:flex;align-items:center;gap:8px;padding:13px 0}.documents div+div{border-top:1px solid #2b4347}.documents span{flex:1;color:#d9e7e7}.documents small{font-size:10px;color:#819da0}.note{font-size:11px;line-height:1.6;color:#91a8ab}.file-input{font-size:11px;width:100%;margin:10px 0}.secondary{padding:12px 18px}.inspection{margin-top:12px}.inspection p{margin:4px 0}.error{color:#ffc4b9;font-size:12px}.map-section{position:relative;min-height:600px}.map{height:100%;width:100%;min-height:600px;background:#dfe9e5}.map-top,.map-bottom{position:absolute;z-index:500;left:22px;right:22px;display:flex;justify-content:space-between;pointer-events:none;font-size:11px}.map-top{top:22px}.map-top span,.map-bottom span{background:#10262be8;color:#c3d7d7;padding:10px 13px;border-radius:7px}.map-top .live{color:#2ee1bb;font-weight:700;letter-spacing:1px}.map-bottom{bottom:22px}footer{height:36px;padding:10px 34px;background:#0b151a;color:#67858a;font-size:10px;border-top:1px solid #263a3e}@media(max-width:850px){.layout{display:flex;flex-direction:column}.sidebar{max-height:none}.map-section,.map{height:470px;min-height:470px}.header{padding:0 16px}.header-right{font-size:0}.version{font-size:11px}.map-bottom{gap:6px}.map-bottom span{font-size:9px}.sidebar{padding:24px 18px}}
-
-
+/* =========================================================
+   PREDIOAI — MAIN STYLESHEET
+   ========================================================= */
 /* ---------------------------------------------------------
-   LEAFLET BASEMAP CONTROLS
+   1. GLOBAL STYLES
    --------------------------------------------------------- */
-.parcel-map-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 600px;
-}
-
-.basemap-switcher {
-  position: absolute;
-  z-index: 650;
-  top: 70px;
-  right: 22px;
-  display: flex;
-  gap: 4px;
-  padding: 5px;
-  background: #10262bef;
-  border: 1px solid #355258;
-  border-radius: 10px;
-  box-shadow: 0 4px 18px #0003;
-}
-
-.basemap-switcher button {
-  border: 0;
-  border-radius: 7px;
-  padding: 10px 13px;
-  background: transparent;
-  color: #d2e4e2;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.basemap-switcher button.active {
-  background: #20b7aa;
-  color: #042522;
-}
-
-.basemap-switcher button:hover:not(.active) {
-  background: #25454b;
-}
-
-.basemap-switcher button:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-}
-
+:root { font-family: Inter, ui-sans-serif, system-ui,
+    -apple-system, Segoe UI, sans-serif; color: #eaf2f1; background: #0b151a; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button,
+input,
+select { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible,
+input:focus-visible,
+select:focus-visible { outline: 2px solid #20b7aa; outline-offset: 2px; }
+/* ---------------------------------------------------------
+   2. APPLICATION LAYOUT
+   --------------------------------------------------------- */
+.shell { min-height: 100vh; display: flex; flex-direction: column; }
+.layout { flex: 1; display: grid; grid-template-columns: 420px minmax(0, 1fr); min-height: calc(100vh - 110px); }
+/* ---------------------------------------------------------
+   3. HEADER
+   --------------------------------------------------------- */
+.header { height: 74px; display: flex; align-items: center; justify-content: space-between; padding: 0 34px; border-bottom: 1px solid #25363a; background: #0d1b20; }
+.brand { display: flex; align-items: center; gap: 13px; }
+.brand-mark { background: #17b6aa; color: #062522; border-radius: 11px; padding: 9px 13px; font-size: 26px; }
+.brand strong { font-size: 23px; letter-spacing: -1px; }
+.brand strong span { color: #20c9b8; }
+.brand small { display: block; color: #82999d; font-size: 9px; letter-spacing: 2px; margin-top: 2px; }
+.header-right { color: #a9bdbf; font-size: 12px; display: flex; align-items: center; gap: 10px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #28d6a2; }
+.version { border: 1px solid #34494c; border-radius: 20px; padding: 5px 10px; margin-left: 12px; }
+/* ---------------------------------------------------------
+   4. SIDEBAR
+   --------------------------------------------------------- */
+.sidebar { padding: 30px 28px; overflow: auto; max-height: calc(100vh - 110px); background: #101f24; border-right: 1px solid #263b3f; }
+.eyebrow { font-size: 10px; letter-spacing: 2.5px; color: #26c8b8; font-weight: 700; }
+h1 { font-size: 33px; line-height: 1.13; letter-spacing: -1.2px; margin: 16px 0 12px; }
+h1 em { font-style: normal; color: #28c9b8; }
+.intro { font-size: 13px; line-height: 1.7; color: #94aaad; margin-bottom: 27px; }
+/* ---------------------------------------------------------
+   5. PROPERTY SEARCH FORM
+   --------------------------------------------------------- */
+.search-form label { display: block; color: #90a9ab; font-size: 10px; font-weight: 700; letter-spacing: 1.4px; margin-bottom: 9px; }
+/* Cadastral Key / Predio Number dropdown */
+.search-form select { width: 100%; padding: 13px; margin-bottom: 12px; background: #172c32; border: 1px solid #385056; border-radius: 8px; color: #eaf2f1; font-size: 13px; cursor: pointer; transition: border-color 0.2s ease; }
+.search-form select:hover,
+.search-form select:focus { border-color: #20b7aa; }
+.search-form select option { background: #172c32; color: #ffffff; }
+/* Search input and button */
+.search-row { display: flex; gap: 8px; }
+.search-row input { min-width: 0; flex: 1; background: #172c32; border: 1px solid #385056; border-radius: 8px; color: #ffffff; padding: 13px; transition: border-color 0.2s ease; }
+.search-row input::placeholder { color: #789196; }
+.search-row input:hover { border-color: #527077; }
+.search-row input:focus { border-color: #20b7aa; }
+.search-row button,
+.secondary { background: #20b7aa; color: #042522; border: 0; border-radius: 8px; padding: 0 16px; font-weight: 700; font-size: 12px; transition:
+    background 0.2s ease,
+    transform 0.2s ease; }
+.search-row button:hover:not(:disabled),
+.secondary:hover:not(:disabled) { background: #32d3c3; }
+.search-row button:active:not(:disabled),
+.secondary:active:not(:disabled) { transform: scale(0.98); }
+.search-row button:disabled,
+.secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+/* ---------------------------------------------------------
+   6. SECTION HEADINGS
+   --------------------------------------------------------- */
+.section-heading { display: flex; justify-content: space-between; align-items: center; color: #d5e5e5; font-size: 11px; font-weight: 750; letter-spacing: 1.2px; margin: 32px 0 12px; }
+.section-heading span { font-size: 9px; letter-spacing: 0.6px; color: #83a09e; }
+/* ---------------------------------------------------------
+   7. INFORMATION CARDS
+   --------------------------------------------------------- */
+.empty,
+.property,
+.documents,
+.inspection { border: 1px solid #2a4347; border-radius: 10px; padding: 16px; color: #9ab0b2; font-size: 12px; line-height: 1.7; background: #14272d; }
+.property-title { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.property-title strong { color: #ffffff; font-size: 18px; }
+.property-title span { color: #21bcae; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 17px 0; }
+.stats div { background: #1c3439; border-radius: 8px; padding: 12px; }
+.stats small { display: block; font-size: 9px; letter-spacing: 1px; }
+.stats strong { color: #ffffff; font-size: 17px; }
+dl { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0; }
+dt { color: #82999d; }
+dd { margin: 0; color: #e5eeee; text-align: right; overflow-wrap: anywhere; }
+/* ---------------------------------------------------------
+   8. MUNICIPAL DOCUMENTS
+   --------------------------------------------------------- */
+.documents { padding: 5px 14px; }
+.documents div { display: flex; align-items: center; gap: 8px; padding: 13px 0; }
+.documents div + div { border-top: 1px solid #2b4347; }
+.documents span { flex: 1; color: #d9e7e7; }
+.documents small { font-size: 10px; color: #819da0; }
+/* ---------------------------------------------------------
+   9. BLUEPRINT INSPECTION
+   --------------------------------------------------------- */
+.note { font-size: 11px; line-height: 1.6; color: #91a8ab; }
+.file-input { font-size: 11px; width: 100%; margin: 10px 0; }
+.secondary { padding: 12px 18px; }
+.inspection { margin-top: 12px; }
+.inspection p { margin: 4px 0; }
+.error { color: #ffc4b9; font-size: 12px; }
+/* ---------------------------------------------------------
+   10. LEAFLET MAP
+   --------------------------------------------------------- */
+.map-section { position: relative; min-height: 600px; min-width: 0; }
+.parcel-map-wrapper { position: relative; width: 100%; height: 100%; min-height: 600px; }
+.map { height: 100%; width: 100%; min-height: 600px; background: #dfe9e5; }
+/* Map information overlays */
+.map-top,
+.map-bottom { position: absolute; z-index: 500; left: 22px; right: 22px; display: flex; justify-content: space-between; pointer-events: none; font-size: 11px; }
+.map-top { top: 22px; }
+.map-bottom { bottom: 22px; }
+.map-top span,
+.map-bottom span { background: #10262be8; color: #c3d7d7; padding: 10px 13px; border-radius: 7px; }
+.map-top .live { color: #2ee1bb; font-weight: 700; letter-spacing: 1px; }
+/* ---------------------------------------------------------
+   11. BASEMAP SWITCHER
+   --------------------------------------------------------- */
+.basemap-switcher { position: absolute; z-index: 650; top: 70px; right: 22px; display: flex; gap: 4px; padding: 5px; background: #10262bef; border: 1px solid #355258; border-radius: 10px; box-shadow: 0 4px 18px #0003; }
+.basemap-switcher button { border: 0; border-radius: 7px; padding: 10px 13px; background: transparent; color: #d2e4e2; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition:
+    background 0.2s ease,
+    color 0.2s ease; }
+.basemap-switcher button.active { background: #20b7aa; color: #042522; }
+.basemap-switcher button:hover:not(.active) { background: #25454b; }
+.basemap-switcher button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+/* Leaflet zoom controls */
+.leaflet-control-zoom { border: 1px solid #355258 !important; border-radius: 9px !important; overflow: hidden; box-shadow: 0 4px 18px #0003 !important; }
+.leaflet-control-zoom a { background: #10262b !important; color: #eaf2f1 !important; border-color: #355258 !important; }
+.leaflet-control-zoom a:hover { background: #25454b !important; color: #20b7aa !important; }
+/* Metric scale bar */
+.leaflet-control-scale-line { background: #10262be8; border-color: #c3d7d7; color: #eaf2f1; font-size: 10px; }
+/* ---------------------------------------------------------
+   12. FOOTER
+   --------------------------------------------------------- */
+footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; font-size: 10px; border-top: 1px solid #263a3e; }
+/* ---------------------------------------------------------
+   13. RESPONSIVE DESIGN — TABLET
+   --------------------------------------------------------- */
 @media (max-width: 850px) {
-  .parcel-map-wrapper {
-    height: 470px;
-    min-height: 470px;
-  }
-  .basemap-switcher {
-    top: 62px;
-    right: 10px;
-  }
-}
+ .layout { display: flex; flex-direction: column; }
+.sidebar { max-height: none; padding: 24px 18px; }
+.map-section,
+  .parcel-map-wrapper,
+  .map { height: 470px; min-height: 470px; }
+.header { padding: 0 16px; }
+.header-right { font-size: 0; }
+.version { font-size: 11px; }
+.map-bottom { gap: 6px; }
+.map-bottom span { font-size: 9px; }
+.basemap-switcher { top: 62px; right: 10px; }
+ }
+/* ---------------------------------------------------------
+   14. RESPONSIVE DESIGN — MOBILE
+   --------------------------------------------------------- */
+@media (max-width: 480px) {
+ h1 { font-size: 28px; }
+.search-row { flex-direction: column; }
+.search-row button { min-height: 44px; }
+.stats { grid-template-columns: 1fr; }
+.map-top,
+  .map-bottom { left: 10px; right: 10px; }
+.map-top span,
+  .map-bottom span { padding: 8px; font-size: 9px; }
+.basemap-switcher { top: 65px; right: 10px; padding: 4px; }
+.basemap-switcher button { padding: 9px 10px; font-size: 11px; }
+.leaflet-control-zoom a { width: 30px !important; height: 30px !important; line-height: 30px !important; }
+ }

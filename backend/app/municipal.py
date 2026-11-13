@@ -7,22 +7,43 @@ BASE_URL = os.getenv('QUITO_ARCGIS_URL', 'https://geoquito.quito.gob.ec/server/r
 class MunicipalError(Exception):
     pass
 
-async def lookup_predio(cadastral_key: str):
-    if not re.fullmatch(r'[0-9]{1,10}', cadastral_key):
-        raise ValueError('Cadastral key must contain 1–10 digits')
+
+async def lookup_predio(identifier: str, identifier_type: str = "clave_cata"):
+
+    if identifier_type not in ("clave_cata", "n_predio"):
+        raise ValueError("Invalid identifier type")
+
+    if not re.fullmatch(r"[0-9]{1,25}", identifier):
+        raise ValueError("Identifier must contain 1–25 digits")
+
     params = {
-        'where': f"clave_cata = '{cadastral_key}'",
-        'outFields': 'fid,predio,n_predio,clave_cata,area_const,area_terre,parroquia,uso_constr,zonificaci',
-        'returnGeometry': 'true', 'outSR': '4326', 'f': 'geojson',
-        'resultRecordCount': 10,
+        "where": f"{identifier_type} = '{identifier}'",
+        "outFields": (
+            "fid,predio,n_predio,clave_cata,"
+            "area_const,area_terre,parroquia,"
+            "uso_constr,zonificaci"
+        ),
+        "returnGeometry": "true",
+        "outSR": "4326",
+        "f": "geojson",
+        "resultRecordCount": 10,
     }
+
     try:
-        async with httpx.AsyncClient(timeout=25, follow_redirects=False) as client:
+        async with httpx.AsyncClient(
+            timeout=25,
+            follow_redirects=False
+        ) as client:
             response = await client.get(BASE_URL, params=params)
             response.raise_for_status()
             payload = response.json()
+
     except (httpx.HTTPError, ValueError) as exc:
-        raise MunicipalError('Municipal service is unavailable or returned invalid data') from exc
-    if 'error' in payload or payload.get('type') != 'FeatureCollection':
-        raise MunicipalError('Municipal service returned an API error')
+        raise MunicipalError(
+            "Municipal service is unavailable or returned invalid data"
+        ) from exc
+
+    if "error" in payload or payload.get("type") != "FeatureCollection":
+        raise MunicipalError("Municipal service returned an API error")
+
     return payload

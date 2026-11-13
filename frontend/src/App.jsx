@@ -13,14 +13,18 @@ export default function App() {
   const [inspection, setInspection] = useState(null);
   const [inspecting, setInspecting] = useState(false);
   const properties = data?.features?.[0]?.properties;
+  const [identifierType, setIdentifierType] = useState("clave_cata");
 
   async function search(event) {
     event.preventDefault();
     setError(''); setData(null);
-    if (!/^\d{1,10}$/.test(cadastralKey)) { setError('Enter a valid cadastral key (up to 10 digits).'); return; }
+    if (!/^\d{1,25}$/.test(cadastralKey)) {
+      setError("Enter a valid numeric identifier.");
+      return;
+    }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/predios/by-cadastral-key/${encodeURIComponent(cadastralKey)}`);
+      const res = await fetch(`${API}/api/predios/${identifierType}/${encodeURIComponent(cadastralKey)}`);
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail || 'Unable to retrieve parcel');
       setData(body);
@@ -46,7 +50,50 @@ export default function App() {
         <div className="eyebrow">QUITO · ECUADOR</div>
         <h1>Every property.<br/><em>One clear view.</em></h1>
         <p className="intro">Explore municipal parcel boundaries and prepare architectural documentation for intelligent measurements.</p>
-        <form onSubmit={search} className="search-form"><label htmlFor="predio">CADASTRAL KEY (CLAVE CATASTRAL)</label><div className="search-row"><input id="predio" value={cadastralKey} onChange={e=>setCadastralKey(e.target.value)} placeholder="e.g. 1280416019" inputMode="numeric"/><button disabled={loading}>{loading ? 'Searching…' : 'Find parcel'}</button></div></form>
+
+        <form onSubmit={search} className="search-form">
+
+          <label htmlFor="identifierType">
+            SEARCH PROPERTY BY
+          </label>
+
+          <select
+            id="identifierType"
+            value={identifierType}
+            onChange={(e) => {
+              setIdentifierType(e.target.value);
+              setCadastralKey("");
+            }}
+          >
+            <option value="clave_cata">
+              Cadastral Key
+            </option>
+
+            <option value="n_predio">
+              Predio Number
+            </option>
+          </select>
+
+          <div className="search-row">
+            <input
+              id="predio"
+              value={cadastralKey}
+              onChange={(e) => setCadastralKey(e.target.value)}
+              placeholder={
+                identifierType === "clave_cata"
+                  ? "e.g. 1280416019"
+                  : "e.g. 1"
+              }
+              inputMode="numeric"
+            />
+
+            <button type="submit" disabled={loading}>
+              {loading ? "Searching…" : "Find parcel"}
+            </button>
+          </div>
+
+        </form>
+
         {error && <p className="error" role="alert">{error}</p>}
         <div className="section-heading">PROPERTY RECORD <span>{properties ? 'FOUND' : 'AWAITING SEARCH'}</span></div>
         {properties ? <div className="property"><div className="property-title"><strong>Clave {properties.clave_cata}</strong><span>{properties.parroquia || 'Quito'}</span></div><div className="stats"><div><small>LAND AREA</small><strong>{formatArea(properties.area_terre)}</strong></div><div><small>BUILT AREA</small><strong>{formatArea(properties.area_const)}</strong></div></div><dl><dt>Predio number</dt><dd>{properties.n_predio || '—'}</dd><dt>Zoning</dt><dd>{properties.zonificaci || '—'}</dd><dt>Building use</dt><dd>{properties.uso_constr || '—'}</dd></dl>{data.features.length>1 && <p className="note">{data.features.length} matching records; displaying the first record's attributes and all returned polygons.</p>}</div> : <div className="empty">Search by cadastral key to retrieve official parcel attributes and zoom to its location.</div>}

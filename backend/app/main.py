@@ -25,7 +25,34 @@ async def predio(cadastral_key: str):
     return data
 
 MAX_UPLOAD = 15 * 1024 * 1024
-@app.post('/api/blueprints/inspect')
+
+@app.get("/api/predios/{identifier_type}/{identifier}")
+async def predio(identifier_type: str, identifier: str):
+    try:
+        data = await lookup_predio(
+            identifier,
+            identifier_type
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc)
+        ) from exc
+
+    except MunicipalError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc)
+        ) from exc
+
+    if not data["features"]:
+        raise HTTPException(
+            status_code=404,
+            detail="Property not found"
+        )
+
+    return data
 async def inspect_blueprint(file: UploadFile = File(...)):
     if not file.filename or not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail='Only PDF documents are supported')
