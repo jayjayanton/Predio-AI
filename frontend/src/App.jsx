@@ -17,10 +17,10 @@ export default function App() {
   async function search(event) {
     event.preventDefault();
     setError(''); setData(null);
-    if (!/^\d{1,25}$/.test(number)) { setError('Enter a valid cadastral key (up to 10 digits).'); return; }
+    if (!/^\d{1,10}$/.test(cadastralKey)) { setError('Enter a valid cadastral key (up to 10 digits).'); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/predios/${encodeURIComponent(number)}`);
+      const res = await fetch(`${API}/api/predios/by-cadastral-key/${encodeURIComponent(cadastralKey)}`);
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail || 'Unable to retrieve parcel');
       setData(body);
