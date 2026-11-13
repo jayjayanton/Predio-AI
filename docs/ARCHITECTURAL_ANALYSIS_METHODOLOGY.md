@@ -1,263 +1,283 @@
-# PredioAI — Architectural PDF Analysis Methodology
+# PredioAI — Architectural Document Intelligence
 
-**Status:** Proposed / design only — not implemented  
-**Scope:** Ecuador-first construction document intelligence, useful to homeowners, architects, contractors, and remodeling businesses.  
-**Last discussed:** November 2026
+**Project methodology and development roadmap**  
+**Stage:** Product design and validation · November 2026  
+**Companion document:** [Project README](../README.md)
 
-## 1. Product objective
+## Project overview
 
-Convert **user-uploaded architectural documentation** into a traceable construction profile, practical quantities, an interactive property-aware AI assistant, and downloadable technical reports.
+PredioAI is being developed as a practical bridge between **property GIS** and **construction-document analysis**. Its current prototype retrieves Quito cadastral data and inspects PDF structure. The next stage will allow users to upload authorized architectural drawings, extract reliable construction quantities, explore the findings through an AI assistant, and generate technical reports.
 
-Core user journey:
+The intended users include homeowners, architects, estimators, remodeling contractors, and construction companies in Ecuador. The initial use case is **quantity takeoff from existing plans**—not insurance claim handling or automatically retrieving government documents.
 
-1. User searches a cadastral property **or** starts without a cadastral identifier.
-2. User uploads authorized architectural PDF(s), preferably a complete approved drawing set.
-3. PredioAI inspects documents, extracts explicit information, and identifies drawing types.
-4. PredioAI verifies dimensions/scales and derives quantities when supported.
-5. User reviews and corrects uncertain extracted measurements.
-6. PredioAI stores a structured, versioned building profile.
-7. User asks natural-language questions and requests reports.
-8. User exports PDF/Excel reports with source references.
+### Product hypothesis
 
-**Plan A:** User supplies architectural PDFs. Do not make automated government-document retrieval a prerequisite.  
-**Optional future integration:** Authorized retrieval of municipal documents.  
-**Not in initial scope:** Insurance claim administration, automated policy decisions, specialized CNN training, or a replacement for professional site verification.
+If architectural plans already contain room dimensions, area schedules, sections, and construction annotations, PredioAI can reduce repetitive manual measurement work by turning those documents into structured, reviewable quantities. The hypothesis must be tested against real approved drawings and manually verified results.
 
-## 2. Existing application context
+### Guiding principles
 
-- Frontend: React/Vite; Spanish-language Ecuadorian UI.
-- Backend: FastAPI.
-- Existing cadastral lookup: Quito municipal ArcGIS GeoJSON, by `n_predio` or `clave_cata`.
-- Existing PDF endpoint: `POST /api/blueprints/inspect` for basic PDF inspection.
-- Map: Esri basemaps.
-- Distinguish an individual *propiedad horizontal* unit from its shared global lot.
+1. **Upload-first:** The user provides the architectural PDF. Linking it to a Quito cadastral record is optional.
+2. **Extract before infer:** Prefer explicit annotations and vector geometry; calculate from verified inputs.
+3. **Evidence for every number:** Preserve document, page, location, units, formula, and verification status.
+4. **Reviewable, not magical:** Users can correct ambiguous room associations, scales, and dimensions.
+5. **One source of truth:** Dashboard, AI chat, and reports use the same structured construction profile.
+6. **No custom model training by default:** Introduce advanced computer vision only if a measured need arises.
 
-**Cadastral data is a separate source, not a substitute for building drawings.**
+## Existing foundation
 
-Example PH semantics from existing test property 627739:
-- `area_const` = 211.36 m² registered construction area.
-- `area_ter_1` = 223.43 m² attributed land share.
-- `area_terre` = 33,348.48 m² global development lot.
-- The cadastral polygon represents the global parcel, not the individual house footprint.
-- Do not treat the attributed land share as a measured private lot or building footprint.
+| System | Current state |
+| --- | --- |
+| React/Vite Spanish-language interface | Implemented |
+| Quito cadastral lookup (`clave_cata`, `n_predio`) | Implemented |
+| Esri basemap switching and parcel visualization | Implemented |
+| PH unit-versus-parent-lot distinction | Implemented |
+| `POST /api/blueprints/inspect` | Implemented; page/vector/text metadata only |
+| Automatic room/wall/roof extraction | Not implemented |
+| Persistent document workspace | Not implemented |
+| AI assistant and report generation | Not implemented |
 
-## 3. Proposed navigation
+### Cadastral interpretation
 
-- **Catastro:** Search, map, cadastral attributes.
-- **Análisis de planos:** Upload PDF; open an **in-app workspace tab**, not a separate browser tab. Show PDF viewer, extraction results, measurement review, and property-aware chat.
-- **Informes:** Generate/download selected report sections.
+For PH example predio `627739`, the municipal layer previously returned:
+- Registered construction area (`area_const`): **211.36 m²**.
+- Attributed land share (`area_ter_1`): **223.43 m²**.
+- Parent/global lot (`area_terre`): **33,348.48 m²**.
 
-Allow upload without cadastral lookup; associate a document with a cadastral property when known. Preserve user projects and uploaded document versions when persistence and authentication are implemented.
+The mapped cadastral polygon represents the global lot, **not the individual dwelling footprint**. These are separate from plan-derived room and roof measurements.
 
-## 4. Extraction priorities
+## User journey
 
-| Data | Preferred source | Important caveat |
+1. **Start:** Search a property by cadastral identifier, or open **Análisis de planos** directly.
+2. **Upload:** Supply authorized PDF plans, ideally including floor plans, sections, elevations, roof plans, and area schedules.
+3. **Inspect:** Determine document type, pages, text, vector content, and whether OCR is needed.
+4. **Extract:** Read explicit dimensions, room labels, schedules, levels, and documented construction characteristics.
+5. **Validate:** Associate annotations with the correct elements; verify scale and highlight discrepancies.
+6. **Calculate:** Derive quantities from verified measurements, leaving unsupported values pending.
+7. **Explore:** Display the PDF and measurements side by side; ask the contextual assistant questions.
+8. **Report:** Export a technical summary and quantity schedule with citations and caveats.
+
+The upload should open an **in-app analysis tab/workspace**, not a separate browser tab. Long-term project persistence requires authentication and secure storage.
+
+## Architectural information model
+
+| Quantity | Preferred evidence | Rule |
 | --- | --- | --- |
-| Construction area | Area schedule / `cuadro de áreas` | Compare, do not silently overwrite, municipal area |
-| Room floor area | Room schedule or verified plan geometry | May differ from net/gross building area |
-| Room dimensions | `cotas` / dimension annotations | Associate each dimension with correct room |
-| Wall lengths | Dimensioned wall geometry | Specify centerline, inside-face, or outside-face convention |
-| Wall heights | `cortes`, elevations, schedules | **Do not infer from plan view alone** |
-| Wall face area | Length × documented height | Define faces and subtract verified openings as appropriate |
-| Roof surface area | Roof plan, pitch, elevations | Plan projection ≠ sloped roof surface |
-| Doors/windows | Opening schedules and dimensions | Confirm quantities and locations |
-| Materials | Specifications/notes, if supplied | Mark missing values as unknown |
-| Floors/levels | Plan titles, levels, sections | Match plan sheets to the correct level |
+| Total construction area | `Cuadro de áreas` | Do not silently overwrite cadastral figures |
+| Room area | Room schedule or verified plan geometry | Specify net vs gross area |
+| Room dimensions | Dimension annotations (`cotas`) | Associate with correct room and floor |
+| Wall length | Dimensioned wall geometry | Declare measurement convention |
+| Wall height | Sections (`cortes`), elevations, schedules | Never assume from floor plan alone |
+| Gross/net wall surface | Verified length, height, openings | Specify wall faces and opening deductions |
+| Roof surface | Roof plan and verified slopes | Distinguish projected area from actual slope area |
+| Doors/windows | Opening schedules and annotated geometry | Verify counts and dimensions |
+| Materials | Notes and specifications | Unknown if undocumented |
 
-Approved plans often include useful dimensions but **approval does not guarantee every needed quantity is present** or that as-built conditions still match the plans.
+Government approval may support document provenance, but it does **not** guarantee that every quantity is shown or that the building matches the drawings today.
 
-## 5. Processing methodology (pseudocode)
+## Technical architecture
 
-```python
-def ingest_architectural_documents(files, project_id=None, cadastral_id=None):
-    # 1. Validate user authorization, file type/size and safe PDF parsing.
-    project = get_or_create_project(project_id, cadastral_id)
-    documents = store_documents_securely(files, project, versioned=True)
-
-    for doc in documents:
-        inspection = inspect_pdf(doc)  # pages, metadata, text, drawings, scans
-        pages = classify_pages(inspection)  # floor plan, section, elevation, roof, schedule
-        raw = extract_text_tables_annotations_vectors(doc, pages)
-
-        if raw.needs_ocr:
-            raw += ocr_selected_pages(doc)  # fallback, not default
-
-        observations = identify_explicit_dimensions_areas_levels(raw)
-        evidence = link_observations_to_page_regions(observations, doc)
-
-        # Never calculate metric geometry from an unverified drawing scale.
-        calibration = validate_scale_using_dimensions_and_geometry(raw, evidence)
-        candidates = associate_annotations_with_rooms_walls_roofs(raw, calibration)
-
-        save_extraction_candidates(
-            project, doc, candidates, evidence, calibration,
-            status="requires_review"
-        )
-
-    return get_review_queue(project)
-
-
-def confirm_and_calculate(project_id, reviewer_edits):
-    verified = apply_reviewed_measurements(project_id, reviewer_edits)
-    geometry = construct_validated_geometry(verified)
-
-    quantities = {}
-    quantities["room_areas"] = compute_room_areas(geometry)
-    quantities["wall_lengths"] = compute_wall_lengths(geometry)
-    quantities["wall_areas"] = compute_wall_face_areas(
-        geometry, verified_heights=verified.heights,
-        verified_openings=verified.openings
-    )
-    quantities["roof_areas"] = compute_roof_surface_areas(
-        geometry, verified_roof_slopes=verified.roof_slopes
-    )
-
-    # Unsupported quantities stay null / pending, never guessed.
-    quantities = mark_unsupported_as_pending(quantities)
-    return save_versioned_construction_profile(project_id, quantities)
-
-
-def answer_property_question(project_id, question):
-    profile = load_structured_profile(project_id)
-    evidence = retrieve_relevant_document_excerpts(project_id, question)
-    tool_results = run_allowed_deterministic_calculations(question, profile)
-    return llm_explain_with_citations(
-        question, profile, evidence, tool_results,
-        refuse_to_invent_missing_measurements=True
-    )
-
-
-def generate_technical_report(project_id, sections, format):
-    profile = load_structured_profile(project_id)
-    # Same authoritative data powers dashboard, chat, and report.
-    report = build_report(
-        profile,
-        sections=sections,
-        include_provenance=True,
-        include_verification_status=True,
-        include_assumptions_and_limitations=True
-    )
-    return export_report(report, format)  # PDF first; XLSX next
+```text
+React application
+├── Catastro (existing)
+├── Análisis de planos (planned)
+│   ├── Upload + PDF viewer
+│   ├── Measurement review panel
+│   └── Property-aware AI chat
+└── Informes (planned)
+          │
+          ▼
+FastAPI backend
+├── Municipal cadastral service (existing)
+├── PDF inspection (existing)
+├── Document extraction (planned)
+├── Scale / geometry validation (planned)
+├── Deterministic quantity engine (planned)
+├── Versioned construction profile (planned)
+├── AI retrieval + calculation tools (planned)
+└── PDF / Excel report generation (planned)
 ```
 
-Pseudocode describes the **target architecture**, not existing callable functions.
+**Suggested tools:** PyMuPDF for PDF inspection and vector/text extraction; OCR only where needed; NumPy/Shapely for geometry; an LLM API for language understanding and source-grounded explanations. The AI should never invent a quantity the geometry engine cannot support.
 
-## 6. Measurement provenance and reliability
+## Processing pseudocode
 
-For every quantity store:
-- Value and units; element ID, room, level, and measurement convention.
-- Source document ID/version, sheet/page, and optional page region/bounding box.
-- Method: `explicitly_documented`, `calculated_from_verified_geometry`, `user_confirmed`, or `estimated`.
-- Verification status: `pending`, `verified`, `conflicting`, or `unavailable`.
-- Formula and inputs for derived quantities.
-- Confidence/uncertainty where meaningful; never treat a model confidence score as a measurement guarantee.
+The following functions are **design pseudocode**, not existing backend APIs.
 
-If scale, height, roof pitch, or drawing context is missing, return **pending / not available** rather than a fabricated number. Highlight conflicting figures, e.g. a room schedule area versus geometry-derived area.
+```python
+def process_upload(files, project_id=None, cadastral_id=None):
+    require_upload_authorization()
+    project = get_or_create_project(project_id, cadastral_id)
+    documents = validate_and_store_securely(files, project, versioned=True)
 
-Illustrative formulas (only with verified inputs):
-- Rectangular floor area: `length * width`.
-- Gross interior wall-face area: `interior_perimeter * wall_height`.
-- Net paintable wall area: `gross_wall_area - verified_opening_areas` (account for multiple wall faces).
-- Sloped roof surface: `horizontal_projection / cos(roof_pitch)` for a simple uniform plane; complex roofs require individual roof-plane geometry.
-- Preliminary cost: `quantity * user_supplied_unit_rate` with explicit exclusions and waste assumptions.
+    for document in documents:
+        inspection = inspect_pdf(document)
+        sheets = classify_sheets(inspection)  # plan / section / elevation / roof / schedule
+        raw = extract_text_tables_dimensions_vectors(document, sheets)
 
-## 7. AI assistant
+        if raw.has_scanned_pages:
+            raw += ocr_relevant_pages(document)
 
-The assistant is a **general-purpose conversational interface specialized to the user's uploaded documents and property profile**, not a standalone PDF chatbot that guesses numbers.
+        observations = locate_explicit_annotations(raw)
+        evidence = link_to_source_pages_and_regions(observations, document)
+        scale = validate_scale_from_known_dimensions(raw, evidence)
 
-Example questions:
-- `¿Cuántos m² tiene cada dormitorio?`
-- `¿Cuántos metros lineales de pared tiene la planta baja?`
-- `¿Cuántos m² de pared necesito pintar, descontando las ventanas?`
-- `¿Cuál es el área real de la cubierta según los planos?`
-- `¿Coincide el área de construcción con el catastro?`
-- `Genera un informe técnico con las superficies por ambiente.`
+        candidates = associate_rooms_walls_roofs(
+            raw, observations, scale, evidence
+        )
+        save_candidates(project, candidates, status="pending_review")
 
-LLM may interpret requests, select retrieval/calculation tools, explain results, and draft narratives. **Deterministic Python routines** calculate measurable quantities. Every numeric answer should cite its source and indicate whether it was documented, calculated, or unverified. Where possible, clicking a citation highlights the PDF region.
+    return get_measurement_review_queue(project)
 
-OpenAI API is one possible hosted model provider, not a prerequisite for the PDF extraction engine. Keep API credentials server-side, outside Git.
 
-## 8. Reports
+def confirm_measurements_and_calculate(project_id, corrections):
+    verified = apply_user_review(project_id, corrections)
+    geometry = build_geometry_from_verified_inputs(verified)
 
-Start with a downloadable **Spanish-language technical PDF report**, with Excel export next.
+    quantities = {
+        "room_areas": calculate_room_areas(geometry),
+        "wall_lengths": calculate_wall_lengths(geometry),
+        "wall_face_areas": calculate_wall_areas_if_height_known(
+            geometry, verified.heights, verified.openings
+        ),
+        "roof_areas": calculate_roof_areas_if_pitch_known(
+            geometry, verified.roof_geometry, verified.roof_slopes
+        ),
+    }
 
-Report sections:
-1. Identification and cadastral context, when linked.
-2. Uploaded documents, sheet inventory, and version.
-3. Construction area and floors.
-4. Room-by-room floor area and dimensions.
-5. Wall lengths, heights, gross/net wall surfaces.
-6. Roof quantities and slope assumptions.
-7. Doors, windows, and other documented characteristics.
-8. Optional preliminary quantity/cost worksheet using **user-provided** rates.
-9. Sources, formulas, discrepancies, review status, and limitations.
+    quantities = mark_missing_inputs_as_pending(quantities)
+    return save_versioned_profile(project_id, quantities)
 
-Use the same structured data for UI, chat, and reports; never let the LLM invent figures in a report. Label reports as analytical aids, not automatically certified professional assessments.
 
-## 9. Proposed incremental milestones
+def answer_question(project_id, question):
+    profile = load_construction_profile(project_id)
+    sources = retrieve_relevant_pdf_evidence(project_id, question)
+    calculations = execute_validated_quantity_tools(question, profile)
 
-**M0 — Baseline and Git safety**
-- Resolve the current local `App.jsx` rebase conflict before synchronizing the local checkout.
-- Keep this methodology separate from application changes; no forced pushes.
-- Record current PDF inspection behavior and a minimal regression test.
+    return llm_explain_with_citations(
+        question, profile, sources, calculations,
+        never_invent_measurements=True
+    )
 
-**M1 — Document inspection and structured extraction**
-- Test 2–3 authorized real architectural PDFs from M2 Construction Services.
-- Detect vector vs scanned pages; extract annotations, area schedules, dimensions, and page labels.
-- Preserve source page/region references.
-- Establish what is explicitly available versus missing.
 
-**M2 — Geometry and reviewed quantity calculations**
-- Calibrate drawing scale from known dimensions.
-- Associate room and wall geometry with annotations; request user review when ambiguous.
-- Calculate a **small validated scope first**: room areas and wall lengths.
-- Add heights, wall surfaces, openings, and roof quantities only when supported by drawings.
-- Compare outputs with manually verified M2 quantity takeoffs.
+def create_report(project_id, sections, output_format="pdf"):
+    profile = load_construction_profile(project_id)
+    report = assemble_technical_report(
+        profile, sections,
+        include_source_pages=True,
+        include_formulas=True,
+        include_review_status=True,
+        include_limitations=True
+    )
+    return export(report, output_format)
+```
 
-**M3 — Construction profile and workspace**
-- Store project, documents, document versions, measured elements, and source evidence.
-- Build in-app `Análisis de planos` tab with PDF viewer, extracted data, and corrections.
-- Secure document access and clarify retention/deletion controls.
+## Measurement rules and traceability
 
-**M4 — Assistant and technical reports**
-- Add backend chat endpoint with retrieval and deterministic calculation tools.
-- Add report export (PDF; later XLSX).
-- Verify consistency across dashboard, chat, and report.
+Each measurement should record:
+- **Identity:** Project, building, floor, room, element ID, and measurement convention.
+- **Quantity:** Numeric value, unit, and whether gross/net.
+- **Source:** Document ID/version, sheet/page, and page region where possible.
+- **Derivation:** `documented`, `calculated`, `user_confirmed`, or `estimated`.
+- **Review status:** `pending`, `verified`, `conflicting`, or `unavailable`.
+- **Calculation:** Formula, verified inputs, and assumptions.
 
-**M5 — Optional enhancements after validation**
-- Pricing / usage limits, user accounts, local Ecuadorian cost catalogs, export into APU workflows.
-- OCR enhancements for scans; more advanced CV **only if test evidence shows it is needed**.
-- Authorized municipal document retrieval **only as a separate future option**.
+Sample formulas—only when the required dimensions are known:
 
-## 10. Acceptance criteria for first meaningful prototype
+```text
+Rectangular floor area        = length × width
+Gross wall-face area          = measured wall-face length × verified height
+Net paintable wall area       = gross wall-face area − verified openings
+Simple sloped roof-plane area = projected area / cos(verified roof pitch)
+Preliminary work cost         = measured quantity × user-supplied unit rate
+```
 
-Given an approved, authorized **vector PDF** with a dimensioned floor plan:
-- Identify sheets and extract explicit area schedules and room labels.
-- Return room measurements with units and document/page references.
-- Compute selected room areas and wall lengths only with validated scale/dimensions.
-- Flag missing heights/roof pitch as pending instead of assuming them.
-- Let a user review or correct extracted values.
-- Answer a room-area question using saved measurements and citations.
-- Generate a PDF report with the **same values**, provenance, and caveats.
-- Compare at least one project's output against M2's manually verified measurements.
+For complex floor plans and roofs, calculate by verified polygons or individual planes rather than relying on a single simplified formula. Missing scale, height, pitch, or geometry must produce **pending**, not an invented estimate.
 
-Track accuracy: room matching precision/recall, area absolute/relative error, wall-length error, extraction coverage, reviewer correction rate, and processing time. **Do not invent target accuracy thresholds** before seeing the pilot documents.
+## Conversational assistant
 
-## 11. Open decisions for M2 pilot
+The proposed assistant is an all-purpose interface **within the uploaded project's context**. It retrieves structured measurements, consults relevant document evidence, invokes deterministic calculation tools, and explains results in Spanish.
 
-- What is the normal document package: PDF, DWG, scans, or combinations?
-- Which sheets are included (floor, roof, sections, elevations, schedules)?
-- Which quantities are most valuable to extract first?
-- What measurement conventions and rounding rules does M2 use?
-- Are completed manual takeoffs available for ground-truth comparison?
-- How should users handle outdated drawings or undocumented renovations?
-- What confidentiality/authorization restrictions apply to project plans?
+Example requests:
+- “¿Cuál es el área de cada dormitorio?”
+- “¿Cuántos metros lineales de paredes tiene la planta baja?”
+- “¿Cuántos metros cuadrados de pared necesito pintar?”
+- “¿Cuál es el área de la cubierta, considerando su pendiente?”
+- “¿Coincide el cuadro de áreas con el catastro?”
+- “Genera un informe técnico por ambiente.”
 
-## 12. Scope guardrails
+Quantitative answers should link to source pages and ideally highlight the relevant PDF region. The LLM is an interface and explanation layer, **not** the authority for measured geometry.
 
-- PredioAI **does not certify** as-built conditions or eliminate inspections for safety-critical work.
-- No assumptions that all approved drawings contain every measurement.
-- No automatic inference of wall heights from a plan view.
-- No substitution of shared PH parcel area for individual building footprint.
-- No custom model training planned unless simpler methods fail in a measurable way.
-- Preserve source provenance and reviewability from the first implementation.
+## Technical reports
+
+Reports should be generated from the **same structured profile** used by the chat and UI.
+
+**First export:** PDF. **Next:** Excel.
+
+Proposed sections:
+1. Property and cadastral identification, if linked.
+2. Document inventory and drawing versions.
+3. Construction area and levels.
+4. Room-by-room areas, dimensions, and perimeters.
+5. Wall lengths, heights, and net/gross surfaces.
+6. Roof areas, slopes, and calculation assumptions.
+7. Doors, windows, and material notes where documented.
+8. Optional preliminary quantity/cost schedule using user-provided rates.
+9. Sources, calculation notes, conflicts, missing information, and review status.
+
+Reports are analytical outputs, not automatically certified architectural or engineering documents.
+
+## Delivery roadmap
+
+| Milestone | Deliverable | Success condition |
+| --- | --- | --- |
+| **M0 — Stable foundation** | Confirm current app/API behavior and CI | Baseline cadastral lookup and PDF inspection remain functional |
+| **M1 — Document extraction** | Parse authorized vector PDFs; identify sheets, text, areas, dimensions | Extracted data linked to original document/page |
+| **M2 — Measurement engine** | Validate scale, associate geometry, calculate room areas and wall lengths | Measurements reviewed against manual ground truth |
+| **M3 — Analysis workspace** | In-app PDF viewer, corrections, secure project/document records | Users can review and reopen a project's findings |
+| **M4 — AI + reports** | Contextual chat, deterministic calculation tools, PDF/Excel export | Chat, dashboard, and report agree on all quantities |
+| **M5 — Optional extensions** | OCR improvements, cost integrations, authorized document retrieval | Added only after validated user demand |
+
+No custom CNN or advanced CV phase is currently planned.
+
+## Validation with M2 Construction Services
+
+A proposed pilot is to obtain **2–3 authorized completed drawing sets** and their manually verified quantity takeoffs, if M2 is willing to share them.
+
+Key questions:
+- Are project documents vector PDFs, scans, DWG files, or mixed?
+- Which approved sheets are routinely available?
+- Which quantities take the most manual effort?
+- Which conventions govern room area, wall length, wall faces, and rounding?
+- How long does a manual takeoff take, and how are its results delivered?
+- Are prior verified takeoffs available for objective comparison?
+- What confidentiality restrictions apply to the documents?
+
+Measure room-label matching, room-area error, wall-length error, extraction coverage, reviewer corrections, and processing time. Set quantitative accuracy targets **after** inspecting real pilot documents, not before.
+
+## First prototype acceptance criteria
+
+Given an authorized dimensioned vector architectural PDF, the prototype should:
+- Identify sheets and extract explicit room labels and area schedules.
+- Link each extracted quantity to its source page.
+- Validate drawing scale before measuring geometry.
+- Calculate selected room areas and wall lengths from verified inputs.
+- Leave unknown wall heights and roof pitches pending.
+- Allow the user to correct extracted values.
+- Answer a grounded room-measurement question.
+- Generate a technical report that agrees with the reviewed construction profile.
+- Compare its quantities with at least one manually verified takeoff.
+
+## Boundaries and future decisions
+
+- User-uploaded PDFs are **Plan A**. Municipal document retrieval is optional future work.
+- Cadastral lookup is helpful but not mandatory for blueprint analysis.
+- The product is **not** an insurance-claims platform.
+- Plans are evidence of documented design, not proof of current as-built conditions.
+- No automatic professional certification or guarantee that a site visit can be eliminated.
+- Authentication, access controls, document retention, and deletion rules must precede persistent multi-user storage.
+- Confirm municipal-data and basemap reuse terms before commercial launch.
+- Pricing and monetization remain open; prioritize extraction accuracy and user value first.
+
+---
+
+**Next practical step:** Review one real approved architectural PDF and a verified manual quantity takeoff, then refine M1 and M2 based on what the document actually contains.
