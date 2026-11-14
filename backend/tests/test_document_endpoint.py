@@ -43,7 +43,7 @@ def test_expansion_requires_irm():
 def test_expansion_with_irm():
     response = client.post(
         "/api/documents/analyze",
-        data={"building_type": "house", "work_type": "expansion"},
+        data={"building_type": "house", "work_type": "expansion", "activities": "expand_room"},
         files={
             "blueprint": ("plano.pdf", pdf("PLANO"), "application/pdf"),
             "irm": ("irm.pdf", pdf("COS total: 200%"), "application/pdf"),
