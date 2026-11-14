@@ -90,8 +90,18 @@ def drawing_view(items, bounds=None, invert_y=False):
         ys = [p[1] for p in coordinates]
         bounds = [min(xs), min(ys), max(xs), max(ys)]
     xmin, ymin, xmax, ymax = bounds
-    if xmax <= xmin or ymax <= ymin:
+    # Zero-height/width bounds occur with horizontal/vertical CAD lines.
+    # Expand the viewport only, without changing source coordinates.
+    if xmax < xmin or ymax < ymin:
         return {"elements": [], "bounds": None, "units_verified": False}
+    span = max(xmax - xmin, ymax - ymin)
+    pad = max(span * 0.05, 1.0)
+    if xmax == xmin:
+        xmin -= pad
+        xmax += pad
+    if ymax == ymin:
+        ymin -= pad
+        ymax += pad
     normalized = []
     for item in items:
         transformed = dict(item)
