@@ -833,15 +833,15 @@ export default function App() {
                       </button>
                     </div>
                     <a className="irm-open-link"
-                      href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
-                      target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
+                      href={`https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf?txtParametro=${encodeURIComponent(String(properties?.n_predio || properties?.predio || ''))}`}
+                      target="_blank" rel="noopener noreferrer">Abrir IRM con predio precargado ↗</a>
                     {irmCopyStatus && <p className="note" role="status">{irmCopyStatus}</p>}
-                    <p className="note">Primero pulse «Copiar número», después abra el portal y péguelo en «Número de Predio». Complete el código de verificación manualmente.</p>
+                    <p className="note">El enlace abre la consulta municipal con el número de predio precargado. Solo deberá completar el código de verificación. Si el portal deja de aceptar el enlace, puede usar «Copiar número».</p>
                   </div>
                   <h4>¿Cómo obtener y guardar su IRM?</h4>
                   <ol>
-                    <li>Pulse «Copiar número» y después «Abrir consulta IRM oficial». Pegue el número en el campo «Número de Predio» del portal.</li>
-                    <li>Busque el inmueble con su número de predio o clave catastral y abra el informe.</li>
+                    <li>Pulse «Abrir IRM con predio precargado» para abrir la consulta con el número seleccionado. Compruebe que el campo corresponda al inmueble.</li>
+                    <li>Complete manualmente el código de verificación, pulse «Consultar» y abra el informe.</li>
                     <li>Use la opción <strong>Imprimir</strong> del navegador (o del portal, si está disponible).</li>
                     <li>Seleccione <strong>Guardar como PDF</strong> en computadora. En iPhone, use <strong>Compartir → Imprimir</strong>, amplíe la vista previa y elija <strong>Compartir → Guardar en Archivos</strong>. En Android, seleccione <strong>Imprimir → Guardar como PDF</strong>.</li>
                     <li>Regrese a PredioAI y adjunte el archivo PDF en el campo IRM.</li>
