@@ -1,0 +1,15 @@
+# Render Blueprint: select the FREE instance type during setup.
+# Render will request GitHub authorization and creation of the service.
+services:
+  - type: web
+    name: predioai-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: CORS_ORIGINS
+        value: https://jayjayanton.github.io
