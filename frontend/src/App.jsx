@@ -838,6 +838,12 @@ export default function App() {
                     {irmCopyStatus && <p className="note" role="status">{irmCopyStatus}</p>}
                     <p className="note">El portal municipal no permite precargar el número mediante este enlace. Pulse «Copiar número», abra la consulta y péguelo en el campo de búsqueda. El código de verificación se completa manualmente.</p>
                   </div>
+                  <details className="irm-desktop-guide">
+                    <summary>Alternativa experimental: consulta IRM asistida en computadora</summary>
+                    <p>Si trabaja desde una computadora, puede ejecutar el prototipo local con Playwright. El programa abre Chromium, introduce el número de predio y espera a que usted complete el CAPTCHA. Después de verificar el informe, permite guardarlo como PDF.</p>
+                    <p>Requiere instalar Python y Playwright en su equipo. No se ejecuta automáticamente desde esta página.</p>
+                    <a href="https://github.com/jayjayanton/Predio-AI/blob/main/automation/README.md" target="_blank" rel="noopener noreferrer">Ver instrucciones de instalación y ejecución ↗</a>
+                  </details>
                   <h4>¿Cómo obtener y guardar su IRM?</h4>
                   <ol>
                     <li>Pulse «Copiar número» y luego «Abrir consulta IRM oficial». Pegue el número en el campo de búsqueda del portal.</li>
