@@ -7,7 +7,7 @@ Optional dependency for DXF: pip install ezdxf.
 from __future__ import annotations
 
 from collections import Counter
-from io import BytesIO
+from io import StringIO
 import re
 
 MAX_BYTES = 15 * 1024 * 1024
@@ -100,7 +100,7 @@ def _dxf(data: bytes) -> dict:
     except ImportError as exc:
         raise ValueError("DXF support requires optional package ezdxf") from exc
     try:
-        doc = ezdxf.read(BytesIO(data))
+        doc = ezdxf.read(StringIO(data.decode('utf-8-sig')))
         model = doc.modelspace()
         view = drawing_view(dxf_primitives(model), invert_y=True)
         counts = Counter()
