@@ -246,3 +246,6 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .irm-number-row input { min-width:0; flex:1; border:1px solid #42646a; border-radius:7px; background:#10262b; color:#fff; padding:11px; font-size:16px; font-weight:700; }
 .irm-number-row button { min-height:44px; }
 @media(max-width:600px) { .irm-number-row { flex-direction:column; } .irm-number-row button { width:100%; } }
+
+.irm-open-link { display:block; margin-top:10px; padding:12px 14px; border:1px solid #4cae9f; border-radius:8px; background:#17463f; color:#e9fffb !important; font-weight:750; text-align:center; text-decoration:none; }
+.irm-open-link:hover,.irm-open-link:focus-visible { background:#216155; }
