@@ -41,6 +41,7 @@ const formatArea = (value) =>
 
 export default function App() {
 
+  const [step, setStep] = useState('property');
   // Search state
   const [identifier, setIdentifier] = useState('');
   const [identifierType, setIdentifierType] =
@@ -104,6 +105,8 @@ export default function App() {
 
     setError('');
     setData(null);
+    setInspection(null);
+    setStep('property');
 
     if (!/^\d{1,25}$/.test(identifier)) {
       setError('Ingrese un identificador numérico válido.');
@@ -175,6 +178,7 @@ export default function App() {
           ? detail : 'No se pudieron analizar los documentos');
       }
       setInspection(body);
+      setStep('report');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -215,7 +219,12 @@ export default function App() {
 
       {/* MAIN LAYOUT */}
 
-      <main className="layout">
+      <nav className="workflow-nav" aria-label="Etapas del proyecto">
+        <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
+        <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>2 · Proyecto y planos</button>
+        <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>
+      </nav>
+      {step === 'property' && (      <main className="layout dashboard-layout">
 
         <aside className="sidebar">
 
@@ -291,6 +300,8 @@ export default function App() {
 
             </div>
           </form>
+
+          {properties && <button type="button" className="primary-action" onClick={() => setStep('project')}>Iniciar proyecto →</button>}
 
           {/* ERROR MESSAGE */}
 
@@ -486,6 +497,7 @@ export default function App() {
                     ? formatRate(properties.avaluo_con / properties.area_const)
                     : 'No disponible'}</dd>
                 </dl>
+                <p className="note">Fuente: avalúo catastral municipal 2024.</p>
                 <p className="note">
                   Avalúos catastrales históricos. El valor por m² de terreno
                   se calcula sobre el área atribuida en propiedad horizontal.
@@ -532,6 +544,7 @@ export default function App() {
                       ? `${properties.avaluo_tot.toLocaleString('en-US', {minimumFractionDigits: 2})}`
                       : '—'}</dd>
                   </dl>
+                  <p className="note">Fuente: AIVA municipal 2024–2025 y 2026–2027 (consulta zonal).</p>
                   <p className="note">
                     AIVA es un valor zonal del terreno, no un precio de
                     mercado ni el avalúo oficial total del inmueble.
@@ -541,143 +554,7 @@ export default function App() {
               )}
               {/* OPTIONAL AIVA UI — END */}
 
-              {/* OPTIONAL DOCUMENTS & PDF SECTION — BEGIN
-                  Positioned after cadastral valuation and before appraisal.
-                  Comment out this section to hide PDF analysis.
-              */}
-              <div className="ph-details">
-                <div className="section-heading">
-                  REPARACIONES Y REMODELACIONES <span>EXPERIMENTAL</span>
-                </div>
-                <p className="note">
-                  ¿Desea reparar un muro, realizar mantenimiento, remodelar
-                  un espacio o ampliar su vivienda? Seleccione el tipo de
-                  trabajo y adjunte los documentos disponibles.
-                </p>
-
-                {/* OPTIONAL WORK TYPE CONTROLS — BEGIN */}
-                <label htmlFor="building-type"><strong>Tipo de inmueble</strong></label>
-                <select id="building-type" value={buildingType}
-                  onChange={(event) => { setBuildingType(event.target.value); setInspection(null); }}>
-                  <option value="house">Casa</option>
-                  <option value="apartment">Departamento</option>
-                </select>
-
-                <label htmlFor="work-type"><strong>¿Qué trabajo desea realizar?</strong></label>
-                <select id="work-type" value={workType}
-                  onChange={(event) => { const next = event.target.value; setWorkType(next); setActivities([WORK_ACTIVITIES[next][0][0]]); setInspection(null); }}>
-                  <option value="repair">Reparación (muro, techo, piso, etc.)</option>
-                  <option value="maintenance">Mantenimiento</option>
-                  <option value="remodel">Remodelación interior</option>
-                  <option value="structural">Modificación estructural</option>
-                  <option value="expansion">Ampliación o nueva construcción</option>
-                </select>
-                <fieldset style={{ margin: '12px 0', padding: 12, border: '1px solid #b6c1cc', borderRadius: 8 }}>
-                  <legend><strong>Actividades específicas (puede seleccionar varias)</strong></legend>
-                  {WORK_ACTIVITIES[workType].map(([id, label]) => (
-                    <label key={id} style={{ display: 'block', margin: '8px 0' }}>
-                      <input type="checkbox" checked={activities.includes(id)}
-                        onChange={(event) => {
-                          setActivities(current => event.target.checked
-                            ? [...current, id]
-                            : current.filter(value => value !== id));
-                          setInspection(null);
-                        }} />
-                      {' '}{label}
-                    </label>
-                  ))}
-                  {!activities.length && <p className="note">Seleccione al menos una actividad.</p>}
-                </fieldset>
-                <p className="note">
-                  {irmRequired
-                    ? 'IRM requerido para iniciar la revisión preliminar de ampliación.'
-                    : irmRecommended
-                      ? 'IRM recomendado cuando existan cambios regulados; puede iniciar sin él. La revisión profesional puede ser necesaria.'
-                      : 'IRM opcional para mediciones iniciales de reparación o mantenimiento.'}
-                  {buildingType === 'apartment'
-                    ? ' En departamentos también deben revisarse elementos comunes y reglas de propiedad horizontal cuando corresponda.'
-                    : ''}
-                </p>
-                {/* OPTIONAL WORK TYPE CONTROLS — END */}
-
-                <label htmlFor="blueprint-upload">
-                  <strong>1. Planos arquitectónicos (PDF o DXF)</strong>
-                </label>
-                <input id="blueprint-upload" className="file-input"
-                  type="file" accept="application/pdf,.pdf"
-                  onChange={(event) => {
-                    setPdf(event.target.files?.[0] || null);
-                    setInspection(null);
-                  }}
-                />
-                {pdf && <p className="note">Plano: {pdf.name}</p>}
-                <p className="note">
-                  Los planos DXF requieren ezdxf instalado en el servidor.
-                  Los archivos DWG requieren conversión autorizada a DXF.
-                </p>
-
-                <p className="note">
-                  ¿Necesita obtener su IRM?{' '}
-                  <a href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
-                    target="_blank" rel="noopener noreferrer">
-                    Consultar IRM oficial en el Municipio de Quito ↗
-                  </a>
-                </p>
-                <label htmlFor="irm-upload">
-                  <strong>2. IRM oficial (PDF) — {irmRequired ? 'requerido' : 'opcional'}</strong>
-                </label>
-                <input id="irm-upload" className="file-input"
-                  type="file" accept="application/pdf,.pdf"
-                  onChange={(event) => {
-                    setIrmPdf(event.target.files?.[0] || null);
-                    setInspection(null);
-                  }}
-                />
-                {irmPdf && <p className="note">IRM: {irmPdf.name}</p>}
-
-                <button type="button" className="secondary"
-                  disabled={!pdf || !activities.length || (irmRequired && !irmPdf) || inspecting}
-                  onClick={inspect}
-                >
-                  {inspecting ? 'Inspeccionando documentos…' : 'Inspeccionar documentos'}
-                </button>
-
-                {inspection && (
-                  <div className="inspection">
-                    <strong>Inspección inicial de archivos</strong>
-                    <p>Actividades: {inspection.activities?.map(a => a.label).join(', ')}</p>
-                    <p className="note">Cantidades de trabajo: pendientes de medición verificada.</p>
-                    <p>Planos: {inspection.blueprint.format?.toUpperCase()}
-                      {inspection.blueprint.pages
-                        ? ` · ${inspection.blueprint.pages.length} página(s)`
-                        : ' · entidades CAD extraídas'}</p>
-                    <p>IRM: {inspection.irm
-                      ? `${inspection.irm.pages.length} página(s)`
-                      : 'No adjuntado'}</p>
-                    {inspection.irm && Object.keys(inspection.irm.candidate_irm_fields || {}).length > 0 && (
-                      <dl>
-                        {Object.entries(inspection.irm.candidate_irm_fields).map(([key, value]) => (
-                          <React.Fragment key={key}>
-                            <dt>{key} (sin verificar)</dt>
-                            <dd>{value.raw}</dd>
-                          </React.Fragment>
-                        ))}
-                      </dl>
-                    )}
-                    <BlueprintViewer
-                      key={inspection.blueprint.filename}
-                      views={inspection.blueprint.drawing_views || []}
-                    />
-                    <p className="note">
-                      Se extrajo información preliminar de los documentos. Todavía no
-                      hay identificación visual de muros, cálculo de
-                      superficies ni verificación de cumplimiento IRM.
-                      No se generan dimensiones sin escala verificable.
-                    </p>
-                  </div>
-                )}
-              </div>
-              {/* OPTIONAL DOCUMENTS & PDF SECTION — END */}
+              <p className="source-note">Fuente: Catastro municipal de Quito · atributos catastrales 2024. Geometría 2026 cuando esté disponible. Valores de referencia, no precios comerciales.</p>
 
               {/* OPTIONAL PROFESSIONAL SERVICES — BEGIN */}
               <div className="section-heading">
@@ -856,7 +733,171 @@ export default function App() {
 
         </section>
 
-      </main>
+      </main>)}
+      {step === 'project' && properties && (
+        <main className="workspace-page">
+          <div className="workspace-heading"><div><span className="eyebrow">PASO 2 · CONFIGURACIÓN</span><h1>Proyecto para predio {properties.n_predio || identifier}</h1><p className="note">Seleccione las actividades, adjunte planos e IRM y revise los elementos gráficos extraídos.</p></div><button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button></div>
+          <div className="project-layout">
+            <section className="project-controls">
+                            {/* OPTIONAL DOCUMENTS & PDF SECTION — BEGIN
+                  Positioned after cadastral valuation and before appraisal.
+                  Comment out this section to hide PDF analysis.
+              */}
+              <div className="project-setup-card">
+                <div className="section-heading">
+                  REPARACIONES Y REMODELACIONES <span>EXPERIMENTAL</span>
+                </div>
+                <p className="note">
+                  ¿Desea reparar un muro, realizar mantenimiento, remodelar
+                  un espacio o ampliar su vivienda? Seleccione el tipo de
+                  trabajo y adjunte los documentos disponibles.
+                </p>
+
+                {/* OPTIONAL WORK TYPE CONTROLS — BEGIN */}
+                <label htmlFor="building-type"><strong>Tipo de inmueble</strong></label>
+                <select id="building-type" value={buildingType}
+                  onChange={(event) => { setBuildingType(event.target.value); setInspection(null); }}>
+                  <option value="house">Casa</option>
+                  <option value="apartment">Departamento</option>
+                </select>
+
+                <label htmlFor="work-type"><strong>¿Qué trabajo desea realizar?</strong></label>
+                <select id="work-type" value={workType}
+                  onChange={(event) => { const next = event.target.value; setWorkType(next); setActivities([WORK_ACTIVITIES[next][0][0]]); setInspection(null); }}>
+                  <option value="repair">Reparación (muro, techo, piso, etc.)</option>
+                  <option value="maintenance">Mantenimiento</option>
+                  <option value="remodel">Remodelación interior</option>
+                  <option value="structural">Modificación estructural</option>
+                  <option value="expansion">Ampliación o nueva construcción</option>
+                </select>
+                <fieldset style={{ margin: '12px 0', padding: 12, border: '1px solid #b6c1cc', borderRadius: 8 }}>
+                  <legend><strong>Actividades específicas (puede seleccionar varias)</strong></legend>
+                  {WORK_ACTIVITIES[workType].map(([id, label]) => (
+                    <label key={id} style={{ display: 'block', margin: '8px 0' }}>
+                      <input type="checkbox" checked={activities.includes(id)}
+                        onChange={(event) => {
+                          setActivities(current => event.target.checked
+                            ? [...current, id]
+                            : current.filter(value => value !== id));
+                          setInspection(null);
+                        }} />
+                      {' '}{label}
+                    </label>
+                  ))}
+                  {!activities.length && <p className="note">Seleccione al menos una actividad.</p>}
+                </fieldset>
+                <p className="note">
+                  {irmRequired
+                    ? 'IRM requerido para iniciar la revisión preliminar de ampliación.'
+                    : irmRecommended
+                      ? 'IRM recomendado cuando existan cambios regulados; puede iniciar sin él. La revisión profesional puede ser necesaria.'
+                      : 'IRM opcional para mediciones iniciales de reparación o mantenimiento.'}
+                  {buildingType === 'apartment'
+                    ? ' En departamentos también deben revisarse elementos comunes y reglas de propiedad horizontal cuando corresponda.'
+                    : ''}
+                </p>
+                {/* OPTIONAL WORK TYPE CONTROLS — END */}
+
+                <label htmlFor="blueprint-upload">
+                  <strong>1. Planos arquitectónicos (PDF o DXF)</strong>
+                </label>
+                <input id="blueprint-upload" className="file-input"
+                  type="file" accept="application/pdf,.pdf,.dxf,application/dxf"
+                  onChange={(event) => {
+                    setPdf(event.target.files?.[0] || null);
+                    setInspection(null);
+                  }}
+                />
+                {pdf && <p className="note">Plano: {pdf.name}</p>}
+                <p className="note">
+                  Los planos DXF requieren ezdxf instalado en el servidor.
+                  Los archivos DWG requieren conversión autorizada a DXF.
+                </p>
+
+                <p className="note">
+                  ¿Necesita obtener su IRM?{' '}
+                  <a href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
+                    target="_blank" rel="noopener noreferrer">
+                    Consultar IRM oficial en el Municipio de Quito ↗
+                  </a>
+                </p>
+                <label htmlFor="irm-upload">
+                  <strong>2. IRM oficial (PDF) — {irmRequired ? 'requerido' : 'opcional'}</strong>
+                </label>
+                <input id="irm-upload" className="file-input"
+                  type="file" accept="application/pdf,.pdf"
+                  onChange={(event) => {
+                    setIrmPdf(event.target.files?.[0] || null);
+                    setInspection(null);
+                  }}
+                />
+                {irmPdf && <p className="note">IRM: {irmPdf.name}</p>}
+
+                <button type="button" className="secondary"
+                  disabled={!pdf || !activities.length || (irmRequired && !irmPdf) || inspecting}
+                  onClick={inspect}
+                >
+                  {inspecting ? 'Inspeccionando documentos…' : 'Inspeccionar documentos'}
+                </button>
+
+                {inspection && (
+                  <div className="inspection">
+                    <strong>Inspección inicial de archivos</strong>
+                    <p>Actividades: {inspection.activities?.map(a => a.label).join(', ')}</p>
+                    <p className="note">Cantidades de trabajo: pendientes de medición verificada.</p>
+                    <p>Planos: {inspection.blueprint.format?.toUpperCase()}
+                      {inspection.blueprint.pages
+                        ? ` · ${inspection.blueprint.pages.length} página(s)`
+                        : ' · entidades CAD extraídas'}</p>
+                    <p>IRM: {inspection.irm
+                      ? `${inspection.irm.pages.length} página(s)`
+                      : 'No adjuntado'}</p>
+                    {inspection.irm && Object.keys(inspection.irm.candidate_irm_fields || {}).length > 0 && (
+                      <dl>
+                        {Object.entries(inspection.irm.candidate_irm_fields).map(([key, value]) => (
+                          <React.Fragment key={key}>
+                            <dt>{key} (sin verificar)</dt>
+                            <dd>{value.raw}</dd>
+                          </React.Fragment>
+                        ))}
+                      </dl>
+                    )}
+
+                    <p className="note">
+                      Se extrajo información preliminar de los documentos. Todavía no
+                      hay identificación visual de muros, cálculo de
+                      superficies ni verificación de cumplimiento IRM.
+                      No se generan dimensiones sin escala verificable.
+                    </p>
+                  </div>
+                )}
+              </div>
+              {/* OPTIONAL DOCUMENTS & PDF SECTION — END */}
+
+
+            </section>
+            <section className="drawing-workspace" aria-label="Área de trabajo de planos">
+              <div className="section-heading">ESPACIO DE PLANOS <span>GEOMETRÍA SIN VERIFICAR</span></div>
+              {inspection?.blueprint?.drawing_views?.length
+                ? <BlueprintViewer key={inspection.blueprint.filename} views={inspection.blueprint.drawing_views} />
+                : <div className="empty">Adjunte un plano PDF vectorial o DXF y pulse «Inspeccionar documentos» para explorar la geometría. Los planos escaneados no permiten esta selección.</div>}
+            </section>
+          </div>
+        </main>
+      )}
+      {step === 'report' && inspection && (
+        <main className="report-page">
+          <span className="eyebrow">PASO 3 · RESULTADO PRELIMINAR</span>
+          <h1>Revisión documental del predio {properties?.n_predio || identifier}</h1>
+          <p className="note">Este resumen no es un informe técnico certificado, un presupuesto ni una verificación de normativa.</p>
+          <div className="report-grid">
+            <div className="property"><h2>Documentos revisados</h2><p>Plano: {inspection.blueprint?.filename || pdf?.name || 'Sin archivo'}</p><p>Formato: {inspection.blueprint?.format?.toUpperCase() || 'No disponible'}</p><p>IRM: {inspection.irm ? 'Adjuntado · campos candidatos sin verificar' : 'No adjuntado'}</p><p>Actividades: {inspection.activities?.map(a => a.label).join(', ') || 'No disponible'}</p></div>
+            <div className="property"><h2>Estado de mediciones</h2><p>Geometría: {inspection.blueprint?.drawing_views?.length || 0} vista(s) extraída(s)</p><p>Unidades y escala: sin verificar</p><p>Áreas, longitudes y costos: no disponibles</p><p>Conformidad municipal: no evaluada</p></div>
+          </div>
+          <p className="source-note">Fuentes: archivos proporcionados por el usuario; la información extraída es preliminar y requiere revisión profesional.</p>
+          <div className="report-actions"><button type="button" className="secondary" onClick={() => setStep('project')}>← Revisar planos</button><button type="button" className="secondary" onClick={() => setStep('property')}>Ver información catastral</button></div>
+        </main>
+      )}
 
       {/* FOOTER */}
 
