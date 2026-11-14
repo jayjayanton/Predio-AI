@@ -46,6 +46,7 @@ export default function App() {
   // OPTIONAL APPRAISAL CONTACT DEMO — BEGIN
   // Set to false or comment out the button/modal blocks to disable.
   const [showAppraisalContact, setShowAppraisalContact] = useState(false);
+  const [appraisalMessage, setAppraisalMessage] = useState('');
   // OPTIONAL APPRAISAL CONTACT DEMO — END
 
   // PDF inspection
@@ -520,7 +521,11 @@ export default function App() {
               <button
                 type="button"
                 className="secondary"
-                onClick={() => setShowAppraisalContact(true)}
+                onClick={() => {
+                  const predio = properties?.n_predio || properties?.predio || identifier || 'XXXX';
+                  setAppraisalMessage(`Hola, desearía tener una inspección formal del predio (${predio}).`);
+                  setShowAppraisalContact(true);
+                }}
               >
                 Solicitar avalúo profesional
               </button>
@@ -674,10 +679,46 @@ export default function App() {
                 <dt>Clave catastral</dt>
                 <dd>{properties?.clave_cata || '—'}</dd>
                 <dt>Clasificación del suelo</dt><dd>{landClassification}</dd>
-                <dt>Correo electrónico</dt><dd>Pendiente de asignación</dd>
-                <dt>Teléfono</dt><dd>Pendiente de asignación</dd>
+                <dt>Correo electrónico (ficticio)</dt>
+                <dd>john.doe.predioai.demo@gmail.com</dd>
+                <dt>Teléfono Ecuador (ficticio)</dt>
+                <dd>099 000 0000</dd>
                 <dt>Honorarios</dt><dd>Por cotizar</dd>
               </dl>
+              {/* OPTIONAL PRE-FILLED MESSAGE — BEGIN
+                  Editable draft only. No messages are sent.
+              */}
+              <label htmlFor="appraisal-message" style={{display: 'block', marginTop: 16}}>
+                <strong>Mensaje para solicitar inspección</strong>
+              </label>
+              <textarea
+                id="appraisal-message"
+                value={appraisalMessage}
+                onChange={(event) => setAppraisalMessage(event.target.value)}
+                rows={4}
+                style={{
+                  boxSizing: 'border-box', width: '100%', padding: 12,
+                  marginTop: 8, marginBottom: 12, borderRadius: 8,
+                  border: '1px solid #a9b0b8', font: 'inherit',
+                  background: '#fff', color: '#17202a'
+                }}
+              />
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  if (navigator.clipboard?.writeText) {
+                    navigator.clipboard.writeText(appraisalMessage).catch(() => {});
+                  }
+                }}
+              >
+                Copiar mensaje
+              </button>
+              {/* OPTIONAL PRE-FILLED MESSAGE — END */}
+              <p className="note">
+                Los datos de contacto son inventados y no deben utilizarse
+                para enviar solicitudes reales.
+              </p>
               <p className="note">
                 Próximamente: solicitud de cotización y contacto con
                 profesionales habilitados. Este prototipo no envía datos.
