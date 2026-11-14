@@ -18,7 +18,7 @@ def main():
     parser.add_argument("--output-dir", default="irm_downloads", help="Carpeta local de salida")
     args = parser.parse_args()
     predio = args.predio.strip()
-    if not re.fullmatch(r"\\d{1,25}", predio):
+    if not re.fullmatch(r"\d{1,25}", predio):
         parser.error("El número de predio debe contener entre 1 y 25 dígitos.")
 
     with sync_playwright() as playwright:
