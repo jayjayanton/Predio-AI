@@ -139,41 +139,39 @@ export default function App() {
   // 4. INSPECT ARCHITECTURAL PDF
   // ==========================================================
 
-  // OPTIONAL TWO-DOCUMENT INSPECTION — BEGIN
-  // Both files use the existing PDF endpoint independently.
-  // This does NOT yet compare blueprints against IRM rules.
+  // OPTIONAL DOCUMENT ANALYSIS V2 — BEGIN
+  // One request carries selected predio, building/work type, blueprint and IRM.
+  // To revert, restore the original two-document inspection handler.
   async function inspect() {
     if (!pdf || (irmRequired && !irmPdf)) return;
     setInspecting(true);
     setInspection(null);
     setError('');
-
-    const inspectOne = async (file) => {
+    try {
       const form = new FormData();
-      form.append('file', file);
-      const response = await fetch(`${API}/api/blueprints/inspect`, {
+      form.append('blueprint', pdf);
+      if (irmPdf) form.append('irm', irmPdf);
+      form.append('building_type', buildingType);
+      form.append('work_type', workType);
+      const predioNumber = properties?.n_predio || properties?.predio;
+      if (predioNumber) form.append('predio_number', String(predioNumber));
+      const response = await fetch(`${API}/api/documents/analyze`, {
         method: 'POST', body: form
       });
       const body = await response.json();
       if (!response.ok) {
-        throw new Error(body.detail || `No se pudo analizar ${file.name}`);
+        const detail = body.detail;
+        throw new Error(typeof detail === 'string'
+          ? detail : 'No se pudieron analizar los documentos');
       }
-      return body;
-    };
-
-    try {
-      const [blueprint, irm] = await Promise.all([
-        inspectOne(pdf),
-        irmPdf ? inspectOne(irmPdf) : Promise.resolve(null)
-      ]);
-      setInspection({ blueprint, irm });
+      setInspection(body);
     } catch (err) {
       setError(err.message);
     } finally {
       setInspecting(false);
     }
   }
-  // OPTIONAL TWO-DOCUMENT INSPECTION — END
+  // OPTIONAL DOCUMENT ANALYSIS V2 — END
 
   // ==========================================================
   // 5. USER INTERFACE
@@ -567,7 +565,7 @@ export default function App() {
                 {/* OPTIONAL WORK TYPE CONTROLS — END */}
 
                 <label htmlFor="blueprint-upload">
-                  <strong>1. Planos arquitectónicos (PDF)</strong>
+                  <strong>1. Planos arquitectónicos (PDF o DXF)</strong>
                 </label>
                 <input id="blueprint-upload" className="file-input"
                   type="file" accept="application/pdf,.pdf"
@@ -578,9 +576,8 @@ export default function App() {
                 />
                 {pdf && <p className="note">Plano: {pdf.name}</p>}
                 <p className="note">
-                  El motor experimental admite DXF mediante una biblioteca
-                  opcional, pero esta pantalla todavía solo procesa PDF.
-                  No se aceptan DWG directamente.
+                  Los planos DXF requieren ezdxf instalado en el servidor.
+                  Los archivos DWG requieren conversión autorizada a DXF.
                 </p>
 
                 <label htmlFor="irm-upload">
@@ -605,12 +602,25 @@ export default function App() {
                 {inspection && (
                   <div className="inspection">
                     <strong>Inspección inicial de archivos</strong>
-                    <p>Planos: {inspection.blueprint.pages} página(s)</p>
+                    <p>Planos: {inspection.blueprint.format?.toUpperCase()}
+                      {inspection.blueprint.pages
+                        ? ` · ${inspection.blueprint.pages.length} página(s)`
+                        : ' · entidades CAD extraídas'}</p>
                     <p>IRM: {inspection.irm
-                      ? `${inspection.irm.pages} página(s)`
+                      ? `${inspection.irm.pages.length} página(s)`
                       : 'No adjuntado'}</p>
+                    {inspection.irm && Object.keys(inspection.irm.candidate_irm_fields || {}).length > 0 && (
+                      <dl>
+                        {Object.entries(inspection.irm.candidate_irm_fields).map(([key, value]) => (
+                          <React.Fragment key={key}>
+                            <dt>{key} (sin verificar)</dt>
+                            <dd>{value.raw}</dd>
+                          </React.Fragment>
+                        ))}
+                      </dl>
+                    )}
                     <p className="note">
-                      Se comprobó la estructura de los PDF. Todavía no
+                      Se extrajo información preliminar de los documentos. Todavía no
                       hay identificación visual de muros, cálculo de
                       superficies ni verificación de cumplimiento IRM.
                       No se generan dimensiones sin escala verificable.
