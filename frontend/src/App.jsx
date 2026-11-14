@@ -514,6 +514,89 @@ export default function App() {
               )}
               {/* OPTIONAL AIVA UI — END */}
 
+              {/* OPTIONAL DOCUMENTS & PDF SECTION — BEGIN
+                  Positioned after cadastral valuation and before appraisal.
+                  Comment out this section to hide PDF analysis.
+              */}
+              <div className="ph-details">
+                <div className="section-heading">
+                  DOCUMENTOS Y PLANOS <span>EXPERIMENTAL</span>
+                </div>
+                <p className="note">
+                  Suba un plano arquitectónico en PDF para inspeccionar su
+                  estructura. Todavía no se calculan medidas.
+                </p>
+                {/* INSPECCIÓN DEL PDF */}
+
+                <div className="section-heading">
+                  ANÁLISIS DE PLANOS
+                  <span>EXPERIMENTAL</span>
+                </div>
+
+                <p className="note">
+                  Suba un PDF cuyo uso tenga autorizado.
+                  El servidor analiza su estructura sin guardarlo
+                  deliberadamente. Todavía no calcula medidas.
+                </p>
+
+                <input
+                  className="file-input"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(event) => {
+                    setPdf(
+                      event.target.files?.[0] || null
+                    );
+                    setInspection(null);
+                  }}
+                />
+
+                <button
+                  className="secondary"
+                  disabled={!pdf || inspecting}
+                  onClick={inspect}
+                >
+                  {inspecting
+                    ? 'Analizando…'
+                    : 'Analizar plano PDF'}
+                </button>
+
+                {/* PDF RESULTS */}
+
+                {inspection && (
+
+                  <div className="inspection">
+
+                    <strong>
+                      {inspection.pages} página(s)
+                    </strong>
+
+                    {inspection.page_info.map((page) => (
+                      <p key={page.page}>
+                        Página {page.page}:
+                        {' '}
+                        {page.vector_drawings} trazados vectoriales
+                        {' · '}
+                        {page.text_characters} caracteres de texto
+                      </p>
+                    ))}
+
+                  </div>
+                )}
+
+              </div>
+              {/* OPTIONAL DOCUMENTS & PDF SECTION — END */}
+
+              {/* OPTIONAL PROFESSIONAL SERVICES — BEGIN */}
+              <div className="section-heading">
+                SERVICIOS PROFESIONALES <span>DEMO</span>
+              </div>
+              <p className="note">
+                ¿Necesita conocer el valor comercial del inmueble?
+                Solicite una valoración profesional.
+              </p>
+              {/* OPTIONAL PROFESSIONAL SERVICES — END */}
+
               {/* OPTIONAL PROFESSIONAL APPRAISAL BUTTON — BEGIN
                   Demo only: no real professional, contact details, or submission.
                   Comment out this button to remove the entry point.
@@ -575,63 +658,6 @@ export default function App() {
 
           </div>
 
-          {/* ANÁLISIS DE PLANOS */}
-
-          <div className="section-heading">
-            ANÁLISIS DE PLANOS
-            <span>EXPERIMENTAL</span>
-          </div>
-
-          <p className="note">
-            Suba un PDF cuyo uso tenga autorizado.
-            El servidor analiza su estructura sin guardarlo
-            deliberadamente. Todavía no calcula medidas.
-          </p>
-
-          <input
-            className="file-input"
-            type="file"
-            accept="application/pdf,.pdf"
-            onChange={(event) => {
-              setPdf(
-                event.target.files?.[0] || null
-              );
-              setInspection(null);
-            }}
-          />
-
-          <button
-            className="secondary"
-            disabled={!pdf || inspecting}
-            onClick={inspect}
-          >
-            {inspecting
-              ? 'Analizando…'
-              : 'Analizar PDF'}
-          </button>
-
-          {/* PDF RESULTS */}
-
-          {inspection && (
-
-            <div className="inspection">
-
-              <strong>
-                {inspection.pages} página(s)
-              </strong>
-
-              {inspection.page_info.map((page) => (
-                <p key={page.page}>
-                  Página {page.page}:
-                  {' '}
-                  {page.vector_drawings} trazados vectoriales
-                  {' · '}
-                  {page.text_characters} caracteres de texto
-                </p>
-              ))}
-
-            </div>
-          )}
 
         </aside>
 
