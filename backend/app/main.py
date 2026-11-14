@@ -361,3 +361,62 @@ async def inspect_blueprint(
         "stored": False,
         "measurements_available": False
     }
+
+
+# ============================================================
+# OPTIONAL DOCUMENT ANALYSIS V2 — BEGIN
+# Independent of legacy /api/blueprints/inspect.
+# Remove this block to revert the new workflow without changing
+# municipal or existing PDF endpoints.
+# ============================================================
+from typing import Literal
+from fastapi import Form
+from .document_analysis import analyze_document
+
+
+@app.post("/api/documents/analyze")
+async def analyze_project_documents(
+    blueprint: UploadFile = File(...),
+    irm: UploadFile | None = File(default=None),
+    building_type: Literal["house", "apartment"] = Form(...),
+    work_type: Literal["repair", "maintenance", "remodel", "structural", "expansion"] = Form(...),
+    predio_number: str | None = Form(default=None),
+):
+    """Extract evidence from PDF/DXF blueprint and optional IRM PDF.
+
+    This does not calculate dimensions, check regulatory compliance,
+    or certify that an intervention is permitted.
+    """
+    if work_type == "expansion" and irm is None:
+        raise HTTPException(status_code=422, detail="IRM required for expansion review")
+    if predio_number and (not predio_number.isdigit() or len(predio_number) > 25):
+        raise HTTPException(status_code=422, detail="Invalid predio number")
+
+    async def parse_upload(upload: UploadFile, role: str):
+        content = await upload.read(MAX_UPLOAD + 1)
+        if len(content) > MAX_UPLOAD:
+            raise HTTPException(status_code=413, detail=f"{role} exceeds 15 MB")
+        try:
+            return analyze_document(content, upload.filename or "", role)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    blueprint_result = await parse_upload(blueprint, "blueprint")
+    irm_result = await parse_upload(irm, "irm") if irm is not None else None
+
+    return {
+        "predio_number": predio_number,
+        "building_type": building_type,
+        "work_type": work_type,
+        "blueprint": blueprint_result,
+        "irm": irm_result,
+        "status": "extraction_only",
+        "measurements_available": False,
+        "compliance_checked": False,
+        "report_available": False,
+        "warnings": [
+            "Scale and dimensions have not been verified",
+            "Professional review may be required regardless of IRM upload",
+        ],
+    }
+# OPTIONAL DOCUMENT ANALYSIS V2 — END
