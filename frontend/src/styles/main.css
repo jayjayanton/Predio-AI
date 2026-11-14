@@ -170,3 +170,8 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .basemap-switcher button { padding: 9px 10px; font-size: 11px; }
 .leaflet-control-zoom a { width: 30px !important; height: 30px !important; line-height: 30px !important; }
  }
+
+/* AIVA change reflects land reference value, not repair costs. */
+.aiva-change-positive { color: #16834a; font-weight: 750; }
+.aiva-change-negative { color: #c73737; font-weight: 750; }
+.aiva-change-neutral { color: inherit; font-weight: 650; }
