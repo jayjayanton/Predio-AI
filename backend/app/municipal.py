@@ -169,8 +169,88 @@ async def lookup_predio(
             "Unexpected municipal response format"
         )
 
-    return payload
+    # HYBRID SWITCH: comment out the next two lines to use only 2024.\n    if payload.get("features"):\n        payload = await _apply_2026_geometry(identifier, identifier_type, payload)\n\n    return payload
 
+
+
+# ===================================================================
+# OPTIONAL 2026 HYBRID EXTENSION — BEGIN
+# To disable this entire extension tomorrow, comment out ONLY the
+# line marked "HYBRID SWITCH" inside lookup_predio(). The original
+# 2024 query will then run exactly as before.
+#
+# 2026 supplies the latest parcel geometry; 2024 continues to supply
+# detailed cadastral attributes. No other endpoint changes are needed.
+# ===================================================================
+NEW_2026_LAYER_URL = (
+    "https://geoquito.quito.gob.ec/server/rest/services/"
+    "Hosted/predios_2026_feb/FeatureServer/5"
+)
+
+
+async def _lookup_2026_geometry(identifier: str) -> dict | None:
+    """Fetch a 2026 parcel by numeric predio ID; None on any failure."""
+    try:
+        async with httpx.AsyncClient(
+            timeout=REQUEST_TIMEOUT, follow_redirects=False
+        ) as client:
+            response = await client.get(
+                f"{NEW_2026_LAYER_URL}/query",
+                params={
+                    "where": f"predio = {int(identifier)}",
+                    "outFields": "*",
+                    "returnGeometry": "true",
+                    "outSR": "4326",
+                    "f": "geojson",
+                    "resultRecordCount": MAX_RESULTS,
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+        if payload.get("type") != "FeatureCollection":
+            return None
+        features = payload.get("features", [])
+        if len(features) != 1 or not features[0].get("geometry"):
+            return None
+        return features[0]
+    except (httpx.HTTPError, ValueError, TypeError, KeyError):
+        return None
+
+
+async def _apply_2026_geometry(
+    identifier: str, identifier_type: str, payload: dict
+) -> dict:
+    """Preserve 2024 attributes, swapping geometry only for a safe match."""
+    if identifier_type != "n_predio":
+        return payload
+    features = payload.get("features", [])
+    if len(features) != 1:
+        return payload
+    newer = await _lookup_2026_geometry(identifier)
+    if newer is None:
+        return payload
+    newer_id = (newer.get("properties") or {}).get("predio")
+    try:
+        if int(newer_id) != int(identifier):
+            return payload
+    except (TypeError, ValueError):
+        return payload
+
+    # Avoid modifying the original response in place.
+    merged = dict(payload)
+    old = dict(features[0])
+    old["geometry"] = newer["geometry"]
+    props = dict(old.get("properties") or {})
+    props["_predioai_geometry_source"] = "predios_2026_feb"
+    props["_predioai_attributes_source"] = "predios_a_2024"
+    props["_predioai_geometry_area_2026_reported"] = (
+        newer.get("properties") or {}
+    ).get("SHAPE__Area")
+    old["properties"] = props
+    merged["features"] = [old]
+    return merged
+
+# OPTIONAL 2026 HYBRID EXTENSION — END
 
 # ============================================================
 # 5. PROPERTY CLASSIFICATION
