@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import ParcelMap from './components/ParcelMap.jsx';
+import BlueprintViewer from './components/BlueprintViewer.jsx';
 
 // ============================================================
 // 1. CONFIGURATION
@@ -619,6 +620,10 @@ export default function App() {
                         ))}
                       </dl>
                     )}
+                    <BlueprintViewer
+                      key={inspection.blueprint.filename}
+                      views={inspection.blueprint.drawing_views || []}
+                    />
                     <p className="note">
                       Se extrajo información preliminar de los documentos. Todavía no
                       hay identificación visual de muros, cálculo de
