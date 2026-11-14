@@ -798,40 +798,42 @@ export default function App() {
                 </p>
                 {/* OPTIONAL WORK TYPE CONTROLS — END */}
 
-                <label htmlFor="blueprint-upload">
-                  <strong>1. Planos arquitectónicos (PDF o DXF)</strong>
-                </label>
-                <input id="blueprint-upload" className="file-input"
-                  type="file" accept="application/pdf,.pdf,.dxf,application/dxf"
-                  onChange={(event) => {
-                    setPdf(event.target.files?.[0] || null);
-                    setInspection(null);
-                  }}
-                />
-                {pdf && <p className="note">Plano: {pdf.name}</p>}
-                <p className="note">
-                  Los planos DXF requieren ezdxf instalado en el servidor.
-                  Los archivos DWG requieren conversión autorizada a DXF.
-                </p>
+                <div className="irm-guide" aria-label="Documentos para el análisis">
+                  <h3>Documentos para el análisis</h3>
+                  <p>Prepare estos dos documentos antes de iniciar la revisión:</p>
+                  <ol>
+                    <li><strong>Planos arquitectónicos</strong> en PDF o DXF — necesarios para analizar la geometría disponible.</li>
+                    <li><strong>Informe de Regulación Metropolitana (IRM)</strong> en PDF — obligatorio para ampliaciones y opcional para otros trabajos preliminares. Se recomienda cuando existan intervenciones sujetas a regulación.</li>
+                  </ol>
+                  <h4>¿Cómo obtener y guardar su IRM?</h4>
+                  <ol>
+                    <li>Abra el <a href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf" target="_blank" rel="noopener noreferrer">portal oficial de consulta del IRM del Municipio de Quito ↗</a>.</li>
+                    <li>Busque el inmueble con su número de predio o clave catastral y abra el informe.</li>
+                    <li>Use la opción <strong>Imprimir</strong> del navegador (o del portal, si está disponible).</li>
+                    <li>Seleccione <strong>Guardar como PDF</strong> en computadora. En iPhone, use <strong>Compartir → Imprimir</strong>, amplíe la vista previa y elija <strong>Compartir → Guardar en Archivos</strong>. En Android, seleccione <strong>Imprimir → Guardar como PDF</strong>.</li>
+                    <li>Regrese a PredioAI y adjunte el archivo PDF en el campo IRM.</li>
+                  </ol>
+                  <p className="note">Si el portal no permite imprimir correctamente, pruebe desde un navegador de escritorio. PredioAI no descarga ni certifica documentos municipales automáticamente.</p>
+                </div>
 
-                <p className="note">
-                  ¿Necesita obtener su IRM?{' '}
-                  <a href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
-                    target="_blank" rel="noopener noreferrer">
-                    Consultar IRM oficial en el Municipio de Quito ↗
-                  </a>
-                </p>
-                <label htmlFor="irm-upload">
-                  <strong>2. IRM oficial (PDF) — {irmRequired ? 'requerido' : 'opcional'}</strong>
-                </label>
-                <input id="irm-upload" className="file-input"
-                  type="file" accept="application/pdf,.pdf"
-                  onChange={(event) => {
-                    setIrmPdf(event.target.files?.[0] || null);
-                    setInspection(null);
-                  }}
-                />
-                {irmPdf && <p className="note">IRM: {irmPdf.name}</p>}
+                <div className="document-upload">
+                  <label htmlFor="blueprint-upload"><strong>1. Adjuntar planos arquitectónicos (PDF o DXF) · requerido</strong></label>
+                  <input id="blueprint-upload" className="file-input"
+                    type="file" accept="application/pdf,.pdf,.dxf,application/dxf"
+                    onChange={(event) => { setPdf(event.target.files?.[0] || null); setInspection(null); }}
+                  />
+                  {pdf && <p className="note">Plano seleccionado: {pdf.name}</p>}
+                  <p className="note">Los archivos DWG deben convertirse a DXF con autorización. Los planos escaneados pueden no contener geometría vectorial seleccionable.</p>
+                </div>
+
+                <div className="document-upload">
+                  <label htmlFor="irm-upload"><strong>2. Adjuntar IRM oficial (PDF) · {irmRequired ? 'requerido' : 'opcional'}</strong></label>
+                  <input id="irm-upload" className="file-input"
+                    type="file" accept="application/pdf,.pdf"
+                    onChange={(event) => { setIrmPdf(event.target.files?.[0] || null); setInspection(null); }}
+                  />
+                  {irmPdf && <p className="note">IRM seleccionado: {irmPdf.name}</p>}
+                </div>
 
                 <button type="button" className="secondary"
                   disabled={!pdf || !activities.length || (irmRequired && !irmPdf) || inspecting}
