@@ -1,3 +1,10 @@
+const WORK_ACTIVITIES = {
+  repair: [['repair_wall','Reparar muro'],['repair_floor','Reparar piso'],['repair_roof','Reparar techo'],['repair_leak','Reparar filtración']],
+  maintenance: [['paint_walls','Pintar paredes'],['paint_ceiling','Pintar techo'],['waterproof','Impermeabilizar'],['renew_finishes','Renovar acabados']],
+  remodel: [['replace_floor','Reemplazar piso'],['remodel_bathroom','Remodelar baño'],['remodel_kitchen','Remodelar cocina'],['change_layout','Cambiar distribución']],
+  structural: [['modify_structural_wall','Modificar muro estructural'],['modify_slab','Modificar losa']],
+  expansion: [['expand_room','Ampliar habitación'],['new_space','Construir nuevo espacio'],['add_floor','Añadir piso']],
+};
 
 import React, { useState } from 'react';
 import ParcelMap from './components/ParcelMap.jsx';
@@ -56,6 +63,7 @@ export default function App() {
   // OPTIONAL WORKFLOW SELECTORS — BEGIN
   const [buildingType, setBuildingType] = useState('house');
   const [workType, setWorkType] = useState('repair');
+  const [activities, setActivities] = useState(['repair_wall']);
   // IRM is needed for the preliminary expansion path; other work can
   // still require municipal/professional review depending on its scope.
   const irmRequired = workType === 'expansion';
@@ -144,7 +152,7 @@ export default function App() {
   // One request carries selected predio, building/work type, blueprint and IRM.
   // To revert, restore the original two-document inspection handler.
   async function inspect() {
-    if (!pdf || (irmRequired && !irmPdf)) return;
+    if (!pdf || !activities.length || (irmRequired && !irmPdf)) return;
     setInspecting(true);
     setInspection(null);
     setError('');
@@ -154,6 +162,7 @@ export default function App() {
       if (irmPdf) form.append('irm', irmPdf);
       form.append('building_type', buildingType);
       form.append('work_type', workType);
+      activities.forEach(activity => form.append('activities', activity));
       const predioNumber = properties?.n_predio || properties?.predio;
       if (predioNumber) form.append('predio_number', String(predioNumber));
       const response = await fetch(`${API}/api/documents/analyze`, {
@@ -546,13 +555,29 @@ export default function App() {
 
                 <label htmlFor="work-type"><strong>¿Qué trabajo desea realizar?</strong></label>
                 <select id="work-type" value={workType}
-                  onChange={(event) => { setWorkType(event.target.value); setInspection(null); }}>
+                  onChange={(event) => { const next = event.target.value; setWorkType(next); setActivities([WORK_ACTIVITIES[next][0][0]]); setInspection(null); }}>
                   <option value="repair">Reparación (muro, techo, piso, etc.)</option>
                   <option value="maintenance">Mantenimiento</option>
                   <option value="remodel">Remodelación interior</option>
                   <option value="structural">Modificación estructural</option>
                   <option value="expansion">Ampliación o nueva construcción</option>
                 </select>
+                <fieldset style={{ margin: '12px 0', padding: 12, border: '1px solid #b6c1cc', borderRadius: 8 }}>
+                  <legend><strong>Actividades específicas (puede seleccionar varias)</strong></legend>
+                  {WORK_ACTIVITIES[workType].map(([id, label]) => (
+                    <label key={id} style={{ display: 'block', margin: '8px 0' }}>
+                      <input type="checkbox" checked={activities.includes(id)}
+                        onChange={(event) => {
+                          setActivities(current => event.target.checked
+                            ? [...current, id]
+                            : current.filter(value => value !== id));
+                          setInspection(null);
+                        }} />
+                      {' '}{label}
+                    </label>
+                  ))}
+                  {!activities.length && <p className="note">Seleccione al menos una actividad.</p>}
+                </fieldset>
                 <p className="note">
                   {irmRequired
                     ? 'IRM requerido para iniciar la revisión preliminar de ampliación.'
@@ -594,7 +619,7 @@ export default function App() {
                 {irmPdf && <p className="note">IRM: {irmPdf.name}</p>}
 
                 <button type="button" className="secondary"
-                  disabled={!pdf || (irmRequired && !irmPdf) || inspecting}
+                  disabled={!pdf || !activities.length || (irmRequired && !irmPdf) || inspecting}
                   onClick={inspect}
                 >
                   {inspecting ? 'Inspeccionando documentos…' : 'Inspeccionar documentos'}
@@ -603,6 +628,8 @@ export default function App() {
                 {inspection && (
                   <div className="inspection">
                     <strong>Inspección inicial de archivos</strong>
+                    <p>Actividades: {inspection.activities?.map(a => a.label).join(', ')}</p>
+                    <p className="note">Cantidades de trabajo: pendientes de medición verificada.</p>
                     <p>Planos: {inspection.blueprint.format?.toUpperCase()}
                       {inspection.blueprint.pages
                         ? ` · ${inspection.blueprint.pages.length} página(s)`
