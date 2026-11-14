@@ -238,3 +238,11 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .document-upload { padding:14px; margin:12px 0; background:#172c32; border:1px solid #355258; border-radius:10px; }
 .document-upload .file-input { max-width:100%; }
 @media(max-width:600px) { .irm-guide { padding:13px; } .document-upload { padding:11px; } }
+
+/* Quick IRM consultation: keep predio visible if clipboard permission is denied. */
+.irm-quick-access { margin:14px 0; padding:13px; border-radius:10px; border:1px solid #3a6a6b; background:#17353a; }
+.irm-quick-label { display:block; font-size:11px; color:#a9c4c5; font-weight:700; margin-bottom:7px; }
+.irm-number-row { display:flex; gap:9px; align-items:stretch; }
+.irm-number-row input { min-width:0; flex:1; border:1px solid #42646a; border-radius:7px; background:#10262b; color:#fff; padding:11px; font-size:16px; font-weight:700; }
+.irm-number-row button { min-height:44px; }
+@media(max-width:600px) { .irm-number-row { flex-direction:column; } .irm-number-row button { width:100%; } }
