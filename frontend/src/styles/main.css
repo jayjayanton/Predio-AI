@@ -227,3 +227,14 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
  .basemap-switcher { flex-wrap:wrap; max-width:calc(100% - 20px); }
  .basemap-switcher button { padding:9px; }
 }
+
+/* Guided municipal IRM retrieval before document uploads */
+.irm-guide { margin:20px 0; padding:18px; background:#102d32; border:1px solid #34716c; border-radius:12px; color:#d9e7e7; font-size:12px; line-height:1.65; }
+.irm-guide h3 { margin:0 0 10px; font-size:17px; color:#eaf2f1; }
+.irm-guide h4 { margin:18px 0 8px; font-size:14px; color:#eaf2f1; }
+.irm-guide ol { padding-left:22px; margin:8px 0; }
+.irm-guide li { margin:8px 0; }
+.irm-guide a { color:#54e0d0; font-weight:700; }
+.document-upload { padding:14px; margin:12px 0; background:#172c32; border:1px solid #355258; border-radius:10px; }
+.document-upload .file-input { max-width:100%; }
+@media(max-width:600px) { .irm-guide { padding:13px; } .document-upload { padding:11px; } }
