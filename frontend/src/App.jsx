@@ -67,8 +67,7 @@ export default function App() {
   const [activities, setActivities] = useState(['repair_wall']);
   // IRM is needed for the preliminary expansion path; other work can
   // still require municipal/professional review depending on its scope.
-  const irmRequired = workType === 'expansion';
-  const irmRecommended = workType === 'structural' || workType === 'remodel';
+  const irmRequired = ['remodel', 'structural', 'expansion'].includes(workType);
   // OPTIONAL WORKFLOW SELECTORS — END
   const [inspection, setInspection] = useState(null);
   const [inspecting, setInspecting] = useState(false);
@@ -162,7 +161,7 @@ export default function App() {
     try {
       const form = new FormData();
       form.append('blueprint', pdf);
-      if (irmPdf) form.append('irm', irmPdf);
+      if (irmRequired && irmPdf) form.append('irm', irmPdf);
       form.append('building_type', buildingType);
       form.append('work_type', workType);
       activities.forEach(activity => form.append('activities', activity));
@@ -788,22 +787,21 @@ export default function App() {
                 </fieldset>
                 <p className="note">
                   {irmRequired
-                    ? 'IRM requerido para iniciar la revisión preliminar de ampliación.'
-                    : irmRecommended
-                      ? 'IRM recomendado cuando existan cambios regulados; puede iniciar sin él. La revisión profesional puede ser necesaria.'
-                      : 'IRM opcional para mediciones iniciales de reparación o mantenimiento.'}
+                    ? 'Para este tipo de proyecto, PredioAI solicita el IRM antes de realizar el análisis preliminar. Esto no sustituye la revisión de los requisitos municipales aplicables.'
+                    : 'Para reparaciones y mantenimiento ordinario, PredioAI no solicita el IRM en esta etapa.'}
                   {buildingType === 'apartment'
                     ? ' En departamentos también deben revisarse elementos comunes y reglas de propiedad horizontal cuando corresponda.'
                     : ''}
                 </p>
                 {/* OPTIONAL WORK TYPE CONTROLS — END */}
 
+                {irmRequired && (
                 <div className="irm-guide" aria-label="Documentos para el análisis">
                   <h3>Documentos para el análisis</h3>
-                  <p>Prepare estos dos documentos antes de iniciar la revisión:</p>
+                  <p>Para el tipo de intervención seleccionado, prepare los siguientes documentos:</p>
                   <ol>
                     <li><strong>Planos arquitectónicos</strong> en PDF o DXF — necesarios para analizar la geometría disponible.</li>
-                    <li><strong>Informe de Regulación Metropolitana (IRM)</strong> en PDF — obligatorio para ampliaciones y opcional para otros trabajos preliminares. Se recomienda cuando existan intervenciones sujetas a regulación.</li>
+                    <li><strong>Informe de Regulación Metropolitana (IRM)</strong> en PDF — requerido por el flujo de análisis preliminar de PredioAI para remodelaciones, modificaciones estructurales y ampliaciones.</li>
                   </ol>
                   <h4>¿Cómo obtener y guardar su IRM?</h4>
                   <ol>
@@ -816,6 +814,8 @@ export default function App() {
                   <p className="note">Si el portal no permite imprimir correctamente, pruebe desde un navegador de escritorio. PredioAI no descarga ni certifica documentos municipales automáticamente.</p>
                 </div>
 
+                )}
+
                 <div className="document-upload">
                   <label htmlFor="blueprint-upload"><strong>1. Adjuntar planos arquitectónicos (PDF o DXF) · requerido</strong></label>
                   <input id="blueprint-upload" className="file-input"
@@ -826,14 +826,17 @@ export default function App() {
                   <p className="note">Los archivos DWG deben convertirse a DXF con autorización. Los planos escaneados pueden no contener geometría vectorial seleccionable.</p>
                 </div>
 
+                {irmRequired && (
                 <div className="document-upload">
-                  <label htmlFor="irm-upload"><strong>2. Adjuntar IRM oficial (PDF) · {irmRequired ? 'requerido' : 'opcional'}</strong></label>
+                  <label htmlFor="irm-upload"><strong>2. Adjuntar IRM oficial (PDF) · requerido</strong></label>
                   <input id="irm-upload" className="file-input"
                     type="file" accept="application/pdf,.pdf"
                     onChange={(event) => { setIrmPdf(event.target.files?.[0] || null); setInspection(null); }}
                   />
                   {irmPdf && <p className="note">IRM seleccionado: {irmPdf.name}</p>}
                 </div>
+
+                )}
 
                 <button type="button" className="secondary"
                   disabled={!pdf || !activities.length || (irmRequired && !irmPdf) || inspecting}
@@ -851,9 +854,9 @@ export default function App() {
                       {inspection.blueprint.pages
                         ? ` · ${inspection.blueprint.pages.length} página(s)`
                         : ' · entidades CAD extraídas'}</p>
-                    <p>IRM: {inspection.irm
+                    {irmRequired && <p>IRM: {inspection.irm
                       ? `${inspection.irm.pages.length} página(s)`
-                      : 'No adjuntado'}</p>
+                      : 'No adjuntado'}</p>}
                     {inspection.irm && Object.keys(inspection.irm.candidate_irm_fields || {}).length > 0 && (
                       <dl>
                         {Object.entries(inspection.irm.candidate_irm_fields).map(([key, value]) => (
