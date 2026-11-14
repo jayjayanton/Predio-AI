@@ -51,6 +51,7 @@ export default function App() {
 
   // PDF inspection
   const [pdf, setPdf] = useState(null);
+  const [irmPdf, setIrmPdf] = useState(null);
   const [inspection, setInspection] = useState(null);
   const [inspecting, setInspecting] = useState(false);
 
@@ -130,41 +131,40 @@ export default function App() {
   // 4. INSPECT ARCHITECTURAL PDF
   // ==========================================================
 
+  // OPTIONAL TWO-DOCUMENT INSPECTION — BEGIN
+  // Both files use the existing PDF endpoint independently.
+  // This does NOT yet compare blueprints against IRM rules.
   async function inspect() {
-    if (!pdf) return;
-
+    if (!pdf || !irmPdf) return;
     setInspecting(true);
     setInspection(null);
     setError('');
 
-    try {
+    const inspectOne = async (file) => {
       const form = new FormData();
-      form.append('file', pdf);
-
-      const response = await fetch(
-        `${API}/api/blueprints/inspect`,
-        {
-          method: 'POST',
-          body: form
-        }
-      );
-
+      form.append('file', file);
+      const response = await fetch(`${API}/api/blueprints/inspect`, {
+        method: 'POST', body: form
+      });
       const body = await response.json();
-
       if (!response.ok) {
-        throw new Error(
-          body.detail || 'No se pudo analizar el PDF'
-        );
+        throw new Error(body.detail || `No se pudo analizar ${file.name}`);
       }
+      return body;
+    };
 
-      setInspection(body);
-
+    try {
+      const [blueprint, irm] = await Promise.all([
+        inspectOne(pdf), inspectOne(irmPdf)
+      ]);
+      setInspection({ blueprint, irm });
     } catch (err) {
       setError(err.message);
     } finally {
       setInspecting(false);
     }
   }
+  // OPTIONAL TWO-DOCUMENT INSPECTION — END
 
   // ==========================================================
   // 5. USER INTERFACE
@@ -520,70 +520,68 @@ export default function App() {
               */}
               <div className="ph-details">
                 <div className="section-heading">
-                  DOCUMENTOS Y PLANOS <span>EXPERIMENTAL</span>
+                  REMODELACIÓN Y AMPLIACIÓN <span>EXPERIMENTAL</span>
                 </div>
                 <p className="note">
-                  Suba un plano arquitectónico en PDF para inspeccionar su
-                  estructura. Todavía no se calculan medidas.
+                  ¿Está pensando en remodelar, reparar o ampliar su vivienda?
+                  Suba los planos arquitectónicos y el Informe de Regulación
+                  Metropolitana (IRM) para una revisión preliminar.
                 </p>
-                {/* INSPECCIÓN DEL PDF */}
-
-                <div className="section-heading">
-                  ANÁLISIS DE PLANOS
-                  <span>EXPERIMENTAL</span>
-                </div>
-
                 <p className="note">
-                  Suba un PDF cuyo uso tenga autorizado.
-                  El servidor analiza su estructura sin guardarlo
-                  deliberadamente. Todavía no calcula medidas.
+                  Por ahora solo inspeccionamos la estructura de ambos PDF.
+                  No verificamos cumplimiento normativo ni emitimos permisos.
                 </p>
 
+                <label htmlFor="blueprint-upload">
+                  <strong>1. Subir planos arquitectónicos (PDF)</strong>
+                </label>
                 <input
+                  id="blueprint-upload"
                   className="file-input"
                   type="file"
                   accept="application/pdf,.pdf"
                   onChange={(event) => {
-                    setPdf(
-                      event.target.files?.[0] || null
-                    );
+                    setPdf(event.target.files?.[0] || null);
                     setInspection(null);
                   }}
                 />
+                {pdf && <p className="note">Plano: {pdf.name}</p>}
+
+                <label htmlFor="irm-upload">
+                  <strong>2. Subir IRM oficial (PDF)</strong>
+                </label>
+                <input
+                  id="irm-upload"
+                  className="file-input"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(event) => {
+                    setIrmPdf(event.target.files?.[0] || null);
+                    setInspection(null);
+                  }}
+                />
+                {irmPdf && <p className="note">IRM: {irmPdf.name}</p>}
 
                 <button
+                  type="button"
                   className="secondary"
-                  disabled={!pdf || inspecting}
+                  disabled={!pdf || !irmPdf || inspecting}
                   onClick={inspect}
                 >
-                  {inspecting
-                    ? 'Analizando…'
-                    : 'Analizar plano PDF'}
+                  {inspecting ? 'Analizando documentos…' : 'Analizar planos e IRM'}
                 </button>
 
-                {/* PDF RESULTS */}
-
                 {inspection && (
-
                   <div className="inspection">
-
-                    <strong>
-                      {inspection.pages} página(s)
-                    </strong>
-
-                    {inspection.page_info.map((page) => (
-                      <p key={page.page}>
-                        Página {page.page}:
-                        {' '}
-                        {page.vector_drawings} trazados vectoriales
-                        {' · '}
-                        {page.text_characters} caracteres de texto
-                      </p>
-                    ))}
-
+                    <strong>Inspección técnica inicial</strong>
+                    <p>Planos: {inspection.blueprint.pages} página(s)</p>
+                    <p>IRM: {inspection.irm.pages} página(s)</p>
+                    <p className="note">
+                      Ambos documentos se procesaron correctamente.
+                      La comparación de parámetros constructivos aún no está disponible.
+                    </p>
                   </div>
                 )}
-
               </div>
               {/* OPTIONAL DOCUMENTS & PDF SECTION — END */}
 
