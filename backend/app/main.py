@@ -372,6 +372,7 @@ async def inspect_blueprint(
 from typing import Literal
 from fastapi import Form
 from .document_analysis import analyze_document
+from .work_activities import validate_activities
 
 
 @app.post("/api/documents/analyze")
@@ -381,12 +382,17 @@ async def analyze_project_documents(
     building_type: Literal["house", "apartment"] = Form(...),
     work_type: Literal["repair", "maintenance", "remodel", "structural", "expansion"] = Form(...),
     predio_number: str | None = Form(default=None),
+    activities: list[str] = Form(...),
 ):
     """Extract evidence from PDF/DXF blueprint and optional IRM PDF.
 
     This does not calculate dimensions, check regulatory compliance,
     or certify that an intervention is permitted.
     """
+    try:
+        selected_activities = validate_activities(work_type, activities)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if work_type == "expansion" and irm is None:
         raise HTTPException(status_code=422, detail="IRM required for expansion review")
     if predio_number and (not predio_number.isdigit() or len(predio_number) > 25):
@@ -408,6 +414,7 @@ async def analyze_project_documents(
         "predio_number": predio_number,
         "building_type": building_type,
         "work_type": work_type,
+        "activities": selected_activities,
         "blueprint": blueprint_result,
         "irm": irm_result,
         "status": "extraction_only",
