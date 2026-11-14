@@ -401,6 +401,38 @@ export default function App() {
                 </div>
               )}
 
+              {/* OPTIONAL AIVA UI — BEGIN
+                  To hide this panel, comment out the JSX block below.
+                  Backend AIVA SWITCH separately disables its data lookup.
+              */}
+              {(properties?._predioai_aiva_2026_usd_m2 != null ||
+                properties?._predioai_aiva_2024_usd_m2 != null) && (
+                <div className="ph-details">
+                  <div className="section-heading">
+                    VALOR REFERENCIAL DEL SUELO <span>AIVA</span>
+                  </div>
+                  <dl>
+                    <dt>2024–2025 (USD/m²)</dt>
+                    <dd>{properties._predioai_aiva_2024_usd_m2 ?? '—'}</dd>
+                    <dt>2026–2027 (USD/m²)</dt>
+                    <dd>{properties._predioai_aiva_2026_usd_m2 ?? '—'}</dd>
+                    <dt>Variación</dt>
+                    <dd>{properties._predioai_aiva_change_pct != null
+                      ? `${properties._predioai_aiva_change_pct}%` : '—'}</dd>
+                    <dt>Avalúo catastral total (2024)</dt>
+                    <dd>{typeof properties.avaluo_tot === 'number'
+                      ? `${properties.avaluo_tot.toLocaleString('en-US', {minimumFractionDigits: 2})}`
+                      : '—'}</dd>
+                  </dl>
+                  <p className="note">
+                    AIVA es un valor zonal del terreno, no un precio de
+                    mercado ni el avalúo oficial total del inmueble.
+                    Consulta por punto; verificar predios que cruzan varias zonas.
+                  </p>
+                </div>
+              )}
+              {/* OPTIONAL AIVA UI — END */}
+
               {/* MULTIPLE MATCHES */}
 
               {data.features.length > 1 && (
@@ -523,7 +555,7 @@ export default function App() {
 
           <div className="map-bottom">
             <span>
-              Fuente municipal: predios_a_2024
+              Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
             </span>
 
             <span>
