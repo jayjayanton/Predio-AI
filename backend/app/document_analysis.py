@@ -42,6 +42,7 @@ def _validate(data: bytes, filename: str, allowed: set[str]) -> str:
 
 def _pdf(data: bytes, role: str) -> dict:
     import fitz
+    from .drawing_geometry import pdf_primitives, drawing_view
 
     try:
         doc = fitz.open(stream=data, filetype="pdf")
@@ -52,9 +53,15 @@ def _pdf(data: bytes, role: str) -> dict:
             raise ValueError("PDF page count outside supported range")
         pages = []
         fragments = []
+        views = []
         for page in doc:
             text = page.get_text("text")
             fragments.append(text[:MAX_TEXT])
+            if role == "blueprint":
+                view = drawing_view(pdf_primitives(page),
+                    [0, 0, float(page.rect.width), float(page.rect.height)])
+                view["page"] = page.number + 1
+                views.append(view)
             pages.append({
                 "page": page.number + 1,
                 "width_pt": round(page.rect.width, 2),
@@ -79,6 +86,7 @@ def _pdf(data: bytes, role: str) -> dict:
     return {
         "format": "pdf", "role": role, "pages": pages,
         "candidate_irm_fields": candidates,
+        "drawing_views": views if role == "blueprint" else [],
         "text_excerpt": combined[:3000] if role == "irm" else "",
         "warnings": (["Scanned pages may require OCR"]
                      if any(p["needs_ocr"] for p in pages) else []),
@@ -88,11 +96,13 @@ def _pdf(data: bytes, role: str) -> dict:
 def _dxf(data: bytes) -> dict:
     try:
         import ezdxf
+        from .drawing_geometry import dxf_primitives, drawing_view
     except ImportError as exc:
         raise ValueError("DXF support requires optional package ezdxf") from exc
     try:
         doc = ezdxf.read(BytesIO(data))
         model = doc.modelspace()
+        view = drawing_view(dxf_primitives(model), invert_y=True)
         counts = Counter()
         layer_counts = Counter()
         annotations = []
@@ -124,6 +134,7 @@ def _dxf(data: bytes) -> dict:
         "entity_counts": dict(counts),
         "layer_counts": dict(layer_counts),
         "annotations": annotations,
+        "drawing_views": [{**view, "page": 1}],
         "dimensions": dimension_labels,
         "warnings": [
             "CAD units, drawing scale, layer meaning and dimensions require validation",
