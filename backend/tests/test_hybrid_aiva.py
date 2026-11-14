@@ -35,6 +35,6 @@ def test_aiva_unavailable_fallback(monkeypatch):
     async def unavailable(layer_id,point,zone_code):
         return None
     monkeypatch.setattr(municipal,"_aiva_layer",unavailable)
-    p=(await municipal._apply_aiva_comparison(parcel()))["features"][0]["properties"]
+    p=(asyncio.run(municipal._apply_aiva_comparison(parcel())))["features"][0]["properties"]
     assert p["avaluo_tot"]==68193.13
     assert "_predioai_aiva_2026_usd_m2" not in p
