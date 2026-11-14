@@ -644,11 +644,24 @@ export default function App() {
 
           <div className="documents">
 
-            <div>
-              ▤
-              <span>Informe de Regulación Metropolitana (IRM)</span>
-              <small>No conectado</small>
-            </div>
+            {/* OFFICIAL IRM LINK — BEGIN
+                Direct link only; the municipality handles verification.
+                Comment out this block to remove the link.
+            */}
+            <a
+              href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
+              aria-label="Consultar IRM oficial en el Municipio de Quito (abre otra pestaña)"
+            >
+              <div>
+                ▤
+                <span>Consultar IRM oficial ↗</span>
+                <small>Portal municipal · búsqueda por predio</small>
+              </div>
+            </a>
+            {/* OFFICIAL IRM LINK — END */}
 
             <div>
               ▤
