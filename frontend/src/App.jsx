@@ -52,6 +52,14 @@ export default function App() {
   // PDF inspection
   const [pdf, setPdf] = useState(null);
   const [irmPdf, setIrmPdf] = useState(null);
+  // OPTIONAL WORKFLOW SELECTORS — BEGIN
+  const [buildingType, setBuildingType] = useState('house');
+  const [workType, setWorkType] = useState('repair');
+  // IRM is needed for the preliminary expansion path; other work can
+  // still require municipal/professional review depending on its scope.
+  const irmRequired = workType === 'expansion';
+  const irmRecommended = workType === 'structural' || workType === 'remodel';
+  // OPTIONAL WORKFLOW SELECTORS — END
   const [inspection, setInspection] = useState(null);
   const [inspecting, setInspecting] = useState(false);
 
@@ -135,7 +143,7 @@ export default function App() {
   // Both files use the existing PDF endpoint independently.
   // This does NOT yet compare blueprints against IRM rules.
   async function inspect() {
-    if (!pdf || !irmPdf) return;
+    if (!pdf || (irmRequired && !irmPdf)) return;
     setInspecting(true);
     setInspection(null);
     setError('');
@@ -155,7 +163,8 @@ export default function App() {
 
     try {
       const [blueprint, irm] = await Promise.all([
-        inspectOne(pdf), inspectOne(irmPdf)
+        inspectOne(pdf),
+        irmPdf ? inspectOne(irmPdf) : Promise.resolve(null)
       ]);
       setInspection({ blueprint, irm });
     } catch (err) {
@@ -520,41 +529,65 @@ export default function App() {
               */}
               <div className="ph-details">
                 <div className="section-heading">
-                  REMODELACIÓN Y AMPLIACIÓN <span>EXPERIMENTAL</span>
+                  REPARACIONES Y REMODELACIONES <span>EXPERIMENTAL</span>
                 </div>
                 <p className="note">
-                  ¿Está pensando en remodelar, reparar o ampliar su vivienda?
-                  Suba los planos arquitectónicos y el Informe de Regulación
-                  Metropolitana (IRM) para una revisión preliminar.
-                </p>
-                <p className="note">
-                  Por ahora solo inspeccionamos la estructura de ambos PDF.
-                  No verificamos cumplimiento normativo ni emitimos permisos.
+                  ¿Desea reparar un muro, realizar mantenimiento, remodelar
+                  un espacio o ampliar su vivienda? Seleccione el tipo de
+                  trabajo y adjunte los documentos disponibles.
                 </p>
 
+                {/* OPTIONAL WORK TYPE CONTROLS — BEGIN */}
+                <label htmlFor="building-type"><strong>Tipo de inmueble</strong></label>
+                <select id="building-type" value={buildingType}
+                  onChange={(event) => { setBuildingType(event.target.value); setInspection(null); }}>
+                  <option value="house">Casa</option>
+                  <option value="apartment">Departamento</option>
+                </select>
+
+                <label htmlFor="work-type"><strong>¿Qué trabajo desea realizar?</strong></label>
+                <select id="work-type" value={workType}
+                  onChange={(event) => { setWorkType(event.target.value); setInspection(null); }}>
+                  <option value="repair">Reparación (muro, techo, piso, etc.)</option>
+                  <option value="maintenance">Mantenimiento</option>
+                  <option value="remodel">Remodelación interior</option>
+                  <option value="structural">Modificación estructural</option>
+                  <option value="expansion">Ampliación o nueva construcción</option>
+                </select>
+                <p className="note">
+                  {irmRequired
+                    ? 'IRM requerido para iniciar la revisión preliminar de ampliación.'
+                    : irmRecommended
+                      ? 'IRM recomendado cuando existan cambios regulados; puede iniciar sin él. La revisión profesional puede ser necesaria.'
+                      : 'IRM opcional para mediciones iniciales de reparación o mantenimiento.'}
+                  {buildingType === 'apartment'
+                    ? ' En departamentos también deben revisarse elementos comunes y reglas de propiedad horizontal cuando corresponda.'
+                    : ''}
+                </p>
+                {/* OPTIONAL WORK TYPE CONTROLS — END */}
+
                 <label htmlFor="blueprint-upload">
-                  <strong>1. Subir planos arquitectónicos (PDF)</strong>
+                  <strong>1. Planos arquitectónicos (PDF)</strong>
                 </label>
-                <input
-                  id="blueprint-upload"
-                  className="file-input"
-                  type="file"
-                  accept="application/pdf,.pdf"
+                <input id="blueprint-upload" className="file-input"
+                  type="file" accept="application/pdf,.pdf"
                   onChange={(event) => {
                     setPdf(event.target.files?.[0] || null);
                     setInspection(null);
                   }}
                 />
                 {pdf && <p className="note">Plano: {pdf.name}</p>}
+                <p className="note">
+                  El motor experimental admite DXF mediante una biblioteca
+                  opcional, pero esta pantalla todavía solo procesa PDF.
+                  No se aceptan DWG directamente.
+                </p>
 
                 <label htmlFor="irm-upload">
-                  <strong>2. Subir IRM oficial (PDF)</strong>
+                  <strong>2. IRM oficial (PDF) — {irmRequired ? 'requerido' : 'opcional'}</strong>
                 </label>
-                <input
-                  id="irm-upload"
-                  className="file-input"
-                  type="file"
-                  accept="application/pdf,.pdf"
+                <input id="irm-upload" className="file-input"
+                  type="file" accept="application/pdf,.pdf"
                   onChange={(event) => {
                     setIrmPdf(event.target.files?.[0] || null);
                     setInspection(null);
@@ -562,23 +595,25 @@ export default function App() {
                 />
                 {irmPdf && <p className="note">IRM: {irmPdf.name}</p>}
 
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={!pdf || !irmPdf || inspecting}
+                <button type="button" className="secondary"
+                  disabled={!pdf || (irmRequired && !irmPdf) || inspecting}
                   onClick={inspect}
                 >
-                  {inspecting ? 'Analizando documentos…' : 'Analizar planos e IRM'}
+                  {inspecting ? 'Inspeccionando documentos…' : 'Inspeccionar documentos'}
                 </button>
 
                 {inspection && (
                   <div className="inspection">
-                    <strong>Inspección técnica inicial</strong>
+                    <strong>Inspección inicial de archivos</strong>
                     <p>Planos: {inspection.blueprint.pages} página(s)</p>
-                    <p>IRM: {inspection.irm.pages} página(s)</p>
+                    <p>IRM: {inspection.irm
+                      ? `${inspection.irm.pages} página(s)`
+                      : 'No adjuntado'}</p>
                     <p className="note">
-                      Ambos documentos se procesaron correctamente.
-                      La comparación de parámetros constructivos aún no está disponible.
+                      Se comprobó la estructura de los PDF. Todavía no
+                      hay identificación visual de muros, cálculo de
+                      superficies ni verificación de cumplimiento IRM.
+                      No se generan dimensiones sin escala verificable.
                     </p>
                   </div>
                 )}
