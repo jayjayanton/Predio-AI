@@ -75,20 +75,19 @@ export default function App() {
 
   // Copy the known predio number and open the official portal on a user click.
   // Browsers cannot prefill a separate site's form; CAPTCHA stays manual.
-  async function openIrmPortal() {
+  async function copyIrmPredio() {
     const number = String(properties?.n_predio || properties?.predio || '').trim();
-    const portal = 'https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf';
-    // Open synchronously on click to avoid popup blockers while copying.
-    window.open(portal, '_blank', 'noopener,noreferrer');
     if (!number) {
-      setIrmCopyStatus('No se encontró el número de predio. Consúltelo en la ficha catastral.');
+      setIrmCopyStatus('No se encontró un número de predio para copiar.');
       return;
     }
     try {
       await navigator.clipboard.writeText(number);
-      setIrmCopyStatus(`Número ${number} copiado. Péguelo en «Número de Predio» y complete el código de verificación.`);
+      setIrmCopyStatus(`Copiado: ${number}. Abra el portal y péguelo en «Número de Predio».`);
     } catch {
-      setIrmCopyStatus(`Copie el número ${number} del campo inferior y péguelo en el portal municipal.`);
+      // Clipboard permissions vary across Safari/iOS and embedded browsers.
+      // Keep the value selectable rather than claiming it was copied.
+      setIrmCopyStatus(`No se pudo copiar automáticamente. Mantenga pulsado el número ${number} para copiarlo.`);
     }
   }
 
@@ -829,16 +828,19 @@ export default function App() {
                       <input aria-label="Número de predio para consulta IRM" readOnly
                         value={String(properties?.n_predio || properties?.predio || '')}
                         onFocus={event => event.target.select()} />
-                      <button type="button" className="secondary" onClick={openIrmPortal}>
-                        Abrir consulta IRM ↗
+                      <button type="button" className="secondary" onClick={copyIrmPredio}>
+                        Copiar número
                       </button>
                     </div>
+                    <a className="irm-open-link"
+                      href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
+                      target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
                     {irmCopyStatus && <p className="note" role="status">{irmCopyStatus}</p>}
-                    <p className="note">La consulta se realiza en el sitio oficial. Pegue el número de predio y complete manualmente el código de verificación. El formulario no se llena automáticamente.</p>
+                    <p className="note">Primero pulse «Copiar número», después abra el portal y péguelo en «Número de Predio». Complete el código de verificación manualmente.</p>
                   </div>
                   <h4>¿Cómo obtener y guardar su IRM?</h4>
                   <ol>
-                    <li>Pulse «Abrir consulta IRM» para abrir el portal municipal. PredioAI intentará copiar el número de predio para que solo tenga que pegarlo en el campo «Número de Predio».</li>
+                    <li>Pulse «Copiar número» y después «Abrir consulta IRM oficial». Pegue el número en el campo «Número de Predio» del portal.</li>
                     <li>Busque el inmueble con su número de predio o clave catastral y abra el informe.</li>
                     <li>Use la opción <strong>Imprimir</strong> del navegador (o del portal, si está disponible).</li>
                     <li>Seleccione <strong>Guardar como PDF</strong> en computadora. En iPhone, use <strong>Compartir → Imprimir</strong>, amplíe la vista previa y elija <strong>Compartir → Guardar en Archivos</strong>. En Android, seleccione <strong>Imprimir → Guardar como PDF</strong>.</li>
