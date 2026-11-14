@@ -9,6 +9,17 @@ import ParcelMap from './components/ParcelMap.jsx';
 const API =
   import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// Optional valuation display helpers. Values remain cadastral, not market prices.
+const formatUSD = (value) =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+    : 'No disponible';
+
+const formatRate = (value) =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? `${formatUSD(value)}/m²`
+    : 'No disponible';
+
 const formatArea = (value) =>
   typeof value === 'number'
     ? `${value.toLocaleString('es-EC', {
@@ -420,6 +431,45 @@ export default function App() {
                 </div>
               )}
 
+              {/* OPTIONAL CADASTRAL VALUATION — BEGIN
+                  Comment out this entire section to hide the 2024
+                  land/construction/total breakdown. No API changes needed.
+              */}
+              <div className="ph-details">
+                <div className="section-heading">
+                  AVALÚO CATASTRAL <span>2024</span>
+                </div>
+                <dl>
+                  <dt>Avalúo del terreno</dt>
+                  <dd>{formatUSD(properties.avaluo_ter)}</dd>
+                  <dt>Avalúo de construcción</dt>
+                  <dd>{formatUSD(properties.avaluo_con)}</dd>
+                  <dt>Otros componentes del avalúo</dt>
+                  <dd>{typeof properties.avaluo_tot === 'number' &&
+                    typeof properties.avaluo_ter === 'number' &&
+                    typeof properties.avaluo_con === 'number'
+                    ? formatUSD(properties.avaluo_tot - properties.avaluo_ter - properties.avaluo_con)
+                    : 'No disponible'}</dd>
+                  <dt>Avalúo total</dt>
+                  <dd><strong>{formatUSD(properties.avaluo_tot)}</strong></dd>
+                  <dt>Avalúo terreno por m² atribuido</dt>
+                  <dd>{typeof properties.avaluo_ter === 'number' &&
+                    typeof displayedLandArea === 'number' && displayedLandArea > 0
+                    ? formatRate(properties.avaluo_ter / displayedLandArea)
+                    : 'No disponible'}</dd>
+                  <dt>Avalúo construcción por m²</dt>
+                  <dd>{typeof properties.avaluo_con === 'number' &&
+                    typeof properties.area_const === 'number' && properties.area_const > 0
+                    ? formatRate(properties.avaluo_con / properties.area_const)
+                    : 'No disponible'}</dd>
+                </dl>
+                <p className="note">
+                  Avalúos catastrales históricos. El valor por m² de terreno
+                  se calcula sobre el área atribuida en propiedad horizontal.
+                </p>
+              </div>
+              {/* OPTIONAL CADASTRAL VALUATION — END */}
+
               {/* OPTIONAL AIVA UI — BEGIN
                   To hide this panel, comment out the JSX block below.
                   Backend AIVA SWITCH separately disables its data lookup.
@@ -432,10 +482,16 @@ export default function App() {
                   </div>
                   <dl>
                     <dt>2024–2025 (USD/m²)</dt>
-                    <dd>{properties._predioai_aiva_2024_usd_m2 ?? '—'}</dd>
+                    <dd>{formatRate(properties._predioai_aiva_2024_usd_m2)}</dd>
                     <dt>2026–2027 (USD/m²)</dt>
-                    <dd>{properties._predioai_aiva_2026_usd_m2 ?? '—'}</dd>
-                    <dt>Variación</dt>
+                    <dd>{formatRate(properties._predioai_aiva_2026_usd_m2)}</dd>
+                    <dt>Diferencia por m² (2026 menos 2024)</dt>
+                    <dd>{typeof properties._predioai_aiva_2026_usd_m2 === 'number' &&
+                      typeof properties._predioai_aiva_2024_usd_m2 === 'number'
+                      ? formatRate(properties._predioai_aiva_2026_usd_m2 -
+                        properties._predioai_aiva_2024_usd_m2)
+                      : 'No disponible'}</dd>
+                    <dt>Variación porcentual</dt>
                     <dd>{properties._predioai_aiva_change_pct != null
                       ? `${properties._predioai_aiva_change_pct}%` : '—'}</dd>
                     <dt>Avalúo catastral total (2024)</dt>
