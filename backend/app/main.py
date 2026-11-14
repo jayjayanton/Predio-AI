@@ -384,7 +384,7 @@ async def analyze_project_documents(
     predio_number: str | None = Form(default=None),
     activities: list[str] = Form(...),
 ):
-    """Extract evidence from PDF/DXF blueprint and optional IRM PDF.
+    """Extract evidence from PDF/DXF blueprint and conditionally required IRM PDF.
 
     This does not calculate dimensions, check regulatory compliance,
     or certify that an intervention is permitted.
@@ -393,8 +393,8 @@ async def analyze_project_documents(
         selected_activities = validate_activities(work_type, activities)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    if work_type == "expansion" and irm is None:
-        raise HTTPException(status_code=422, detail="IRM required for expansion review")
+    if work_type in {"remodel", "structural", "expansion"} and irm is None:
+        raise HTTPException(status_code=422, detail="IRM required for remodel, structural, or expansion review")
     if predio_number and (not predio_number.isdigit() or len(predio_number) > 25):
         raise HTTPException(status_code=422, detail="Invalid predio number")
 
