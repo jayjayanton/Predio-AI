@@ -21,7 +21,7 @@ def pdf(text):
 def test_repair_without_irm():
     response = client.post(
         "/api/documents/analyze",
-        data={"building_type": "apartment", "work_type": "repair", "predio_number": "627739"},
+        data={"building_type": "apartment", "work_type": "repair", "activities": "repair_wall", "predio_number": "627739"},
         files={"blueprint": ("plano.pdf", pdf("PLANO"), "application/pdf")},
     )
     assert response.status_code == 200, response.text
@@ -34,7 +34,7 @@ def test_repair_without_irm():
 def test_expansion_requires_irm():
     response = client.post(
         "/api/documents/analyze",
-        data={"building_type": "house", "work_type": "expansion"},
+        data={"building_type": "house", "work_type": "expansion", "activities": "expand_room"},
         files={"blueprint": ("plano.pdf", pdf("PLANO"), "application/pdf")},
     )
     assert response.status_code == 422
