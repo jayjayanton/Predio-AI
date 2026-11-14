@@ -515,8 +515,18 @@ export default function App() {
                         properties._predioai_aiva_2024_usd_m2)
                       : 'No disponible'}</dd>
                     <dt>Variación porcentual</dt>
-                    <dd>{properties._predioai_aiva_change_pct != null
-                      ? `${properties._predioai_aiva_change_pct}%` : '—'}</dd>
+                    <dd>
+                      {properties._predioai_aiva_change_pct != null &&
+                       Number.isFinite(Number(properties._predioai_aiva_change_pct))
+                        ? <span className={Number(properties._predioai_aiva_change_pct) > 0
+                            ? 'aiva-change-positive'
+                            : Number(properties._predioai_aiva_change_pct) < 0
+                              ? 'aiva-change-negative' : 'aiva-change-neutral'}>
+                            {Number(properties._predioai_aiva_change_pct) > 0 ? '+' : ''}
+                            {properties._predioai_aiva_change_pct}%
+                          </span>
+                        : '—'}
+                    </dd>
                     <dt>Avalúo catastral total (2024)</dt>
                     <dd>{typeof properties.avaluo_tot === 'number'
                       ? `${properties.avaluo_tot.toLocaleString('en-US', {minimumFractionDigits: 2})}`
@@ -606,6 +616,13 @@ export default function App() {
                   Los archivos DWG requieren conversión autorizada a DXF.
                 </p>
 
+                <p className="note">
+                  ¿Necesita obtener su IRM?{' '}
+                  <a href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
+                    target="_blank" rel="noopener noreferrer">
+                    Consultar IRM oficial en el Municipio de Quito ↗
+                  </a>
+                </p>
                 <label htmlFor="irm-upload">
                   <strong>2. IRM oficial (PDF) — {irmRequired ? 'requerido' : 'opcional'}</strong>
                 </label>
@@ -710,41 +727,6 @@ export default function App() {
 
           )}
 
-          {/* DOCUMENTOS MUNICIPALES */}
-
-          <div className="section-heading">
-            DOCUMENTOS MUNICIPALES
-            <span>PRÓXIMAMENTE</span>
-          </div>
-
-          <div className="documents">
-
-            {/* OFFICIAL IRM LINK — BEGIN
-                Direct link only; the municipality handles verification.
-                Comment out this block to remove the link.
-            */}
-            <a
-              href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
-              aria-label="Consultar IRM oficial en el Municipio de Quito (abre otra pestaña)"
-            >
-              <div>
-                ▤
-                <span>Consultar IRM oficial ↗</span>
-                <small>Portal municipal · búsqueda por predio</small>
-              </div>
-            </a>
-            {/* OFFICIAL IRM LINK — END */}
-
-            <div>
-              ▤
-              <span>Planos arquitectónicos aprobados</span>
-              <small>Requiere autorización</small>
-            </div>
-
-          </div>
 
 
         </aside>
