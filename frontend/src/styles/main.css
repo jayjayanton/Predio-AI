@@ -249,3 +249,8 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 
 .irm-open-link { display:block; margin-top:10px; padding:12px 14px; border:1px solid #4cae9f; border-radius:8px; background:#17463f; color:#e9fffb !important; font-weight:750; text-align:center; text-decoration:none; }
 .irm-open-link:hover,.irm-open-link:focus-visible { background:#216155; }
+
+.irm-desktop-guide { margin:16px 0; padding:12px; border:1px solid #355258; border-radius:9px; background:#15363a; }
+.irm-desktop-guide summary { cursor:pointer; font-weight:700; color:#c8f6ed; }
+.irm-desktop-guide p { font-size:12px; line-height:1.65; }
+.irm-desktop-guide a { color:#54e0d0; }
