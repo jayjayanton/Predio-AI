@@ -45,6 +45,15 @@ export default function App() {
     properties?.tipo_propi?.trim().toUpperCase() ===
     'PROPIEDAD HORIZONTAL';
 
+  // Urban/rural classification from municipal 2024 cadastral attribute.
+  // Do not infer a classification when the field is absent or ambiguous.
+  const landClassification = (() => {
+    const raw = String(properties?.zonificaci || '').trim().toUpperCase();
+    if (raw === 'URBANO' || raw === 'URBANA') return 'Urbano';
+    if (raw === 'RURAL') return 'Rural';
+    return 'No determinado';
+  })();
+
   // For PH, show the attributed land area.
   // For ordinary properties, show the full parcel area.
   const displayedLandArea = isPH
@@ -335,7 +344,17 @@ export default function App() {
                   {properties.tipo_propi || '—'}
                 </dd>
 
-                <dt>Zonificación</dt>
+                {/* OPTIONAL URBAN/RURAL CLASSIFICATION — BEGIN
+                    Comment out these two elements to hide the indicator.
+                    Based on the municipal 2024 'zonificaci' field.
+                */}
+                <dt>Clasificación del suelo</dt>
+                <dd>
+                  <strong>{landClassification}</strong>
+                </dd>
+                {/* OPTIONAL URBAN/RURAL CLASSIFICATION — END */}
+
+                <dt>Zonificación (dato municipal)</dt>
                 <dd>
                   {properties.zonificaci || '—'}
                 </dd>
