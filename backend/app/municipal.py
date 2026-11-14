@@ -169,7 +169,15 @@ async def lookup_predio(
             "Unexpected municipal response format"
         )
 
-    # HYBRID SWITCH: comment out the next two lines to use only 2024.\n    if payload.get("features"):\n        payload = await _apply_2026_geometry(identifier, identifier_type, payload)\n\n    return payload
+    # HYBRID SWITCH: comment out the next two executable lines to use only 2024.
+    if payload.get("features"):
+        payload = await _apply_2026_geometry(identifier, identifier_type, payload)
+
+    # AIVA SWITCH: comment out the next two executable lines to disable AIVA.
+    if payload.get("features"):
+        payload = await _apply_aiva_comparison(payload)
+
+    return payload
 
 
 
@@ -251,6 +259,104 @@ async def _apply_2026_geometry(
     return merged
 
 # OPTIONAL 2026 HYBRID EXTENSION — END
+
+
+# ===================================================================
+# OPTIONAL AIVA 2024/2026 COMPARISON — BEGIN
+# AIVA SWITCH in lookup_predio() disables this without touching the
+# existing cadastral lookup. AIVA is a ZONE LAND RATE (USD/m2), not
+# the official total appraisal or a market sale price.
+# ===================================================================
+AIVA_MAPSERVER = (
+    "https://geoquito.quito.gob.ec/server/rest/services/"
+    "web_reference_dmc/valoracion_del_suelo/MapServer"
+)
+
+
+def _representative_point(geometry: dict):
+    """Use a polygon vertex as a query seed; not a parcel-wide overlay."""
+    try:
+        ring = geometry["coordinates"][0]
+        if not ring:
+            return None
+        # Mean of first ring vertices is only a probe and may be outside
+        # concave polygons. AIVA zone-code lookup is preferred when known.
+        return [sum(p[0] for p in ring[:-1]) / (len(ring)-1),
+                sum(p[1] for p in ring[:-1]) / (len(ring)-1)]
+    except (KeyError, IndexError, TypeError, ZeroDivisionError):
+        return None
+
+
+async def _aiva_layer(layer_id: int, point: list, zone_code: str | None):
+    """Query a municipal AIVA zone; failures return None, never break lookup."""
+    params = {
+        "geometry": f"{point[0]},{point[1]}",
+        "geometryType": "esriGeometryPoint",
+        "inSR": 4326,
+        "spatialRel": "esriSpatialRelIntersects",
+        "outFields": "*",
+        "returnGeometry": "false",
+        "f": "json",
+    }
+    try:
+        async with httpx.AsyncClient(
+            timeout=REQUEST_TIMEOUT, follow_redirects=False
+        ) as client:
+            response = await client.get(
+                f"{AIVA_MAPSERVER}/{layer_id}/query", params=params
+            )
+            response.raise_for_status()
+            payload = response.json()
+        features = payload.get("features", [])
+        if len(features) != 1:
+            return None
+        attributes = features[0].get("attributes", {})
+        code = attributes.get("cod_aiva") if layer_id == 0 else attributes.get("CODIGO")
+        if zone_code and str(code) != str(zone_code):
+            return None
+        rate = attributes.get("valor_m2") if layer_id == 0 else attributes.get("VALOR")
+        if not isinstance(rate, (int, float)) or rate < 0:
+            return None
+        return {"rate_usd_m2": rate, "zone_code": str(code)}
+    except (httpx.HTTPError, ValueError, TypeError, KeyError):
+        return None
+
+
+async def _apply_aiva_comparison(payload: dict) -> dict:
+    """Attach optional rates to GeoJSON properties; keep originals intact."""
+    import asyncio
+
+    merged = dict(payload)
+    results = []
+    for feature in payload.get("features", []):
+        item = dict(feature)
+        props = dict(item.get("properties") or {})
+        point = _representative_point(item.get("geometry") or {})
+        if point:
+            code = props.get("codigo_aiv")
+            recent, previous = await asyncio.gather(
+                _aiva_layer(0, point, code),
+                _aiva_layer(1, point, code),
+            )
+            if recent or previous:
+                old_rate = previous["rate_usd_m2"] if previous else None
+                new_rate = recent["rate_usd_m2"] if recent else None
+                props["_predioai_aiva_2024_usd_m2"] = old_rate
+                props["_predioai_aiva_2026_usd_m2"] = new_rate
+                props["_predioai_aiva_zone_code"] = (
+                    recent or previous
+                )["zone_code"]
+                props["_predioai_aiva_change_pct"] = (
+                    round((new_rate / old_rate - 1) * 100, 2)
+                    if old_rate and new_rate is not None else None
+                )
+                props["_predioai_aiva_method"] = "single-point zone probe; verify multi-zone parcels"
+        item["properties"] = props
+        results.append(item)
+    merged["features"] = results
+    return merged
+
+# OPTIONAL AIVA 2024/2026 COMPARISON — END
 
 # ============================================================
 # 5. PROPERTY CLASSIFICATION
