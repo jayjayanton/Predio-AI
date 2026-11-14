@@ -833,14 +833,14 @@ export default function App() {
                       </button>
                     </div>
                     <a className="irm-open-link"
-                      href={`https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf?txtParametro=${encodeURIComponent(String(properties?.n_predio || properties?.predio || ''))}`}
-                      target="_blank" rel="noopener noreferrer">Abrir IRM con predio precargado ↗</a>
+                      href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
+                      target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
                     {irmCopyStatus && <p className="note" role="status">{irmCopyStatus}</p>}
-                    <p className="note">El enlace abre la consulta municipal con el número de predio precargado. Solo deberá completar el código de verificación. Si el portal deja de aceptar el enlace, puede usar «Copiar número».</p>
+                    <p className="note">El portal municipal no permite precargar el número mediante este enlace. Pulse «Copiar número», abra la consulta y péguelo en el campo de búsqueda. El código de verificación se completa manualmente.</p>
                   </div>
                   <h4>¿Cómo obtener y guardar su IRM?</h4>
                   <ol>
-                    <li>Pulse «Abrir IRM con predio precargado» para abrir la consulta con el número seleccionado. Compruebe que el campo corresponda al inmueble.</li>
+                    <li>Pulse «Copiar número» y luego «Abrir consulta IRM oficial». Pegue el número en el campo de búsqueda del portal.</li>
                     <li>Complete manualmente el código de verificación, pulse «Consultar» y abra el informe.</li>
                     <li>Use la opción <strong>Imprimir</strong> del navegador (o del portal, si está disponible).</li>
                     <li>Seleccione <strong>Guardar como PDF</strong> en computadora. En iPhone, use <strong>Compartir → Imprimir</strong>, amplíe la vista previa y elija <strong>Compartir → Guardar en Archivos</strong>. En Android, seleccione <strong>Imprimir → Guardar como PDF</strong>.</li>
