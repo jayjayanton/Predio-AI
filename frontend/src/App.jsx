@@ -43,6 +43,11 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // OPTIONAL APPRAISAL CONTACT DEMO — BEGIN
+  // Set to false or comment out the button/modal blocks to disable.
+  const [showAppraisalContact, setShowAppraisalContact] = useState(false);
+  // OPTIONAL APPRAISAL CONTACT DEMO — END
+
   // PDF inspection
   const [pdf, setPdf] = useState(null);
   const [inspection, setInspection] = useState(null);
@@ -508,6 +513,19 @@ export default function App() {
               )}
               {/* OPTIONAL AIVA UI — END */}
 
+              {/* OPTIONAL PROFESSIONAL APPRAISAL BUTTON — BEGIN
+                  Demo only: no real professional, contact details, or submission.
+                  Comment out this button to remove the entry point.
+              */}
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setShowAppraisalContact(true)}
+              >
+                Solicitar avalúo profesional
+              </button>
+              {/* OPTIONAL PROFESSIONAL APPRAISAL BUTTON — END */}
+
               {/* MULTIPLE MATCHES */}
 
               {data.features.length > 1 && (
@@ -611,6 +629,67 @@ export default function App() {
           )}
 
         </aside>
+
+        {/* OPTIONAL PROFESSIONAL APPRAISAL CONTACT SHEET — BEGIN
+            Placeholder contact only; never imply this person is verified.
+            Comment out this block together with the button to disable.
+        */}
+        {showAppraisalContact && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="appraisal-contact-title"
+            style={{
+              position: 'fixed', inset: 0, zIndex: 2000,
+              background: 'rgba(0,0,0,0.65)',
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'center', padding: 20
+            }}
+            onClick={() => setShowAppraisalContact(false)}
+          >
+            <div
+              className="property"
+              style={{
+                background: '#fff', color: '#17202a',
+                borderRadius: 14, padding: 24,
+                width: '100%', maxWidth: 480,
+                maxHeight: '85vh', overflowY: 'auto'
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="section-heading">
+                CONTACTO PARA AVALÚO <span>DEMOSTRACIÓN</span>
+              </div>
+              <h2 id="appraisal-contact-title">John Doe</h2>
+              <p><strong>Ingeniero civil · Perito avaluador (ejemplo)</strong></p>
+              <p className="note">
+                Perfil ficticio para demostrar el servicio. No es un
+                profesional verificado ni una oferta de avalúo real.
+              </p>
+              <dl>
+                <dt>Especialidad</dt><dd>Avalúos comerciales de terrenos y edificaciones</dd>
+                <dt>Zona de atención</dt><dd>Quito y valles (ejemplo)</dd>
+                <dt>Predio de interés</dt>
+                <dd>{properties?.n_predio || properties?.predio || identifier || '—'}</dd>
+                <dt>Clave catastral</dt>
+                <dd>{properties?.clave_cata || '—'}</dd>
+                <dt>Clasificación del suelo</dt><dd>{landClassification}</dd>
+                <dt>Correo electrónico</dt><dd>Pendiente de asignación</dd>
+                <dt>Teléfono</dt><dd>Pendiente de asignación</dd>
+                <dt>Honorarios</dt><dd>Por cotizar</dd>
+              </dl>
+              <p className="note">
+                Próximamente: solicitud de cotización y contacto con
+                profesionales habilitados. Este prototipo no envía datos.
+              </p>
+              <button type="button" className="secondary"
+                onClick={() => setShowAppraisalContact(false)}>
+                Cerrar ficha
+              </button>
+            </div>
+          </div>
+        )}
+        {/* OPTIONAL PROFESSIONAL APPRAISAL CONTACT SHEET — END */}
 
         {/* MAP */}
 
