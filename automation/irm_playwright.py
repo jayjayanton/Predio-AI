@@ -53,12 +53,20 @@ def main():
 
             report_page.wait_for_load_state("domcontentloaded")
             print(f"Página del informe detectada: {report_page.url}")
-            print("IMPORTANTE: la URL no garantiza que el IRM sea correcto ni completo.")
-            print(f"Verifique visualmente que el informe pertenece al predio {predio}.")
-            confirm = input("¿El informe es correcto y está completo? Escriba SI para guardar PDF: ").strip().upper()
-            if confirm != "SI":
-                print("No se guardó ningún PDF.")
-                return 0
+            # Do not rely on URL alone: wait for meaningful report content.
+            # The official report must show the requested predio before export.
+            try:
+                report_page.get_by_text("DATOS DEL PREDIO", exact=False).first.wait_for(timeout=30000)
+            except PlaywrightTimeoutError:
+                print("No se encontró la sección Datos del Predio; PDF no generado.")
+                return 1
+
+            report_text = report_page.locator("body").inner_text(timeout=15000)
+            if predio not in report_text:
+                print(f"El informe no muestra el predio {predio}; PDF no generado.")
+                return 1
+
+            print(f"Informe del predio {predio} detectado. Guardando PDF automáticamente…")
 
             output_dir = Path(args.output_dir).resolve()
             output_dir.mkdir(parents=True, exist_ok=True)
