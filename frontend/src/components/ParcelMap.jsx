@@ -15,12 +15,17 @@ import L from 'leaflet';
 
 
 const BASEMAPS = {
-  light: {
-    name: 'Light Gray',
-    url:
-      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+  streets: {
+    name: 'Calles',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
     attribution: 'Tiles &copy; Esri and contributors',
-    nativeZoom: 16
+    nativeZoom: 19
+  },
+  osm: {
+    name: 'OpenStreetMap',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+    nativeZoom: 19
   },
 
   topographic: {
@@ -55,7 +60,7 @@ function ZoomToParcel({ data }) {
     if (bounds.isValid()) {
       map.fitBounds(bounds, {
         padding: [48, 48],
-        maxZoom: 20
+        maxZoom: 19
       });
     }
   }, [data, map]);
@@ -66,7 +71,7 @@ function ZoomToParcel({ data }) {
 // Main cadastral map component.
 
 export default function ParcelMap({ data }) {
-  const [basemap, setBasemap] = useState('light');
+  const [basemap, setBasemap] = useState('streets');
 
   const selectedBasemap = BASEMAPS[basemap];
 
@@ -82,13 +87,15 @@ export default function ParcelMap({ data }) {
       >
         <button
           type="button"
-          className={basemap === 'light' ? 'active' : ''}
-          aria-pressed={basemap === 'light'}
-          onClick={() => setBasemap('light')}
+          className={basemap === 'streets' ? 'active' : ''}
+          aria-pressed={basemap === 'streets'}
+          onClick={() => setBasemap('streets')}
         >
-          Gris claro
+          Calles
         </button>
 
+        <button type="button" className={basemap === 'osm' ? 'active' : ''}
+          aria-pressed={basemap === 'osm'} onClick={() => setBasemap('osm')}>OSM</button>
         <button
           type="button"
           className={basemap === 'topographic' ? 'active' : ''}
@@ -114,9 +121,9 @@ export default function ParcelMap({ data }) {
         center={[-0.1807, -78.4678]}
         zoom={11}
         minZoom={2}
-        maxZoom={22}
-        zoomSnap={0.5}
-        zoomDelta={0.5}
+        maxZoom={19}
+        zoomSnap={1}
+        zoomDelta={1}
         scrollWheelZoom={true}
         zoomControl={true}
         className="map"
@@ -129,7 +136,7 @@ export default function ParcelMap({ data }) {
           url={selectedBasemap.url}
           attribution={selectedBasemap.attribution}
           maxNativeZoom={selectedBasemap.nativeZoom}
-          maxZoom={22}
+          maxZoom={19}
         />
 
         {/* Municipal cadastral polygons */}
