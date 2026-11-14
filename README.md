@@ -63,6 +63,12 @@ Potential applications include painting and flooring estimates, renovation plann
 
 A custom-trained computer vision model is **not** part of the current plan. The first goal is to extract and calculate from documented measurements, using OCR or more advanced techniques only when evidence shows they are needed.
 
+## Consulta IRM asistida (prototipo local)
+
+Se añadió un módulo independiente de **Python + Playwright** en [`automation/irm_playwright.py`](automation/irm_playwright.py). Desde PowerShell se ejecuta con el **número real de predio**: `py automation/irm_playwright.py NUMERO_PREDIO`. El navegador se abre en el equipo del usuario, rellena el campo de predio, espera el CAPTCHA manual y detecta la página `irm.jsf`. Tras verificación humana, puede imprimir el informe como PDF local.
+
+**No está integrado automáticamente al botón del sitio web**, no corre en Render y la impresión del informe real aún debe validarse. Consulte las [instrucciones completas de instalación y uso](automation/README.md).
+
 ## Run locally
 
 **Requirements:** Python 3.11+ and Node.js 20+.
