@@ -69,8 +69,28 @@ export default function App() {
   // still require municipal/professional review depending on its scope.
   const irmRequired = ['remodel', 'structural', 'expansion'].includes(workType);
   // OPTIONAL WORKFLOW SELECTORS — END
+  const [irmCopyStatus, setIrmCopyStatus] = useState('');
   const [inspection, setInspection] = useState(null);
   const [inspecting, setInspecting] = useState(false);
+
+  // Copy the known predio number and open the official portal on a user click.
+  // Browsers cannot prefill a separate site's form; CAPTCHA stays manual.
+  async function openIrmPortal() {
+    const number = String(properties?.n_predio || properties?.predio || '').trim();
+    const portal = 'https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf';
+    // Open synchronously on click to avoid popup blockers while copying.
+    window.open(portal, '_blank', 'noopener,noreferrer');
+    if (!number) {
+      setIrmCopyStatus('No se encontró el número de predio. Consúltelo en la ficha catastral.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(number);
+      setIrmCopyStatus(`Número ${number} copiado. Péguelo en «Número de Predio» y complete el código de verificación.`);
+    } catch {
+      setIrmCopyStatus(`Copie el número ${number} del campo inferior y péguelo en el portal municipal.`);
+    }
+  }
 
   // Municipal property attributes
   const properties = data?.features?.[0]?.properties;
@@ -803,9 +823,22 @@ export default function App() {
                     <li><strong>Planos arquitectónicos</strong> en PDF o DXF — necesarios para analizar la geometría disponible.</li>
                     <li><strong>Informe de Regulación Metropolitana (IRM)</strong> en PDF — requerido por el flujo de análisis preliminar de PredioAI para remodelaciones, modificaciones estructurales y ampliaciones.</li>
                   </ol>
+                  <div className="irm-quick-access">
+                    <span className="irm-quick-label">Número de predio seleccionado</span>
+                    <div className="irm-number-row">
+                      <input aria-label="Número de predio para consulta IRM" readOnly
+                        value={String(properties?.n_predio || properties?.predio || '')}
+                        onFocus={event => event.target.select()} />
+                      <button type="button" className="secondary" onClick={openIrmPortal}>
+                        Abrir consulta IRM ↗
+                      </button>
+                    </div>
+                    {irmCopyStatus && <p className="note" role="status">{irmCopyStatus}</p>}
+                    <p className="note">La consulta se realiza en el sitio oficial. Pegue el número de predio y complete manualmente el código de verificación. El formulario no se llena automáticamente.</p>
+                  </div>
                   <h4>¿Cómo obtener y guardar su IRM?</h4>
                   <ol>
-                    <li>Abra el <a href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf" target="_blank" rel="noopener noreferrer">portal oficial de consulta del IRM del Municipio de Quito ↗</a>.</li>
+                    <li>Pulse «Abrir consulta IRM» para abrir el portal municipal. PredioAI intentará copiar el número de predio para que solo tenga que pegarlo en el campo «Número de Predio».</li>
                     <li>Busque el inmueble con su número de predio o clave catastral y abra el informe.</li>
                     <li>Use la opción <strong>Imprimir</strong> del navegador (o del portal, si está disponible).</li>
                     <li>Seleccione <strong>Guardar como PDF</strong> en computadora. En iPhone, use <strong>Compartir → Imprimir</strong>, amplíe la vista previa y elija <strong>Compartir → Guardar en Archivos</strong>. En Android, seleccione <strong>Imprimir → Guardar como PDF</strong>.</li>
