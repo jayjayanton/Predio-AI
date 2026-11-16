@@ -131,6 +131,12 @@ export default function App() {
     }] : [])
   ].sort((a,b) => (a.imageOrder ?? (a.imagePage || 9999)*1000000) -
                    (b.imageOrder ?? (b.imagePage || 9999)*1000000));
+  const irmPugsAssignments = irmExtraction?.pugsAssignments || [];
+  const irmHasLandUse = irmPugsAssignments.length > 0;
+  const irmHasSetbacks = ['retiro_frontal','retiro_lateral','retiro_posterior']
+    .every(key => irmExtraction?.candidate_irm_fields?.[key]?.raw);
+  const irmHasFrontage = Boolean(irmExtraction?.candidate_irm_fields?.frente_minimo?.raw);
+  const irmHasMultipleZoning = irmPugsAssignments.length > 1;
   const irmRestrictions = irmExtraction?.evidence || [];
   const ravineRestriction = irmRestrictions.some(item => item.key === 'quebrada');
   const forestRestriction = irmRestrictions.some(item => item.key === 'forestal');
@@ -1119,6 +1125,28 @@ export default function App() {
                   <p className="note">Extracción automática pendiente de revisión con el PDF municipal.</p>
                 </div> : null;
               })()}
+              {irmHasLandUse && <div className="zoning-classification">
+                <h3>Usos de suelo según el IRM</h3>
+                {irmPugsAssignments.map((assignment,index) => {
+                  const matching = pugsZones.filter(zone => {
+                    const label=[zone.tipologia,zone.uso_prin,zone.leyenda,zone.tipo_des].filter(Boolean).join(' ').toUpperCase();
+                    return new RegExp('(^|[^A-Z0-9])'+assignment.code.replace(/[.*+?^${}()|[\]\\]/g,'\\              {zoningClassifications.length > 0 && <div className="zoning-classification">')+'([^A-Z0-9]|$)').test(label);
+                  });
+                  return <div key={assignment.code+'-'+index} className="irm-evidence-item">
+                    <p><strong>{assignment.code}{assignment.description ? ' — '+assignment.description : ''}</strong>{assignment.isProtection ? ' · Protección ecológica' : ''}</p>
+                    <p className="note">{[
+                      assignment.classification ? 'Clasificación '+assignment.classification : null,
+                      assignment.generalUse ? 'Uso general '+assignment.generalUse : null,
+                      assignment.pit ? 'PIT '+assignment.pit : null,
+                      assignment.buildability ? 'Edificabilidad '+assignment.buildability : null
+                    ].filter(Boolean).join(' · ')}</p>
+                    {matching.some(zone => zone._overlap_m2 != null) && <p className="note">
+                      Intersección GIS del lote matriz: {matching.filter(zone => zone._overlap_m2 != null).map(zone => formatArea(Number(zone._overlap_m2)) + (zone._overlap_percent != null ? ' ('+zone._overlap_percent+'%)' : '')).join(' + ')}.
+                    </p>}
+                  </div>;
+                })}
+                <p className="note">El IRM documenta las asignaciones, pero no indica por sí solo qué superficie corresponde a cada una. Las superficies GIS son cruces provisionales sobre el polígono catastral; no se atribuyen a la unidad PH.</p>
+              </div>}
               {zoningClassifications.length > 0 && <div className="zoning-classification">
                 <strong>{singleZoningClassification ? 'Clasificación PUGS:' : 'Clasificaciones PUGS:'}</strong>
                 {zoningClassifications.map((zone, i) => <p key={zone.OBJECTID || i}>
@@ -1215,9 +1243,23 @@ export default function App() {
               {!isCadastralPH && Number(irmValues.minLot) > 0 && <p>En un lote mínimo de {irmValues.minLot} m², el COS PB correspondería a {formatArea(Number(irmValues.minLot) * Number(irmValues.cosPb) / 100)} de ocupación en planta baja y el COS total a {formatArea(Number(irmValues.minLot) * Number(irmValues.cosTotal) / 100)} de superficie computable, sujetos a retiros y otras restricciones.</p>}
               {Number(irmValues.minFront) > 0 && <p>Frente mínimo indicado: {irmValues.minFront} m. Su cumplimiento geométrico aún no se comprueba.</p>}
               {irmValues.dwellingCode && <p>Designación detectada: {irmValues.dwellingCode}. Debe confirmarse su significado y aplicación en la normativa vigente.</p>}
-              <p className="note">{developmentType === 'apartments' ? 'Para un edificio multifamiliar debe verificarse expresamente la compatibilidad de uso, densidad y normativa aplicable; los pisos y el COS no bastan.' : developmentType === 'single' ? 'Para vivienda individual deben verificarse retiros, uso permitido y condiciones del lote.' : 'Para múltiples viviendas o subdivisión se requieren además frente, lote mínimo, accesos, cesiones y permisos correspondientes.'}</p>
-              <p className="note">Compatibilidad de uso residencial: pendiente de validación. No es posible afirmar que se permitan o prohíban apartamentos únicamente con COS y pisos.</p>
-              <p className="note">Estos límites no establecen cuántas viviendas pueden aprobarse ni su tamaño individual. Faltan uso de suelo, densidad, retiros, frente, afectaciones, acceso y otras condiciones.</p>
+              <p className="note"><strong>Información comprobable del IRM:</strong> {[
+                irmHasLandUse ? 'uso de suelo ('+irmPugsAssignments.map(item=>item.code).join(', ')+')' : null,
+                irmHasSetbacks ? 'retiros frontal, lateral y posterior' : null,
+                irmHasFrontage ? 'frente mínimo' : null,
+                irmValues.cosPb !== '' ? 'COS PB y COS total' : null,
+                irmValues.floors ? 'número de pisos' : null
+              ].filter(Boolean).join(' · ') || 'No se identificaron parámetros suficientes'}.</p>
+              {irmHasMultipleZoning && <p className="note">El IRM contiene varias asignaciones de suelo. La clasificación residencial no se extiende automáticamente a la zona de protección ecológica; se requiere ubicar la intervención dentro del lote.</p>}
+              <p className="note"><strong>Validaciones pendientes:</strong> {[
+                !irmHasLandUse ? 'extraer uso de suelo del IRM' : null,
+                !irmHasSetbacks ? 'completar retiros documentados' : null,
+                !irmHasFrontage ? 'verificar frente mínimo' : null,
+                'compatibilidad específica del proyecto y densidad permitida',
+                'cumplimiento geométrico de retiros, accesos y afectaciones',
+                isCadastralPH ? 'derechos y autorizaciones de propiedad horizontal' : null,
+                'autorización municipal aplicable'
+              ].filter(Boolean).join('; ')}. La información del IRM no equivale a una aprobación automática de viviendas o apartamentos.</p>
             </div> : <p className="note">No hay suficientes parámetros verificables para calcular. En propiedad horizontal se requiere confirmar el alcance del IRM: el COS del lote matriz no debe aplicarse automáticamente a la superficie atribuida de una unidad.</p>}
 
 
