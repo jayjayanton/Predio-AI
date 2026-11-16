@@ -31,7 +31,7 @@ async def lookup_pugs(identifier, identifier_type):
     }
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
-            response = await client.get(LAYER + "/query", params=params)
+            response = await client.post(LAYER + "/query", data=params)
             response.raise_for_status()
             payload = response.json()
     except (httpx.HTTPError, ValueError) as exc:
@@ -42,7 +42,18 @@ async def lookup_pugs(identifier, identifier_type):
     if payload.get("exceededTransferLimit") or len(rows) >= 20:
         return {"status": "ambiguous", "reason": "Zone result limit reached", "zones": [], "source": LAYER}
     zones = [row.get("attributes") or {} for row in rows]
+    cadastral_properties = features[0].get("properties") or {}
+    is_ph = str(cadastral_properties.get("tipo_propi") or "").strip().upper() == "PROPIEDAD HORIZONTAL"
     return {
+        "predio": cadastral_properties.get("n_predio"),
+        "cadastral": {
+            "property_regime": cadastral_properties.get("tipo_propi"),
+            "individual_area_m2": cadastral_properties.get("area_ter_1") if is_ph else cadastral_properties.get("area_terre"),
+            "parent_lot_area_m2": cadastral_properties.get("area_terre") if is_ph else None,
+            "is_horizontal_property": is_ph,
+            "building_use": cadastral_properties.get("uso_constr"),
+        },
+        "scope_warning": ("PUGS intersection uses parent-lot geometry; it cannot assign independent building rights to a PH unit" if is_ph else None),
         "status": "single_zone" if len(zones) == 1 else "multiple_zones" if zones else "no_intersection",
         "zones": zones, "source": LAYER,
         "spatial_method": "full parcel polygon intersects; overlap fractions not calculated",
