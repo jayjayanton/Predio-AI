@@ -992,12 +992,12 @@ export default function App() {
             {irmExtraction?.evidence?.length > 0 && <div className="irm-evidence">
               <h3>Mapas y afectaciones relevantes del IRM</h3>
               <p className="note">Imágenes del PDF aportado; se muestran únicamente cuando se detectan referencias textuales a afectaciones o protección. No sustituyen un levantamiento georreferenciado.</p>
-              {irmExtraction.evidence.map(item => <details key={item.key} className="irm-document-details">
-                <summary>{item.title} · texto en página(s) {item.sourcePages.join(', ')}</summary>
+              {irmExtraction.evidence.map(item => <div key={item.key} className="irm-evidence-item">
+                <h4>{item.title} · texto en página(s) {item.sourcePages.join(', ')}</h4>
                 <p className="note">{item.finding}</p>
                 {item.image && <figure><img src={item.image} alt={`Mapa de referencia del IRM, página ${item.imagePage}: ${item.title}`} loading="lazy" style={{width:'100%',maxWidth:'520px',height:'auto'}} /><figcaption>Mapa ilustrativo, página {item.imagePage} del PDF original.</figcaption></figure>}
                 <p className="note">{item.note}</p>
-              </details>)}
+              </div>)}
             </div>}
               <div className="potential-results">
                 <h3>Potencial constructivo estimado</h3>
