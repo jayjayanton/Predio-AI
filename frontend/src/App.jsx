@@ -55,8 +55,6 @@ export default function App() {
   const [pugsError, setPugsError] = useState('');
   const [irmValues, setIrmValues] = useState({ area: '', cosPb: '', cosTotal: '', floors: '', minLot: '', minFront: '', dwellingCode: '' });
   const [developerAreaSource, setDeveloperAreaSource] = useState('');
-  const cadastralArea = Number(data?.features?.[0]?.properties?.area_terre);
-  const cadastralAreaValue = Number.isFinite(cadastralArea) && cadastralArea > 0 ? String(cadastralArea) : '';
   const showSubdivision = ['multiple', 'subdivision'].includes(developmentType);
   const showHousingCode = developmentType !== 'subdivision';
   const capacityReady = Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
@@ -67,6 +65,8 @@ export default function App() {
 
   // Property data
   const [data, setData] = useState(null);
+  const cadastralArea = Number(data?.features?.[0]?.properties?.area_terre);
+  const cadastralAreaValue = Number.isFinite(cadastralArea) && cadastralArea > 0 ? String(cadastralArea) : '';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
