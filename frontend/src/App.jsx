@@ -902,6 +902,16 @@ export default function App() {
               {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
             </div>}
           </section>
+          <section className="property">
+            <h2>Verificación normativa PUGS 2024</h2>
+            <p>Consulte la zonificación vigente del predio en el geovisor oficial de Quito. El PUGS permite contrastar el uso del suelo, la edificabilidad básica y máxima, el lote mínimo y otras condiciones con el IRM.</p>
+            <p>Clasificación catastral: <strong>{landClassification}</strong>. Este dato no sustituye la zonificación PUGS.</p>
+            <p><a href="https://habitat.quito.gob.ec/geovisore" target="_blank" rel="noopener noreferrer">Abrir geovisor PUGS oficial ↗</a></p>
+            <p><a href="https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmot/plan_de_uso_y_gestion_del_suelo_2024/MapServer" target="_blank" rel="noopener noreferrer">Servicio cartográfico municipal PUGS 2024 ↗</a></p>
+            <p><a href="https://habitat.quito.gob.ec/wp-content/uploads/2025/07/ORD-003-2024-PMDOT-PUGS.pdf" target="_blank" rel="noopener noreferrer">Ordenanza PMDOT-PUGS 003-2024 ↗</a></p>
+            <p className="note">Cruce espacial automático con las capas PUGS: pendiente de integración y validación. No se asigna zonificación ni permiso constructivo sin consultar la capa correspondiente.</p>
+            {irmExtraction && <p className="note">Compare los parámetros extraídos del IRM con el PUGS vigente. Si existen discrepancias, solicite aclaración municipal antes de evaluar el proyecto.</p>}
+          </section>
           {irmExtraction && <section className="property">
             <h2>Evaluación del potencial constructivo</h2>
             <p>Seleccione un objetivo residencial e introduzca los parámetros confirmados del IRM para explorar la capacidad constructiva teórica. La puntuación de aptitud comparativa queda para una fase posterior.</p>
