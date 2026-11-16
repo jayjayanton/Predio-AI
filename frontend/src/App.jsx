@@ -57,7 +57,7 @@ export default function App() {
   const [developerAreaSource, setDeveloperAreaSource] = useState('');
   const showSubdivision = ['multiple', 'subdivision'].includes(developmentType);
   const showHousingCode = developmentType !== 'subdivision';
-  const capacityReady = Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
+  const capacityReady = (!isCadastralPH || Boolean(irmExtraction?.candidate_irm_fields?.area_terreno)) && Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
   // Search state
   const [identifier, setIdentifier] = useState('');
   const [identifierType, setIdentifierType] =
@@ -141,7 +141,7 @@ export default function App() {
       setIrmValues({ area: parsed('area_terreno') || cadastralAreaValue, cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos'), minLot: parsed('lote_minimo'), minFront: parsed('frente_minimo'), dwellingCode: parsed('vivienda_tipo') });
       try {
         const predio = String(properties?.n_predio || '').trim();
-        if (predio) sessionStorage.setItem('predioai-irm-' + predio, JSON.stringify({
+        if (predio) sessionStorage.setItem('predioai-irm-v2-' + predio, JSON.stringify({
           values: { area: parsed('area_terreno') || cadastralAreaValue, cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos'), minLot: parsed('lote_minimo'), minFront: parsed('frente_minimo'), dwellingCode: parsed('vivienda_tipo') },
           extraction: body
         }));
@@ -165,7 +165,7 @@ export default function App() {
     setDeveloperAreaSource(cadastralAreaValue ? `Fuente: Catastro municipal (${cadastralAreaLabel}); pendiente de contraste con el IRM.` : 'Área específica no disponible; no se utiliza el lote matriz.');
     if (!predio) return;
     try {
-      const saved = JSON.parse(sessionStorage.getItem('predioai-irm-' + predio) || 'null');
+      const saved = JSON.parse(sessionStorage.getItem('predioai-irm-v2-' + predio) || 'null');
       if (saved?.values && saved?.extraction) {
         setIrmValues(saved.values);
         setIrmExtraction(saved.extraction);
@@ -991,7 +991,7 @@ export default function App() {
               <p className="note">{developmentType === 'apartments' ? 'Para un edificio multifamiliar debe verificarse expresamente la compatibilidad de uso, densidad y normativa aplicable; los pisos y el COS no bastan.' : developmentType === 'single' ? 'Para vivienda individual deben verificarse retiros, uso permitido y condiciones del lote.' : 'Para múltiples viviendas o subdivisión se requieren además frente, lote mínimo, accesos, cesiones y permisos correspondientes.'}</p>
               <p className="note">Compatibilidad de uso residencial: pendiente de validación. No es posible afirmar que se permitan o prohíban apartamentos únicamente con COS y pisos.</p>
               <p className="note">Estos límites no establecen cuántas viviendas pueden aprobarse ni su tamaño individual. Faltan uso de suelo, densidad, retiros, frente, afectaciones, acceso y otras condiciones.</p>
-            </div> : <p className="note">No hay suficientes parámetros verificables para calcular. Consulte el IRM oficial; no se admiten cifras inventadas ni editadas por el usuario.</p>}
+            </div> : <p className="note">No hay suficientes parámetros verificables para calcular. En propiedad horizontal se requiere confirmar el alcance del IRM: el COS del lote matriz no debe aplicarse automáticamente a la superficie atribuida de una unidad.</p>}
             <p className="note">El IRM no autoriza construir. El resultado es orientativo y no sustituye la revisión normativa ni profesional.</p>
           </section>}
           <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
