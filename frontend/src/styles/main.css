@@ -333,3 +333,12 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
   .map-bottom { bottom:18px; left:8px; right:8px; gap:5px; }
   .map-bottom span { padding:6px 8px; font-size:9px; }
 }
+
+/* Preliminary new-construction criteria, separate from official predio results. */
+.development-search-criteria { max-width:1280px; margin:14px auto 20px; padding:20px 24px; border:1px solid #355258; border-radius:12px; background:#10262b; color:#eaf2f1; }
+.development-search-criteria h2 { font-size:18px; margin:0 0 10px; }
+.development-search-criteria .note { font-size:12px; line-height:1.5; color:#c3d7d7; }
+.development-filter-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin:16px 0; }
+.development-filter-grid label { display:flex; flex-direction:column; gap:7px; font-size:12px; font-weight:650; min-width:0; }
+.development-filter-grid select,.development-filter-grid input { width:100%; min-width:0; box-sizing:border-box; border-radius:7px; border:1px solid #54767b; background:#18373e; color:#f2faf9; padding:11px; font-size:14px; min-height:44px; }
+@media(max-width:600px) { .development-search-criteria { margin:12px 10px; padding:14px; } .development-filter-grid { grid-template-columns:1fr; } }
