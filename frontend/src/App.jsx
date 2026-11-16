@@ -919,12 +919,6 @@ export default function App() {
               <dt>Año de construcción</dt><dd>{constructionYear ?? 'No disponible en la fuente verificada'}</dd>
             </dl>
             {existingConstruction && <p className="note">Existe superficie de construcción registrada en el catastro. Esto no confirma la fecha de construcción ni la existencia de una licencia municipal.</p>}
-            {smallerThanMinimum && <div className="inspection" role="status">
-              <strong>Advertencia: predio menor al lote mínimo indicado</strong>
-              <p>El área individual registrada ({formatArea(relevantArea)}) es inferior al lote mínimo extraído del IRM ({formatArea(minimumLot)}). Esto no demuestra que la edificación existente sea ilegal.</p>
-              {existingConstruction && <p>El catastro registra construcción existente, pero las fechas de escritura e inscripción no confirman el año de construcción. La edificación podría haber sido aprobada bajo normas anteriores o pertenecer a un régimen de propiedad horizontal.</p>}
-              <p>Antes de evaluar ampliaciones, subdivisiones o nuevas construcciones, revise el año de aprobación, la licencia y la declaratoria de propiedad horizontal cuando corresponda.</p>
-            </div>}
             <p className="note">{isPH ? 'El predio corresponde a propiedad horizontal: el área del lote matriz no representa un terreno independiente disponible para subdivisión.' : 'El registro catastral no confirma por sí solo si el lote es independiente, está vacío o admite subdivisión.'}</p>
             <p className="note">Estos datos describen el predio existente. La posibilidad de construir viviendas, edificios o fraccionar el terreno depende del IRM y de la normativa aplicable.</p>
           </section>
@@ -955,8 +949,9 @@ export default function App() {
               {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
             </details>}
           </section>
-          <details className="property irm-document-details">
-            <summary><strong>Verificación normativa PUGS 2024</strong> · Consultar fuentes y zonificación</summary>
+          <section className="property">
+            <details className="irm-document-details pugs-disclosure">
+              <summary><strong>Verificación normativa PUGS 2024</strong> <span aria-hidden="true">▾</span></summary>
             <p>Consulte la zonificación vigente del predio en el geovisor oficial de Quito. El PUGS permite contrastar el uso del suelo, la edificabilidad básica y máxima, el lote mínimo y otras condiciones con el IRM.</p>
             <p>Clasificación catastral: <strong>{landClassification}</strong>. Este dato no sustituye la zonificación PUGS.</p>
             <p><a href="https://habitat.quito.gob.ec/geovisore" target="_blank" rel="noopener noreferrer">Abrir geovisor PUGS oficial ↗</a></p>
@@ -977,7 +972,8 @@ export default function App() {
             </div>}
             <p className="note">Los resultados PUGS son datos de referencia. La compatibilidad del proyecto y cualquier discrepancia con el IRM requieren validación municipal.</p>
             {irmExtraction && <p className="note">Compare los parámetros extraídos del IRM con el PUGS vigente. Si existen discrepancias, solicite aclaración municipal antes de evaluar el proyecto.</p>}
-          </details>
+            </details>
+          </section>
           {irmExtraction && <section className="property">
             <h2>Resumen de parámetros del terreno</h2>
             <div className="capacity-inputs">
