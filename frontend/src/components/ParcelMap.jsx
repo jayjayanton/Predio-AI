@@ -5,8 +5,7 @@ import {
   TileLayer,
   GeoJSON,
   ScaleControl,
-  useMap,
-  useMapEvents
+  useMap
 } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -107,6 +106,7 @@ function VisibleParcels({enabled}) {
           const response=await fetch(PARCEL_SERVICE+'?'+params,{signal:controller.signal});
           if(!response.ok)throw new Error('Servicio catastral no disponible');
           const payload=await response.json();
+          if(payload.error)throw new Error(payload.error.message || 'Error de ArcGIS');
           if(payload.type!=='FeatureCollection'||!Array.isArray(payload.features))throw new Error('Respuesta catastral inválida');
           if(request!==seq)return;
           if(payload.features.length>MAX_VISIBLE_PARCELS||payload.exceededTransferLimit){
@@ -131,7 +131,7 @@ function VisibleParcels({enabled}) {
     {features?.features?.length>0&&<GeoJSON key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
       style={{color:'#e9ab3e',weight:1.3,fillOpacity:0.03}}
       onEachFeature={(feature,layer)=>layer.bindPopup('Predio: '+String(feature.properties?.predio||'No identificado'))}/>}
-    {status&&<div className="leaflet-bottom leaflet-right" style={{pointerEvents:'none'}}><div className="leaflet-control" style={{background:'white',padding:'5px 8px',margin:'0 10px 28px 0',fontSize:11,maxWidth:230}}>{status}</div></div>}
+    {status&&<div className="leaflet-top leaflet-right" style={{pointerEvents:'none',marginTop:62}}><div className="leaflet-control" style={{background:'rgba(255,255,255,.94)',color:'#263238',padding:'5px 8px',margin:'0 8px',fontSize:11,maxWidth:180,borderRadius:6}}>{status}</div></div>}
   </>;
 }
 
@@ -149,6 +149,7 @@ export default function ParcelMap({ data }) {
       {/* Basemap selector */}
 
       <div
+        style={{display:'flex',flexWrap:'wrap',gap:4,maxWidth:'100%',boxSizing:'border-box'}}
         className="basemap-switcher"
         role="group"
         aria-label="Seleccionar mapa base"
@@ -190,8 +191,8 @@ export default function ParcelMap({ data }) {
       {/* Leaflet map */}
 
       <MapContainer
-        center={[-0.1807, -78.4678]}
-        zoom={11}
+        center={[-0.200, -78.430]}
+        zoom={16}
         minZoom={2}
         maxZoom={19}
         zoomSnap={1}
