@@ -270,3 +270,8 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .capacity-inputs label { display:flex; flex-direction:column; gap:6px; }
 .capacity-inputs input { width:100%; padding:10px; border:1px solid #aab7c2; border-radius:7px; }
 .capacity-results { border:1px solid #b5c7bb; border-radius:10px; padding:16px; margin:16px 0; }
+
+.irm-document-details { margin-top: 16px; }
+.irm-document-details > summary { cursor: pointer; padding: 12px 4px; font-weight: 500; }
+.irm-document-details > summary:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.irm-document-details[open] > summary { margin-bottom: 12px; }
