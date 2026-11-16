@@ -189,3 +189,8 @@ The frontend includes a **Fuentes de datos y metodología** section identifying 
 ### Individual PH predio vs parent lot (corrected)
 
 For `tipo_propi = PROPIEDAD HORIZONTAL`, the new-construction view uses the **attributed individual land area** (`area_ter_1`) as its cadastral reference, **not** the shared parent-lot area (`area_terre`). The parent lot is displayed separately for context and is not used to calculate theoretical subdivision counts. All IRM-derived regulatory values are now read-only; no user-entered figures can overwrite the extraction. Capacity calculations for PH properties are withheld unless an area was explicitly detected in the uploaded IRM, and even then remain preliminary pending confirmation that the regulatory scope is the individual property. Older browser-session extraction values are invalidated.
+
+
+### Existing buildings and minimum-lot conflicts
+
+The new-construction cadastral summary flags a selected predio whose individual registered area is smaller than an extracted IRM minimum lot, while distinguishing any existing registered construction (`area_const > 0`) from legal approval. A smaller existing PH unit is **not automatically illegal** or unbuildable: the minimum lot may apply to new subdivisions, the building may predate current rules, or the unit may be within a shared parent lot. Construction and approval dates are **not inferred** from the cadastral layer year or geometry; the UI explicitly shows construction year unavailable until a verified source is integrated. A future data-source validation task is to identify a trustworthy construction-year or permit record and preserve its provenance.
