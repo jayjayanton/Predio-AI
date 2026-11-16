@@ -169,3 +169,8 @@ A homepage screenshot will be added here when available. Save it at **`docs/imag
 ---
 
 **PredioAI** · Quito, Ecuador · Research and development prototype
+
+
+### PUGS 2024 regulatory source (new construction)
+
+The new-construction workflow links to Quito's official PUGS 2024 geovisor, ArcGIS MapServer, and Ordinance 003-2024. These are authoritative **reference sources**, not an automated parcel-level zoning lookup yet. The cadastral `zonificaci` attribute is **not** a substitute for the PUGS planning designation. A future spatial overlay must verify service layer IDs, layer currency, intersection of the full parcel geometry (not just a centroid), multiple-zone overlaps, and basic versus maximum buildability before using PUGS values for eligibility decisions. IRM discrepancies must be flagged, never silently overwritten.
