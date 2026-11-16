@@ -241,6 +241,22 @@ export async function inspectIrmInBrowser(file) {
     }
     Object.assign(fields, extractPugsSection(pageTexts));
     const pugsAssignments=extractPugsAssignments(pageTexts);
+    // Fallback for PDFs whose text layer splits PUGS table cells differently.
+    // A single-zone IRM must still expose its specific use, not disappear.
+    if (!pugsAssignments.length) {
+      const pugsText=pageTexts.slice(Math.max(0,pageTexts.findIndex(page =>
+        /APROVECHAMIENTO\\s+URBAN[IÍ]STICO\\s*\\(\\s*PUGS\\s*\\)/i.test(page)))).join(' ');
+      const specific=pugsText.match(/uso\\s+(?:de\\s+)?suelo\\s+espec[ií]fico\\s*:?\\s*\\(\\s*([A-Z][A-Z0-9-]*)\\s*\\)\\s*([^:]{2,70}?)(?=\\s+(?:tratamiento|PIT|EDIFICABILIDAD|COMPONENTE)\\b|$)/i);
+      if (specific) {
+        const general=pugsText.match(/uso\\s+(?:de\\s+)?suelo\\s+general\\s*:?\\s*\\(\\s*([A-Z]+)\\s*\\)\\s*([^:]{2,70}?)(?=\\s+uso\\s+(?:de\\s+)?suelo\\s+espec[ií]fico\\b|$)/i);
+        pugsAssignments.push({index:1,code:specific[1],description:specific[2].trim(),
+          generalUse:general?.[1] || null,generalDescription:general?.[2]?.trim() || null,
+          classification:fields.clasificacion_suelo?.raw || null,
+          pit:fields.pit?.raw || null,
+          buildability:fields.codigo_municipal_edificabilidad?.raw || null,
+          isProtection:specific[1]==='PE'});
+      }
+    }
     // Restriction evidence is text-based; maps are illustrative, not georeferenced proof.
     const evidence=[];
     for (const type of evidenceTypes) {
