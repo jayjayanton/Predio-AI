@@ -184,3 +184,8 @@ The new-construction workflow links to Quito's official PUGS 2024 geovisor, ArcG
 ### In-app data provenance
 
 The frontend includes a **Fuentes de datos y metodología** section identifying the cadastral 2024 attribute service, conditional 2026 geometry source, municipal AIVA valuation layers, user-uploaded official IRM, PUGS 2024 geovisor and zoning layer 60, and PredioAI's own theoretical calculations. Source links and limitations are shown together; parcel geometry is not a building footprint, AIVA is not a market appraisal, and preliminary IRM/PUGS results are not permits.
+
+
+### Individual PH predio vs parent lot (corrected)
+
+For `tipo_propi = PROPIEDAD HORIZONTAL`, the new-construction view uses the **attributed individual land area** (`area_ter_1`) as its cadastral reference, **not** the shared parent-lot area (`area_terre`). The parent lot is displayed separately for context and is not used to calculate theoretical subdivision counts. All IRM-derived regulatory values are now read-only; no user-entered figures can overwrite the extraction. Capacity calculations for PH properties are withheld unless an area was explicitly detected in the uploaded IRM, and even then remain preliminary pending confirmation that the regulatory scope is the individual property. Older browser-session extraction values are invalidated.
