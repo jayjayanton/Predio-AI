@@ -1107,7 +1107,7 @@ export default function App() {
                   <p className="note">Extracción automática pendiente de revisión con el PDF municipal.</p>
                 </div> : null;
               })()}
-              {(!irmExtraction?.candidate_irm_fields?.clasificacion_suelo || zoningClassifications.length > 1) && zoningClassifications.length > 0 && <div className="zoning-classification">
+              {zoningClassifications.length > 0 && <div className="zoning-classification">
                 <strong>{singleZoningClassification ? 'Clasificación PUGS:' : 'Clasificaciones PUGS:'}</strong>
                 {zoningClassifications.map((zone, i) => <p key={zone.OBJECTID || i}>
                   {[zone.uso_prin, zone.leyenda].filter(value => value != null && String(value).trim() !== '').join(' - ') || 'Clasificación no disponible'}
@@ -1128,6 +1128,7 @@ export default function App() {
                     <p>{municipalCode || 'No disponible'}</p>
                     <p><strong>CÓDIGO DE EDIFICABILIDAD BÁSICA</strong></p>
                     <p>{descriptiveCode || 'No identificado en el IRM'}</p>
+                    {description && <p className="note"><strong>Interpretación del código:</strong> {description}. Estos parámetros se contrastan con el IRM y las restricciones territoriales.</p>}
                     {!descriptiveCode && <p className="note">El código descriptivo debe confirmarse en el IRM; no se deduce a partir del identificador municipal.</p>}
                   </>;
                 })()}
