@@ -9,6 +9,23 @@ py -m pip install -r automation/requirements.txt
 py -m playwright install chromium
 ```
 
+## Integración con PredioAI (puente local experimental)
+
+1. Instale las dependencias indicadas arriba y descargue/actualice el repositorio en su PC.
+2. En PowerShell, desde la raíz del repositorio, ejecute:
+
+```powershell
+py automation/irm_bridge.py
+```
+
+3. Mantenga abierta esa ventana de PowerShell. Abra **https://jayjayanton.github.io/Predio-AI/** en Chrome o Edge, busque el predio y pulse **«Consultar IRM con Playwright (escritorio)»**.
+4. El navegador Chromium de Playwright se abrirá con el número del predio rellenado. Complete el CAPTCHA **manualmente**, pulse CONSULTAR y espere a que el script valide el informe y genere `irm_downloads/IRM_<predio>.pdf`.
+5. Revise el PDF y adjúntelo a PredioAI. **La importación automática del PDF no está implementada.**
+
+El puente escucha **solo** en `127.0.0.1:8765`, valida el origen de la solicitud, acepta únicamente números de predio y rechaza una segunda sesión mientras otra está en marcha. No necesita exponer puertos a Internet ni ejecutar el servicio en Render. No automatiza CAPTCHA. **Chrome/Edge pueden bloquear solicitudes desde una página HTTPS pública a un servicio HTTP local** por controles de acceso a red local; si aparece un error de conexión, revise los permisos del navegador o utilice el método manual descrito abajo. La compatibilidad con navegadores reales debe probarse en el equipo del usuario.
+
+**Reversión inmediata:** no ejecute el puente y use los botones existentes «Copiar número» + «Abrir consulta IRM oficial». La función original no se elimina.
+
 ## Ejecutar con el predio real
 
 En PredioAI, consulte un predio y anote su **número de predio** (no la clave catastral). Luego:
@@ -17,7 +34,7 @@ En PredioAI, consulte un predio y anote su **número de predio** (no la clave ca
 py automation/irm_playwright.py 627739
 ```
 
-Sustituya `627739` por el número real seleccionado en PredioAI. El script **no recibe automáticamente el número desde el navegador**; esa integración requiere un componente local adicional.
+Sustituya `627739` por el número real seleccionado en PredioAI. Este método manual no requiere el puente local. Para enviar el número automáticamente desde PredioAI, siga la sección «Integración con PredioAI» anterior.
 
 1. Abre el portal oficial `buscarPredio.jsf` en Chromium visible.
 2. Rellena el número de predio indicado.
@@ -33,4 +50,4 @@ Sustituya `627739` por el número real seleccionado en PredioAI. El script **no 
 
 `PredioAI (consulta catastral) → número de predio → ejecución local de Playwright → CAPTCHA manual → página IRM detectada → validación automática básica → PDF local → carga manual a PredioAI`
 
-La transferencia automática desde el navegador público a la aplicación de escritorio y la importación directa del PDF quedan **pendientes**. No requieren modificar el servicio Render para probar este prototipo.
+La transferencia del número está implementada mediante el puente local experimental; la importación directa del PDF sigue **pendiente**. No requieren modificar el servicio Render para probar este prototipo.
