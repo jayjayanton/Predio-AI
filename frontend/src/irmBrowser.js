@@ -138,7 +138,8 @@ async function extractMapRegion(pdf, heading) {
       top=18;
     }
     const canvas=await cropPdfRegion(mapPage,x,top,size,size);
-    return {image:canvas.toDataURL('image/png'),imagePage:mapPageNo};
+    return {image:canvas.toDataURL('image/png'),imagePage:mapPageNo,
+      imageOrder: mapPageNo*1000000 + top*1000 + x};
   }
   return null;
 }
@@ -215,10 +216,14 @@ export async function inspectIrmInBrowser(file) {
       const map=await extractMapRegion(pdf,type.mapHeading);
       evidence.push({key:type.key,title:type.title,finding:type.finding,sourcePages:matches,
         imagePage:map?.imagePage || null,
+        imageOrder:map?.imageOrder ?? null,
         image:map?.image || null,
         mapDescription:type.finding,
         note:map ? 'Recorte cartográfico extraído del PDF mediante detección de encabezados y segmentación de región. La delimitación exacta requiere verificación municipal.' : 'El IRM contiene la referencia textual, pero no se encontró un mapa identificable para recortar.'});
     }
+    // Preserve source-PDF reading order (page, then row, then column),
+    // not the order of restriction categories in evidenceTypes.
+    evidence.sort((a,b) => (a.imageOrder ?? Number.MAX_SAFE_INTEGER) - (b.imageOrder ?? Number.MAX_SAFE_INTEGER));
     const occupationDiagram=await extractOccupationDiagram(pdf);
     return {filename:file.name,pages:pdf.numPages,candidate_irm_fields:fields,evidence,occupationDiagram,
       warnings:[],stored:false,verified:false,regulatory_eligibility:'pending_review'};
