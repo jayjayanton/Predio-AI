@@ -1099,13 +1099,34 @@ export default function App() {
             <h2>Factibilidad del predio</h2>
             {!irmExtraction ? <p className="note">Cargue el IRM para revisar las condiciones del predio y calcular su potencial constructivo.</p> : <>
               <p><strong>{parcelFeasibility}</strong></p>
+              {irmHasLandUse && <div className="zoning-classification">
+                <h3>Uso de suelo general y específico (IRM)</h3>
+                {irmPugsAssignments.map((assignment,index) => {
+                  const matching = pugsZones.filter(zone => {
+                    const label=[zone.tipologia,zone.uso_prin,zone.leyenda,zone.tipo_des].filter(Boolean).join(' ').toUpperCase();
+                    return label.split(/[^A-Z0-9-]+/).includes(assignment.code.toUpperCase());
+                  });
+                  return <div key={assignment.code+'-'+index} className="irm-evidence-item">
+                    <p><strong>Uso de suelo general:</strong> {assignment.generalUse || 'No extraído'}</p>
+                    <p><strong>Uso de suelo específico:</strong> {assignment.code}{assignment.description ? ' — '+assignment.description : ''}{assignment.isProtection ? ' · Protección ecológica' : ''}</p>
+                    <p className="note">{[
+                      assignment.classification ? 'Clasificación '+assignment.classification : null,
+                      assignment.pit ? 'PIT '+assignment.pit : null,
+                      assignment.buildability ? 'Edificabilidad '+assignment.buildability : null
+                    ].filter(Boolean).join(' · ')}</p>
+                    {matching.some(zone => zone._overlap_m2 != null) && <p className="note">
+                      Intersección GIS del lote matriz: {matching.filter(zone => zone._overlap_m2 != null).map(zone => formatArea(Number(zone._overlap_m2)) + (zone._overlap_percent != null ? ' ('+zone._overlap_percent+'%)' : '')).join(' + ')}.
+                    </p>}
+                  </div>;
+                })}
+                <p className="note">El IRM documenta las asignaciones, pero no indica por sí solo qué superficie corresponde a cada una. Las superficies GIS son cruces provisionales sobre el polígono catastral; no se atribuyen a la unidad PH.</p>
+              </div>}
+
               {(() => {
                 const f=irmExtraction?.candidate_irm_fields || {};
                 const rows=[
                   ['clasificacion_suelo','Clasificación de suelo'],
                   ['subclasificacion_suelo','Subclasificación'],
-                  ['uso_suelo_general','Uso de suelo general'],
-                  ['uso_suelo_especifico','Uso de suelo específico'],
                   ['tratamiento','Tratamiento urbanístico'],
                   ['pit','Polígono de intervención territorial (PIT)'],
                   ['forma_ocupacion','Forma de ocupación'],
@@ -1125,28 +1146,6 @@ export default function App() {
                   <p className="note">Extracción automática pendiente de revisión con el PDF municipal.</p>
                 </div> : null;
               })()}
-              {irmHasLandUse && <div className="zoning-classification">
-                <h3>Usos de suelo según el IRM</h3>
-                {irmPugsAssignments.map((assignment,index) => {
-                  const matching = pugsZones.filter(zone => {
-                    const label=[zone.tipologia,zone.uso_prin,zone.leyenda,zone.tipo_des].filter(Boolean).join(' ').toUpperCase();
-                    return label.split(/[^A-Z0-9-]+/).includes(assignment.code.toUpperCase());
-                  });
-                  return <div key={assignment.code+'-'+index} className="irm-evidence-item">
-                    <p><strong>{assignment.code}{assignment.description ? ' — '+assignment.description : ''}</strong>{assignment.isProtection ? ' · Protección ecológica' : ''}</p>
-                    <p className="note">{[
-                      assignment.classification ? 'Clasificación '+assignment.classification : null,
-                      assignment.generalUse ? 'Uso general '+assignment.generalUse : null,
-                      assignment.pit ? 'PIT '+assignment.pit : null,
-                      assignment.buildability ? 'Edificabilidad '+assignment.buildability : null
-                    ].filter(Boolean).join(' · ')}</p>
-                    {matching.some(zone => zone._overlap_m2 != null) && <p className="note">
-                      Intersección GIS del lote matriz: {matching.filter(zone => zone._overlap_m2 != null).map(zone => formatArea(Number(zone._overlap_m2)) + (zone._overlap_percent != null ? ' ('+zone._overlap_percent+'%)' : '')).join(' + ')}.
-                    </p>}
-                  </div>;
-                })}
-                <p className="note">El IRM documenta las asignaciones, pero no indica por sí solo qué superficie corresponde a cada una. Las superficies GIS son cruces provisionales sobre el polígono catastral; no se atribuyen a la unidad PH.</p>
-              </div>}
               {!irmHasLandUse && zoningClassifications.length > 0 && <div className="zoning-classification">
                 <strong>{singleZoningClassification ? 'Clasificación PUGS:' : 'Clasificaciones PUGS:'}</strong>
                 {zoningClassifications.map((zone, i) => <p key={zone.OBJECTID || i}>
