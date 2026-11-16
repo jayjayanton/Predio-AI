@@ -84,7 +84,7 @@ export default function App() {
   const pugsUse = dominantZone?.tipo_des || dominantZone?.leyenda || dominantZone?.uso_prin || null;
   const pugsDescription = zone => {
     const raw = String(zone?.tipo_des || zone?.leyenda || zone?.uso_prin || 'Clasificación no disponible');
-    return raw.replace(/\\s*(?:tipo\\s*\\d+|[-–]\\s*\\d+)\\s*$/i, '').trim();
+    return raw.replace(/\s*(?:tipo\s*\d+|[-–]\s*\d+)\s*$/i, '').trim();
   };
   const dominantOverlap = Number(dominantZone?._overlap_percent);
   const hasMeasuredOverlap = dominantZone?._overlap_percent != null && Number.isFinite(dominantOverlap);
