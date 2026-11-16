@@ -63,6 +63,35 @@ function extractPugsSection(pageTexts) {
   return result;
 }
 
+// Extract ALL PUGS assignments. A single IRM may contain residential and PE
+// sections with different buildability rules; never collapse to the first one.
+function extractPugsAssignments(pageTexts) {
+  const joined=pageTexts.join('\n');
+  const start=joined.search(/APROVECHAMIENTO\s+URBAN[IÍ]STICO\s*\(\s*PUGS\s*\)/i);
+  if(start<0)return [];
+  const after=joined.slice(start);
+  const stop=after.search(/ORDENANZA\s+ANTERIOR|AFECTACIONES\s*\/\s*PROTECCIONES/i);
+  const body=stop>=0?after.slice(0,stop):after;
+  const blocks=body.split(/COMPONENTE\s+ESTRUCTURANTE/i).slice(1);
+  return blocks.map((block,index)=>{
+    const take=rx=>block.match(rx)?.[1]?.trim()||null;
+    const specific=block.match(/uso\s+(?:de\s+)?suelo\s+espec[ií]fico\s*:?\s*\(\s*([A-Z][A-Z0-9-]*)\s*\)\s*([\s\S]{0,100}?)(?=\s+(?:tratamiento|PIT|EDIFICABILIDAD|COMPONENTE)\b|$)/i);
+    const code= specific?.[1] || null;
+    if(!code)return null;
+    const description=(specific?.[2]||'').replace(/\s+/g,' ').trim();
+    const basic=block.match(/c[oó]digo\s+edificabilidad\s*:?\s*(A\d{1,4})\s*\(\s*([^)]+)\s*\)/i);
+    return {
+      index:index+1, code, description,
+      classification:take(/clasificaci[oó]n\s*:?\s*\(\s*([A-Z]{1,4})\s*\)/i),
+      generalUse:take(/uso\s+(?:de\s+)?suelo\s+general\s*:?\s*\(\s*([A-Z]+)\s*\)/i),
+      treatment:take(/tratamiento\s*:?\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]{3,45}?)(?=\s+PIT\s*:|$)/i),
+      pit:take(/\bPIT\s*:?\s*([A-Z]{1,4}-PIT[A-Z0-9]+)/i),
+      buildability:basic?basic[1]+' ('+basic[2].trim()+')':null,
+      isProtection:code==='PE'||/protecci[oó]n ecol[oó]gica/i.test(description)
+    };
+  }).filter(Boolean);
+}
+
 const evidenceTypes = [
   {key:'quebrada', rx:/quebrada\s*abierta|protecci[oó]n\s*de\s*quebrada|zona\s*de\s*protecci[oó]n\s*de\s*quebrada/i,
    title:'Quebrada y protección geográfica', mapHeading:'ACCIDENTES GEOGRÁFICOS',
@@ -208,6 +237,7 @@ export async function inspectIrmInBrowser(file) {
       if (match) fields[key]={raw:match[1],status:'unverified_extraction'};
     }
     Object.assign(fields, extractPugsSection(pageTexts));
+    const pugsAssignments=extractPugsAssignments(pageTexts);
     // Restriction evidence is text-based; maps are illustrative, not georeferenced proof.
     const evidence=[];
     for (const type of evidenceTypes) {
@@ -225,7 +255,7 @@ export async function inspectIrmInBrowser(file) {
     // not the order of restriction categories in evidenceTypes.
     evidence.sort((a,b) => (a.imageOrder ?? Number.MAX_SAFE_INTEGER) - (b.imageOrder ?? Number.MAX_SAFE_INTEGER));
     const occupationDiagram=await extractOccupationDiagram(pdf);
-    return {filename:file.name,pages:pdf.numPages,candidate_irm_fields:fields,evidence,occupationDiagram,
+    return {filename:file.name,pages:pdf.numPages,candidate_irm_fields:fields,evidence,occupationDiagram,pugsAssignments,
       warnings:[],stored:false,verified:false,regulatory_eligibility:'pending_review'};
   } finally {await pdf.destroy();}
 }
