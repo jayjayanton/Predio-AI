@@ -275,3 +275,11 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .irm-document-details > summary { cursor: pointer; padding: 12px 4px; font-weight: 500; }
 .irm-document-details > summary:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .irm-document-details[open] > summary { margin-bottom: 12px; }
+
+/* PUGS disclosure must not inherit .property's flex-row layout. */
+.property > .pugs-disclosure { display:block; width:100%; min-width:0; margin:0; }
+.pugs-disclosure > summary { display:flex; width:100%; justify-content:space-between; align-items:center; gap:12px; cursor:pointer; list-style:none; padding:8px 0; }
+.pugs-disclosure > summary::-webkit-details-marker { display:none; }
+.pugs-disclosure > summary::marker { content:''; }
+.pugs-disclosure[open] > summary span { transform:rotate(180deg); }
+.pugs-disclosure > summary span { transition:transform .15s ease; }
