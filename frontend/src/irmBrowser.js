@@ -245,10 +245,10 @@ export async function inspectIrmInBrowser(file) {
     // A single-zone IRM must still expose its specific use, not disappear.
     if (!pugsAssignments.length) {
       const pugsText=pageTexts.slice(Math.max(0,pageTexts.findIndex(page =>
-        /APROVECHAMIENTO\\s+URBAN[IÍ]STICO\\s*\\(\\s*PUGS\\s*\\)/i.test(page)))).join(' ');
-      const specific=pugsText.match(/uso\\s+(?:de\\s+)?suelo\\s+espec[ií]fico\\s*:?\\s*\\(\\s*([A-Z][A-Z0-9-]*)\\s*\\)\\s*([^:]{2,70}?)(?=\\s+(?:tratamiento|PIT|EDIFICABILIDAD|COMPONENTE)\\b|$)/i);
+        /APROVECHAMIENTO\s+URBAN[IÍ]STICO\s*\(\s*PUGS\s*\)/i.test(page)))).join(' ');
+      const specific=pugsText.match(/uso\s+(?:de\s+)?suelo\s+espec[ií]fico\s*:?\s*\(\s*([A-Z][A-Z0-9-]*)\s*\)\s*([^:]{2,70}?)(?=\s+(?:tratamiento|PIT|EDIFICABILIDAD|COMPONENTE)\b|$)/i);
       if (specific) {
-        const general=pugsText.match(/uso\\s+(?:de\\s+)?suelo\\s+general\\s*:?\\s*\\(\\s*([A-Z]+)\\s*\\)\\s*([^:]{2,70}?)(?=\\s+uso\\s+(?:de\\s+)?suelo\\s+espec[ií]fico\\b|$)/i);
+        const general=pugsText.match(/uso\s+(?:de\s+)?suelo\s+general\s*:?\s*\(\s*([A-Z]+)\s*\)\s*([^:]{2,70}?)(?=\s+uso\s+(?:de\s+)?suelo\s+espec[ií]fico\b|$)/i);
         pugsAssignments.push({index:1,code:specific[1],description:specific[2].trim(),
           generalUse:general?.[1] || null,generalDescription:general?.[2]?.trim() || null,
           classification:fields.clasificacion_suelo?.raw || null,
