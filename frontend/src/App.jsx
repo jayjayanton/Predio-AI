@@ -1178,6 +1178,11 @@ export default function App() {
                     <p>{municipalCode || 'No disponible'}</p>
                     <p><strong>CÓDIGO DE EDIFICABILIDAD BÁSICA</strong></p>
                     <p>{descriptiveCode || 'No identificado en el IRM'}</p>
+                    {(() => {
+                      const suffix=String(descriptiveCode || '').match(/\(([A-Z]{2,5})\)\s*$/)?.[1];
+                      const meanings={VU:'Vivienda unifamiliar',VB:'Vivienda bifamiliar',VM:'Vivienda multifamiliar'};
+                      return suffix ? <p><strong>Tipo de vivienda ({suffix}):</strong> {meanings[suffix] || 'Sufijo no definido; verificar normativa municipal.'}</p> : null;
+                    })()}
                     {descriptiveCode && <p className="note"><strong>Descripción de edificabilidad básica:</strong> {description || 'Código municipal identificado; sus parámetros detallados no pudieron interpretarse automáticamente. Consulte la tabla del IRM.'} Los valores documentados en el IRM prevalecen sobre la interpretación del código.</p>}
                     {!descriptiveCode && <p className="note">El código descriptivo debe confirmarse en el IRM; no se deduce a partir del identificador municipal.</p>}
                   </>;
@@ -1264,12 +1269,6 @@ export default function App() {
                   <dt>VB</dt><dd>Vivienda bifamiliar</dd>
                   <dt>VM</dt><dd>Vivienda multifamiliar</dd>
                 </dl>
-                {(() => {
-                  const code=irmExtraction?.candidate_irm_fields?.codigo_edificabilidad_basica?.raw || '';
-                  const suffix=code.match(/\(([A-Z]{2,5})\)\s*$/)?.[1];
-                  const meanings={VU:'Vivienda unifamiliar',VB:'Vivienda bifamiliar',VM:'Vivienda multifamiliar'};
-                  return <p><strong>Sufijo del IRM:</strong> {suffix ? `${suffix} — ${meanings[suffix] || 'Significado pendiente de verificación normativa'}` : 'No se identificó un sufijo residencial en el código extraído.'}</p>;
-                })()}
                 <p className="note">Estas denominaciones no autorizan por sí solas un número de viviendas. Deben contrastarse con el área mínima, la asignación territorial y los requisitos municipales. No se presume que VU, VB y VM sean todos los sufijos posibles.</p>
                 <p className="note">Referencia normativa: <a href="https://habitat.quito.gob.ec/wp-content/uploads/2025/07/ORD-003-2024-PMDOT-PUGS.pdf" target="_blank" rel="noopener noreferrer">Ordenanza PMDOT-PUGS 003-2024</a>.</p>
               </section>
