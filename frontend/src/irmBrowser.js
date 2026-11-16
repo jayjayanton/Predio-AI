@@ -130,6 +130,51 @@ async function extractMapRegion(pdf, heading) {
   return null;
 }
 
+// Extract the building occupation diagram printed in the right column of
+// the PUGS table. This is visual evidence, not an additional zoning entitlement.
+// Anchor to the heading and keep the crop inside its right-hand column.
+async function extractOccupationDiagram(pdf) {
+  const heading = 'EDIFICABILIDAD GENERAL MAXIMA';
+  for (let pageNo=1;pageNo<=pdf.numPages;pageNo++) {
+    const page=await pdf.getPage(pageNo);
+    const content=await page.getTextContent();
+    const items=content.items.filter(item=>String(item.str||'').trim());
+    const match=items.find(item=>normalizeHeading(item.str).includes(heading));
+    if (!match) continue;
+    const width=page.view[2], height=page.view[3];
+    const headingY=height-match.transform[5];
+    // The municipality's IRM template places this diagram under the
+    // general-maxima fields in the right-hand column, not on the last page.
+    const x=width*0.572;
+    const top=headingY+128;
+    const size=width*0.315;
+    if (top+size>height-25) continue;
+    const scale=2;
+    const viewport=page.getViewport({scale});
+    const rendered=document.createElement('canvas');
+    rendered.width=Math.round(viewport.width);
+    rendered.height=Math.round(viewport.height);
+    await page.render({canvasContext:rendered.getContext('2d'),viewport}).promise;
+    const crop=document.createElement('canvas');
+    crop.width=Math.round(size*scale);
+    crop.height=Math.round(size*scale);
+    const ctx=crop.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(rendered,Math.round(x*scale),Math.round(top*scale),
+      crop.width,crop.height,0,0,crop.width,crop.height);
+    // Do not show a blank rectangle if this IRM variant has no diagram.
+    const data=ctx.getImageData(0,0,crop.width,crop.height).data;
+    let colored=0;
+    for(let i=0;i<data.length;i+=32) {
+      if (Math.min(data[i],data[i+1],data[i+2])<180) colored++;
+    }
+    if (colored<80) continue;
+    return {image:crop.toDataURL('image/png'),imagePage:pageNo,
+      title:'Esquema de implantación y retiros',
+      note:'Recorte del esquema de ocupación mostrado en el IRM. Ilustra la ubicación de la edificación, los retiros y el frente mínimo; no constituye un plano de implantación aprobado ni autoriza edificabilidad adicional.'};
+  }
+  return null;
+}
+
 export async function inspectIrmInBrowser(file) {
   if (!file || !/\.pdf$/i.test(file.name)) throw new Error('Seleccione un PDF válido.');
   if (file.size > 15 * 1024 * 1024) throw new Error('El PDF supera 15 MB.');
@@ -163,7 +208,8 @@ export async function inspectIrmInBrowser(file) {
         mapDescription:type.finding,
         note:map ? 'Recorte cartográfico extraído del PDF mediante detección de encabezados y segmentación de región. La delimitación exacta requiere verificación municipal.' : 'El IRM contiene la referencia textual, pero no se encontró un mapa identificable para recortar.'});
     }
-    return {filename:file.name,pages:pdf.numPages,candidate_irm_fields:fields,evidence,
+    const occupationDiagram=await extractOccupationDiagram(pdf);
+    return {filename:file.name,pages:pdf.numPages,candidate_irm_fields:fields,evidence,occupationDiagram,
       warnings:[],stored:false,verified:false,regulatory_eligibility:'pending_review'};
   } finally {await pdf.destroy();}
 }
