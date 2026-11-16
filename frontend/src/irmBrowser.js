@@ -13,20 +13,59 @@ const patterns = {
   area_terreno: /[aá]rea\s*(?:seg[uú]n\s*escritura|del\s*terreno)\s*:?\s*([\d.,]+)\s*m2/i,
 };
 const evidenceTypes = [
-  {key:'quebrada', rx:/quebrada\s*abierta|protecci[oó]n\s*de\s*quebrada|zona\s*de\s*protecci[oó]n\s*de\s*quebrada/i, title:'Quebrada y franja de protección', mapPages:[7], finding:'El IRM menciona una quebrada y su protección. Verifique las restricciones y la definición municipal del borde antes de construir.'},
-  {key:'forestal', rx:/bosque\s*protector|protecci[oó]n\s*forestal|cobertura\s*forestal/i, title:'Protección forestal', mapPages:[9], finding:'El documento menciona protección forestal; confirme el polígono y la norma aplicable.'},
-  {key:'fallas', rx:/falla\s*geol[oó]gica|falla\s*tect[oó]nica/i, title:'Falla geológica', mapPages:[7], finding:'Se menciona una falla geológica; solicite verificación técnica de la ubicación y afectación.'},
-  {key:'proteccion', rx:/protecci[oó]n\s*ecol[oó]gica/i, title:'Zona de protección ecológica', mapPages:[6], finding:'El IRM contiene una designación de protección ecológica, que puede afectar una parte del lote matriz.'},
+  {key:'quebrada', rx:/quebrada\\s*abierta|protecci[oó]n\\s*de\\s*quebrada|zona\\s*de\\s*protecci[oó]n\\s*de\\s*quebrada/i,
+   title:'Quebrada y protección geográfica', mapHeading:'ACCIDENTES GEOGRÁFICOS',
+   finding:'El IRM identifica una quebrada y una franja de protección. El mapa muestra la ubicación referencial de los accidentes geográficos respecto del lote resaltado; el borde y retiro definitivo requieren definición municipal.'},
+  {key:'forestal', rx:/bosque\\s*protector|protecci[oó]n\\s*forestal|cobertura\\s*forestal/i,
+   title:'Protección forestal', mapHeading:'SISTEMA NACIONAL DE ÁREAS PROTEGIDAS',
+   finding:'El documento menciona protección forestal. El mapa representa áreas protegidas en el entorno, pero no acredita por sí solo cobertura forestal dentro del predio.'},
+  {key:'fallas', rx:/falla\\s*geol[oó]gica|falla\\s*tect[oó]nica/i,
+   title:'Falla geológica', mapHeading:'ACCIDENTES GEOGRÁFICOS',
+   finding:'El documento menciona una falla. El mapa de accidentes geográficos es contextual y no delimita necesariamente una falla tectónica; requiere estudio técnico.'},
+  {key:'proteccion', rx:/protecci[oó]n\\s*ecol[oó]gica/i,
+   title:'Protección ecológica', mapHeading:'USO DE SUELO ESPECÍFICO',
+   finding:'El IRM identifica una designación de protección ecológica. El mapa de uso de suelo específico muestra las zonas de uso en torno al lote; debe contrastarse con los polígonos oficiales para determinar la superficie afectada.'},
 ];
 
-async function renderEvidencePage(pdf, pageNumber) {
-  const page = await pdf.getPage(pageNumber);
-  const viewport = page.getViewport({scale:1.35});
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(viewport.width);
-  canvas.height = Math.round(viewport.height);
-  await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
-  return canvas.toDataURL('image/jpeg',0.82);
+const normalizeHeading = value => String(value || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toUpperCase().replace(/\\s+/g, ' ').trim();
+
+// Layout-based computer vision: locate the map heading in the PDF text layer,
+// then crop the square cartographic panel rather than screenshotting the full page.
+// Handles maps continued at the beginning of the following printed page.
+async function extractMapRegion(pdf, heading) {
+  const target = normalizeHeading(heading);
+  for (let pageNo=1;pageNo<=pdf.numPages;pageNo++) {
+    const page=await pdf.getPage(pageNo);
+    const content=await page.getTextContent();
+    const match=content.items.find(item=>normalizeHeading(item.str).includes(target));
+    if (!match) continue;
+    const headingY=page.view[3] - match.transform[5];
+    let mapPage=page;
+    let mapPageNo=pageNo;
+    let mapTop=headingY + 12;
+    if (mapTop + 205 > page.view[3] - 45) {
+      if (pageNo === pdf.numPages) return null;
+      mapPage=await pdf.getPage(pageNo+1);
+      mapPageNo=pageNo+1;
+      mapTop=40;
+    }
+    const scale=2;
+    const viewport=mapPage.getViewport({scale});
+    const rendered=document.createElement('canvas');
+    rendered.width=Math.round(viewport.width);
+    rendered.height=Math.round(viewport.height);
+    await mapPage.render({canvasContext:rendered.getContext('2d'),viewport}).promise;
+    const size=Math.min(205,mapPage.view[2]-30);
+    const x=(mapPage.view[2]-size)/2;
+    const crop=document.createElement('canvas');
+    crop.width=Math.round(size*scale);
+    crop.height=Math.round(size*scale);
+    crop.getContext('2d').drawImage(rendered,
+      Math.round(x*scale),Math.round(mapTop*scale),crop.width,crop.height,
+      0,0,crop.width,crop.height);
+    return {image:crop.toDataURL('image/png'),imagePage:mapPageNo};
+  }
+  return null;
 }
 
 export async function inspectIrmInBrowser(file) {
@@ -54,11 +93,12 @@ export async function inspectIrmInBrowser(file) {
     for (const type of evidenceTypes) {
       const matches=pageTexts.flatMap((value,i)=>type.rx.test(value)?[i+1]:[]);
       if (!matches.length) continue;
-      const page=type.mapPages.find(n=>n<=pdf.numPages);
+      const map=await extractMapRegion(pdf,type.mapHeading);
       evidence.push({key:type.key,title:type.title,finding:type.finding,sourcePages:matches,
-        imagePage:page||null,
-        image:page?await renderEvidencePage(pdf,page):null,
-        note:'Mapa del IRM para revisión visual; la delimitación exacta requiere verificación municipal.'});
+        imagePage:map?.imagePage || null,
+        image:map?.image || null,
+        mapDescription:type.finding,
+        note:map ? 'Recorte cartográfico extraído del PDF mediante detección de encabezados y segmentación de región. La delimitación exacta requiere verificación municipal.' : 'El IRM contiene la referencia textual, pero no se encontró un mapa identificable para recortar.'});
     }
     return {filename:file.name,pages:pdf.numPages,candidate_irm_fields:fields,evidence,
       warnings:[],stored:false,verified:false,regulatory_eligibility:'pending_review'};
