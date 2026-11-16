@@ -123,8 +123,8 @@ export default function App() {
         throw new Error('El número de predio del IRM no coincide con el predio seleccionado. Revise el documento.');
       }
       setIrmExtraction(body);
-      setIrmValues({ area: '', cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos') });
-      setDeveloperAreaSource('El área del terreno no se extrajo del IRM. Ingrésela manualmente después de verificarla.');
+      setIrmValues({ area: parsed('area_terreno'), cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos') });
+      setDeveloperAreaSource(fields.area_terreno ? 'Área detectada en el IRM; confirme que corresponde al terreno evaluado.' : 'El área del terreno no se extrajo del IRM. Ingrésela manualmente después de verificarla.');
     } catch (err) {
       setIrmExtractError(err.message);
     } finally {
