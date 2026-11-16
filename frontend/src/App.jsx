@@ -82,6 +82,15 @@ export default function App() {
   const pugsZones = pugsData?.zones || [];
   const dominantZone = pugsData?.dominant_zone || (pugsData?.status === 'single_zone' ? pugsZones[0] : null);
   const pugsUse = dominantZone?.tipo_des || dominantZone?.leyenda || dominantZone?.uso_prin || null;
+  const pugsDescription = zone => {
+    const raw = String(zone?.tipo_des || zone?.leyenda || zone?.uso_prin || 'Clasificación no disponible');
+    return raw.replace(/\\s*(?:tipo\\s*\\d+|[-–]\\s*\\d+)\\s*$/i, '').trim();
+  };
+  const dominantOverlap = Number(dominantZone?._overlap_percent);
+  const hasMeasuredOverlap = dominantZone?._overlap_percent != null && Number.isFinite(dominantOverlap);
+  const singleZoningClassification = pugsZones.length === 1 || (hasMeasuredOverlap && dominantOverlap > 90);
+  const zoningClassifications = singleZoningClassification && dominantZone ? [dominantZone] : pugsZones;
+
   const isSubdivisionRequest = developmentType === 'subdivision' || developmentType === 'multiple';
   const isMultifamilyRequest = developmentType === 'apartments';
   // A PUGS density label is not a verified residential use-permission matrix.
@@ -968,7 +977,7 @@ export default function App() {
 
             {!irmExtraction ? <p className="note">Adjunte el IRM para activar el análisis de compatibilidad con el contexto PUGS.</p> : <div className="compatibility-overview">
               <p className="compatibility-status"><strong>{projectCompatibility}</strong></p>
-              <p className="note">Zonificación predominante del polígono catastral: <strong>{pugsUse || 'No determinada'}</strong>{dominantZone?._overlap_percent != null ? ` (${dominantZone._overlap_percent}% del polígono)` : ''}.</p>
+              <p className="note">{singleZoningClassification ? 'Zonificación del polígono catastral:' : 'Zonificaciones intersectadas:'} <strong>{zoningClassifications.length ? zoningClassifications.map(pugsDescription).join(' / ') : 'No determinada'}</strong>.</p>
               {pugsZones.length > 1 && <div className="zoning-intersections">
                 <strong>Zonas PUGS intersectadas ({pugsZones.length})</strong>
                 <ul>{pugsZones.map((zone, i) => <li key={zone.OBJECTID || i}>
@@ -993,8 +1002,13 @@ export default function App() {
             <h2>Factibilidad del predio</h2>
             {!irmExtraction ? <p className="note">Cargue el IRM para revisar las condiciones del predio y calcular su potencial constructivo.</p> : <>
               <p><strong>{parcelFeasibility}</strong></p>
-              {dominantZone && <p className="zoning-classification"><strong>Clasificación PUGS:</strong> {dominantZone.tipologia || dominantZone.uso_prin || dominantZone.fcode || 'Sin código'} — {pugsUse || 'Descripción no disponible'}{dominantZone._overlap_percent != null ? ` (${dominantZone._overlap_percent}% del polígono catastral)` : ''}.</p>}
-              {pugsZones.length > 1 && <p className="note">Existen {pugsZones.length} zonas PUGS intersectadas; la clasificación anterior es la predominante, no necesariamente la única aplicable.</p>}
+              {zoningClassifications.length > 0 && <div className="zoning-classification">
+                <strong>{singleZoningClassification ? 'Clasificación PUGS:' : 'Clasificaciones PUGS:'}</strong>
+                {zoningClassifications.map((zone, i) => <p key={zone.OBJECTID || i}>
+                  {pugsDescription(zone)}{!singleZoningClassification && zone._overlap_percent != null ? ` — ${zone._overlap_percent}% del polígono` : ''}
+                </p>)}
+                {!singleZoningClassification && <p className="note">Ninguna zona supera el 90% de cobertura verificada; se muestran todas las zonas intersectadas.</p>}
+              </div>}
               {developerAreaSource && <p className="note">{developerAreaSource}</p>}
               <div className="capacity-inputs">
                 <div><strong>Área del predio</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No extraída'}</p></div>
