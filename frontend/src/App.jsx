@@ -984,7 +984,7 @@ export default function App() {
                   <strong>{zone.tipo_des || zone.leyenda || zone.uso_prin || `Zona ${i + 1}`}</strong>
                   {zone._overlap_percent != null && <span> — {zone._overlap_percent}% del polígono</span>}
                 </li>)}</ul>
-              </div>
+              </div>}
               {pugsZones.length > 1 && <p className="note">La zona predominante no reemplaza las otras zonas intersectadas; la norma aplicable depende de la ubicación exacta del proyecto.</p>}
               <div className="capacity-inputs">
                 {[
