@@ -168,7 +168,9 @@ async function extractMapRegion(pdf, heading) {
     }
     const canvas=await cropPdfRegion(mapPage,x,top,size,size);
     return {image:canvas.toDataURL('image/png'),imagePage:mapPageNo,
-      imageOrder: mapPageNo*1000000 + top*1000 + x};
+      // The map heading defines the document reading order even when the
+      // graphic itself continues onto the following PDF page.
+      imageOrder: pageNo*1000000 + headingBaseline*1000 + match.transform[4]};
   }
   return null;
 }
@@ -209,6 +211,7 @@ async function extractOccupationDiagram(pdf){
       const canvas=await cropPdfRegion(candidate.page,x,candidate.top,size,size);
       if(!hasOccupationDiagram(canvas))continue;
       return {image:canvas.toDataURL('image/png'),imagePage:candidate.number,
+        imageOrder:candidate.number*1000000 + candidate.top*1000 + x,
         title:'Esquema de implantación y retiros',
         note:'Esquema municipal de ocupación y retiros. No representa un plano aprobado ni concede derechos constructivos adicionales.'};
     }
