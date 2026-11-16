@@ -182,12 +182,12 @@ function VisibleParcels({enabled}) {
     return ()=>{seq++;if(timer)clearTimeout(timer);if(controller)controller.abort();map.off('moveend',update);};
   },[map,enabled]);
   return <>
-    {features?.features?.length>0&&<GeoJSON key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
-      style={{color:'#8bd6a5',weight:1.3,opacity:0.9,fillOpacity:0}}
+    {features?.features?.length>0&&<GeoJSON className="predio-nearby-outline" key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
+      style={{color:'#9fe7b6',weight:1.7,opacity:1,fillColor:'#9fe7b6',fillOpacity:0}}
       onEachFeature={(feature,layer)=>{
         layer.bindPopup('Predio: '+String(feature.properties?.predio||'No identificado'));
         layer.on('mouseover',()=>layer.setStyle({color:'#2eae75',weight:3,fillColor:'#5bc992',fillOpacity:0.18}));
-        layer.on('mouseout',()=>layer.setStyle({color:'#8bd6a5',weight:1.3,opacity:0.9,fillOpacity:0}));
+        layer.on('mouseout',()=>layer.setStyle({color:'#9fe7b6',weight:1.7,opacity:1,fillOpacity:0}));
         layer.on('click',()=>layer.setStyle({color:'#139e68',weight:3,fillColor:'#5bc992',fillOpacity:0.22}));
       }}/>}
     {status&&<div className="leaflet-top leaflet-right" style={{pointerEvents:'none',marginTop:62}}><div className="leaflet-control" style={{background:'rgba(255,255,255,.94)',color:'#263238',padding:'5px 8px',margin:'0 8px',fontSize:11,maxWidth:180,borderRadius:6}}>{status}</div></div>}
@@ -243,7 +243,7 @@ export default function ParcelMap({ data }) {
         </button>
       </div>
 
-      <label style={{display:'inline-flex',alignItems:'center',gap:6,margin:'8px 0',fontSize:13}}>
+      <label className="parcel-layer-toggle" style={{display:'flex',alignItems:'center',gap:6,margin:'8px 0',fontSize:13}}>
         <input type="checkbox" checked={showNearbyParcels} onChange={e=>setShowNearbyParcels(e.target.checked)}/>
         Predios catastrales cercanos (zoom 16+)
       </label>
