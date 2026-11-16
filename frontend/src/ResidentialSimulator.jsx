@@ -49,7 +49,7 @@ export default function ResidentialSimulator({area, minLot, minFront, cosPb, cos
       <label>Escenario de terreno
         <select value={mode} onChange={e=>setMode(e.target.value)}>
           <option value="whole">Lote completo ({valid?fmt(nArea):'—'} m²)</option>
-          {nMinLot>0&&<option value="minimum">Lote mínimo ({fmt(nMinLot)} m²)</option>}
+          {!singleHomeDefault&&nMinLot>0&&<option value="minimum">Lote mínimo ({fmt(nMinLot)} m²)</option>}
         </select>
       </label>
       {!singleHomeDefault && <label>Viviendas hipotéticas: <strong>{homes}</strong>
