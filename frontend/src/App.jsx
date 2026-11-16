@@ -1026,6 +1026,7 @@ export default function App() {
             {!irmExtraction ? <p className="note">Adjunte el IRM para activar el análisis de compatibilidad con el contexto PUGS.</p> : <div className="compatibility-overview">
               <p className="compatibility-status"><strong>{projectCompatibility}</strong></p>
               <p className="note">{singleZoningClassification ? 'Zonificación del polígono catastral:' : 'Zonificaciones intersectadas:'} <strong>{zoningClassifications.length ? zoningClassifications.map(pugsDescription).join(' / ') : 'No determinada'}</strong>.</p>
+              {singleZoningClassification && pugsCode && <p className="source-note">Código de tipología PUGS: {pugsCode} · descripción oficial: {pugsUse || 'No disponible'}</p>}
               {pugsZones.length > 1 && <div className="zoning-intersections">
                 <strong>Zonas PUGS intersectadas ({pugsZones.length})</strong>
                 <ul>{pugsZones.map((zone, i) => <li key={zone.OBJECTID || i}>
