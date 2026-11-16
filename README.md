@@ -194,3 +194,8 @@ For `tipo_propi = PROPIEDAD HORIZONTAL`, the new-construction view uses the **at
 ### Existing buildings and minimum-lot conflicts
 
 The new-construction cadastral summary flags a selected predio whose individual registered area is smaller than an extracted IRM minimum lot, while distinguishing any existing registered construction (`area_const > 0`) from legal approval. A smaller existing PH unit is **not automatically illegal** or unbuildable: the minimum lot may apply to new subdivisions, the building may predate current rules, or the unit may be within a shared parent lot. Construction and approval dates are **not inferred** from the cadastral layer year or geometry; the UI explicitly shows construction year unavailable until a verified source is integrated. A future data-source validation task is to identify a trustworthy construction-year or permit record and preserve its provenance.
+
+
+### Cadastral date provenance
+
+The original `predios_a_2024` ArcGIS layer publishes `fecha_escr` (deed date) and `fecha_insc` (registration date), alongside `area_const` and `uso_constr`. The new-construction summary displays the two dates separately. Neither is treated as a verified building construction year, which remains unavailable without a distinct source.
