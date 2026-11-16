@@ -1,6 +1,9 @@
 """Evidence-only spatial intersection with official Quito PUGS 2024 layer 60."""
 import json
 import httpx
+from shapely.geometry import shape
+from shapely.ops import transform
+from pyproj import Transformer
 from .municipal import lookup_predio, validate_identifier, MunicipalError
 
 LAYER = "https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmot/plan_de_uso_y_gestion_del_suelo_2024/MapServer/60"
@@ -27,7 +30,7 @@ async def lookup_pugs(identifier, identifier_type):
         "geometry": json.dumps({"rings": rings, "spatialReference": {"wkid": 4326}}),
         "geometryType": "esriGeometryPolygon", "inSR": "4326",
         "spatialRel": "esriSpatialRelIntersects", "outFields": "*",
-        "returnGeometry": "false", "resultRecordCount": 20, "f": "json",
+        "returnGeometry": "true", "outSR": "4326", "resultRecordCount": 100, "f": "json",
     }
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
@@ -39,9 +42,34 @@ async def lookup_pugs(identifier, identifier_type):
     if payload.get("error"):
         raise MunicipalError("PUGS service returned an error")
     rows = payload.get("features") or []
-    if payload.get("exceededTransferLimit") or len(rows) >= 20:
+    if payload.get("exceededTransferLimit") or len(rows) >= 100:
         return {"status": "ambiguous", "reason": "Zone result limit reached", "zones": [], "source": LAYER}
-    zones = [row.get("attributes") or {} for row in rows]
+    # Spatial join: calculate how much of the cadastral polygon falls in each PUGS zone.
+    # EPSG:32717 gives metre-based areas near Quito. Never use the PH unit area
+    # as though it were the geometry of its parent parcel.
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:32717", always_xy=True)
+    parcel = transform(transformer.transform, shape(features[0]["geometry"]))
+    parcel_area = parcel.area
+    zones = []
+    for row in rows:
+        attributes = dict(row.get("attributes") or {})
+        geom = row.get("geometry") or {}
+        try:
+            rings = geom.get("rings") or []
+            # ArcGIS rings may contain holes; unioning outer shapes is a
+            # conservative approximation, so expose overlap as provisional.
+            from shapely.geometry import Polygon
+            from shapely.ops import unary_union
+            parts = [Polygon(ring) for ring in rings if len(ring) >= 4]
+            zoning = transform(transformer.transform, unary_union(parts))
+            overlap = parcel.intersection(zoning).area
+            attributes["_overlap_m2"] = round(overlap, 2)
+            attributes["_overlap_percent"] = round(100 * overlap / parcel_area, 2) if parcel_area > 0 else None
+        except (ValueError, TypeError, KeyError):
+            attributes["_overlap_m2"] = None
+            attributes["_overlap_percent"] = None
+        zones.append(attributes)
+    zones.sort(key=lambda zone: zone.get("_overlap_m2") or 0, reverse=True)
     cadastral_properties = features[0].get("properties") or {}
     is_ph = str(cadastral_properties.get("tipo_propi") or "").strip().upper() == "PROPIEDAD HORIZONTAL"
     return {
@@ -56,6 +84,7 @@ async def lookup_pugs(identifier, identifier_type):
         "scope_warning": ("PUGS intersection uses parent-lot geometry; it cannot assign independent building rights to a PH unit" if is_ph else None),
         "status": "single_zone" if len(zones) == 1 else "multiple_zones" if zones else "no_intersection",
         "zones": zones, "source": LAYER,
-        "spatial_method": "full parcel polygon intersects; overlap fractions not calculated",
+        "spatial_method": "polygon spatial join; provisional overlap in EPSG:32717; parent geometry for PH",
+        "dominant_zone": zones[0] if zones and zones[0].get("_overlap_percent") is not None else None,
         "regulatory_approval": False,
     }
