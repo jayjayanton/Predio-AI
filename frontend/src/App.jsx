@@ -50,6 +50,9 @@ export default function App() {
   const [irmConfirmed, setIrmConfirmed] = useState(false);
   const [developmentType, setDevelopmentType] = useState('single');
   const [landGoal, setLandGoal] = useState('individual');
+  const [pugsData, setPugsData] = useState(null);
+  const [pugsLoading, setPugsLoading] = useState(false);
+  const [pugsError, setPugsError] = useState('');
   const [irmValues, setIrmValues] = useState({ area: '', cosPb: '', cosTotal: '', floors: '', minLot: '', minFront: '', dwellingCode: '' });
   const [developerAreaSource, setDeveloperAreaSource] = useState('');
   const cadastralArea = Number(data?.features?.[0]?.properties?.area_terre);
@@ -164,6 +167,25 @@ export default function App() {
       }
     } catch { /* storage may be disabled */ }
   }, [data]);
+
+  useEffect(() => {
+    const predio = String(data?.features?.[0]?.properties?.n_predio || '').trim();
+    setPugsData(null);
+    setPugsError('');
+    if (!predio || audience !== 'developer') return;
+    const controller = new AbortController();
+    setPugsLoading(true);
+    fetch(`${API}/api/pugs/n_predio/${encodeURIComponent(predio)}`, {signal: controller.signal})
+      .then(async response => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Consulta PUGS no disponible');
+        return body;
+      })
+      .then(setPugsData)
+      .catch(error => { if (error.name !== 'AbortError') setPugsError(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setPugsLoading(false); });
+    return () => controller.abort();
+  }, [data, audience]);
 
   // Municipal property attributes
   const properties = data?.features?.[0]?.properties;
@@ -909,7 +931,20 @@ export default function App() {
             <p><a href="https://habitat.quito.gob.ec/geovisore" target="_blank" rel="noopener noreferrer">Abrir geovisor PUGS oficial ↗</a></p>
             <p><a href="https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmot/plan_de_uso_y_gestion_del_suelo_2024/MapServer" target="_blank" rel="noopener noreferrer">Servicio cartográfico municipal PUGS 2024 ↗</a></p>
             <p><a href="https://habitat.quito.gob.ec/wp-content/uploads/2025/07/ORD-003-2024-PMDOT-PUGS.pdf" target="_blank" rel="noopener noreferrer">Ordenanza PMDOT-PUGS 003-2024 ↗</a></p>
-            <p className="note">Cruce espacial automático con las capas PUGS: pendiente de integración y validación. No se asigna zonificación ni permiso constructivo sin consultar la capa correspondiente.</p>
+            {pugsLoading && <p role="status">Consultando intersección espacial PUGS 2024…</p>}
+            {pugsError && <p role="alert">No se pudo consultar el PUGS: {pugsError}. Consulte el geovisor oficial.</p>}
+            {pugsData && <div className="inspection">
+              <strong>Resultado del cruce espacial: {pugsData.status === 'single_zone' ? 'Una zona intersectada' : pugsData.status === 'multiple_zones' ? 'Varias zonas intersectadas — revisión requerida' : 'Sin resultado concluyente'}</strong>
+              {pugsData.reason && <p>{pugsData.reason}</p>}
+              {pugsData.zones?.map((zone, i) => <div key={i}>
+                <h3>Zona {i + 1}: {zone.leyenda || zone.tipo_des || 'Sin descripción'}</h3>
+                <dl>
+                  {Object.entries(zone).filter(([key, value]) => value != null && value !== '').map(([key, value]) => <React.Fragment key={key}><dt>{key}</dt><dd>{String(value)}</dd></React.Fragment>)}
+                </dl>
+              </div>)}
+              <p className="note">Fuente: capa municipal PUGS 2024, ID 60. La intersección no calcula proporciones de superficie por zona ni acredita derechos constructivos. Compare siempre con el IRM.</p>
+            </div>}
+            <p className="note">Los resultados PUGS son datos de referencia. La compatibilidad del proyecto y cualquier discrepancia con el IRM requieren validación municipal.</p>
             {irmExtraction && <p className="note">Compare los parámetros extraídos del IRM con el PUGS vigente. Si existen discrepancias, solicite aclaración municipal antes de evaluar el proyecto.</p>}
           </section>
           {irmExtraction && <section className="property">
