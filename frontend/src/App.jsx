@@ -42,6 +42,8 @@ const formatArea = (value) =>
 export default function App() {
 
   const [step, setStep] = useState('property');
+  const [audience, setAudience] = useState('remodeler');
+  const [developerIrm, setDeveloperIrm] = useState(null);
   // Search state
   const [identifier, setIdentifier] = useState('');
   const [identifierType, setIdentifierType] =
@@ -235,12 +237,22 @@ export default function App() {
 
       </header>
 
+      <section className="audience-switch" aria-label="Tipo de usuario">
+        <h2>¿Cómo desea utilizar PredioAI?</h2>
+        <div className="audience-options">
+          <button type="button" aria-pressed={audience === 'remodeler'} className={audience === 'remodeler' ? 'active' : ''}
+            onClick={() => { setAudience('remodeler'); setStep('property'); setInspection(null); }}>Propietarios y remodeladores</button>
+          <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''}
+            onClick={() => { setAudience('developer'); setStep('property'); setInspection(null); }}>Promotores inmobiliarios</button>
+        </div>
+        <p className="note">{audience === 'developer' ? 'Busque un predio y consulte su IRM oficial para preparar la evaluación.' : 'Consulte su predio y revise planos para mantenimiento y remodelaciones.'}</p>
+      </section>
       {/* MAIN LAYOUT */}
 
       <nav className="workflow-nav" aria-label="Etapas del proyecto">
         <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
-        <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>2 · Proyecto y planos</button>
-        <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>
+        <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
+        {audience === 'remodeler' && <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>}
       </nav>
       {step === 'property' && (      <main className="layout dashboard-layout">
 
@@ -319,7 +331,7 @@ export default function App() {
             </div>
           </form>
 
-          {properties && <button type="button" className="primary-action" onClick={() => setStep('project')}>Iniciar proyecto →</button>}
+          {properties && <button type="button" className="primary-action" onClick={() => setStep('project')}>{audience === 'developer' ? 'Consultar IRM y evaluar →' : 'Iniciar proyecto →'}</button>}
 
           {/* ERROR MESSAGE */}
 
@@ -752,7 +764,40 @@ export default function App() {
         </section>
 
       </main>)}
-      {step === 'project' && properties && (
+      {step === 'project' && properties && audience === 'developer' && (
+        <main className="workspace-page">
+          <div className="workspace-heading"><div>
+            <span className="eyebrow">PROMOTORES INMOBILIARIOS · PASO 2</span>
+            <h1>IRM y evaluación del predio {properties.n_predio || identifier}</h1>
+            <p>Consulte el IRM oficial para iniciar la evaluación del terreno.</p>
+          </div></div>
+          <section className="property developer-irm-panel">
+            <h2>Consulta del IRM</h2>
+            <p>Número de predio: <strong>{properties.n_predio || 'No disponible'}</strong></p>
+            <div className="irm-number-row">
+              <input aria-label="Número de predio para IRM" readOnly value={String(properties.n_predio || '')} onFocus={event => event.target.select()} />
+              <button type="button" className="secondary" onClick={copyIrmPredio}>Copiar número</button>
+            </div>
+            {irmCopyStatus && <p role="status" className="note">{irmCopyStatus}</p>}
+            <a className="irm-open-link" href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf" target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
+            <p className="note">Complete el CAPTCHA manualmente. La automatización Playwright local no está integrada a la web.</p>
+            <details><summary>Consulta asistida desde computadora</summary>
+              <p>El prototipo local puede abrir el portal y esperar la verificación manual.</p>
+              <a href="https://github.com/jayjayanton/Predio-AI/blob/main/automation/README.md" target="_blank" rel="noopener noreferrer">Instrucciones de Playwright ↗</a>
+            </details>
+            <label htmlFor="developer-irm-upload"><strong>Adjuntar IRM obtenido (PDF)</strong></label>
+            <input id="developer-irm-upload" type="file" accept=".pdf,application/pdf" onChange={event => setDeveloperIrm(event.target.files?.[0] || null)} />
+            {developerIrm && <p role="status">Seleccionado: {developerIrm.name}. La extracción normativa sigue en desarrollo; el archivo no se ha enviado ni analizado.</p>}
+          </section>
+          <section className="property">
+            <h2>Evaluación de terreno · Próximamente</h2>
+            <p>La evaluación combinará parámetros verificados del IRM, catastro y capas GIS para puntuar terrenos según el tipo de desarrollo.</p>
+            <p className="note">No se calculan COS, retiros, altura ni puntuaciones sin validar los datos. No constituye autorización de construcción.</p>
+          </section>
+          <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
+        </main>
+      )}
+      {step === 'project' && properties && audience === 'remodeler' && (
         <main className="workspace-page">
           <div className="workspace-heading"><div><span className="eyebrow">PASO 2 · CONFIGURACIÓN</span><h1>Proyecto para predio {properties.n_predio || identifier}</h1><p className="note">Seleccione las actividades, adjunte planos e IRM y revise los elementos gráficos extraídos.</p></div><button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button></div>
           <div className="project-layout">
@@ -931,7 +976,7 @@ export default function App() {
           </div>
         </main>
       )}
-      {step === 'report' && inspection && (
+      {step === 'report' && inspection && audience === 'remodeler' && (
         <main className="report-page">
           <span className="eyebrow">PASO 3 · RESULTADO PRELIMINAR</span>
           <h1>Revisión documental del predio {properties?.n_predio || identifier}</h1>
