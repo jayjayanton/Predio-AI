@@ -1151,6 +1151,14 @@ export default function App() {
               </div>
               {isCadastralPH && <p className="note">Propiedad horizontal: el área del lote matriz no representa derechos constructivos independientes de esta unidad.</p>}
               <p className="note">Parámetros extraídos del IRM, pendientes de comprobación. La capacidad es teórica y no constituye autorización municipal.</p>
+            {irmExtraction?.occupationDiagram && <figure className="irm-evidence-item">
+              <h3>Esquema de implantación y retiros (IRM)</h3>
+              <p className="note">Referencia gráfica municipal para interpretar la forma de ocupación, los retiros y el frente del lote. Los valores numéricos se presentan una sola vez en las condiciones urbanísticas anteriores.</p>
+              <img src={irmExtraction.occupationDiagram.image}
+                alt="Esquema de ocupación del suelo y retiros incluido en el IRM"
+                loading="lazy" style={{width:'100%',maxWidth:'420px',height:'auto'}} />
+              <figcaption>Página {irmExtraction.occupationDiagram.imagePage} del IRM original. {irmExtraction.occupationDiagram.note}</figcaption>
+            </figure>}
             {irmExtraction?.evidence?.length > 0 && <div className="irm-evidence">
               <h3>Mapas y afectaciones relevantes del IRM</h3>
               <p className="note">Imágenes del PDF aportado; se muestran únicamente cuando se detectan referencias textuales a afectaciones o protección. No sustituyen un levantamiento georreferenciado.</p>
