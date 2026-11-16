@@ -254,3 +254,14 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .irm-desktop-guide summary { cursor:pointer; font-weight:700; color:#c8f6ed; }
 .irm-desktop-guide p { font-size:12px; line-height:1.65; }
 .irm-desktop-guide a { color:#54e0d0; }
+
+/* Audience-specific workflow selector */
+.audience-switch { max-width: 1280px; margin: 18px auto; padding: 18px 24px; border: 1px solid #d7e0e6; border-radius: 12px; }
+.audience-switch h2 { font-size: 1.1rem; margin: 0 0 12px; }
+.audience-options { display: flex; gap: 12px; flex-wrap: wrap; }
+.audience-options button { border: 1px solid #9cabb8; border-radius: 8px; padding: 12px 16px; cursor: pointer; background: transparent; color: inherit; }
+.audience-options button.active { background: #163f54; border-color: #163f54; color: white; }
+.audience-switch .note { margin: 12px 0 0; }
+.developer-irm-panel { display: grid; gap: 12px; margin-bottom: 20px; }
+.developer-irm-panel input[type=file] { max-width: 100%; }
+@media(max-width:600px) { .audience-options { flex-direction: column; } .audience-options button { width: 100%; } }
