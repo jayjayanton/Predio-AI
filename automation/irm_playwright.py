@@ -15,7 +15,7 @@ REPORT_PATH = "/irm/irm.jsf"
 def main():
     parser = argparse.ArgumentParser(description="Consulta IRM asistida (escritorio)")
     parser.add_argument("predio", help="Número de predio consultado en PredioAI")
-    parser.add_argument("--output-dir", default="irm_downloads", help="Carpeta local de salida")
+    parser.add_argument("--output-dir", default=str(Path.home() / "Downloads"), help="Carpeta local de salida (por defecto: Descargas del usuario)")
     args = parser.parse_args()
     predio = args.predio.strip()
     if not re.fullmatch(r"\d{1,25}", predio):
