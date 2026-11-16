@@ -26,7 +26,7 @@ async def lookup_pugs(identifier, identifier_type):
         "where": "1=1",
         "geometry": json.dumps({"rings": rings, "spatialReference": {"wkid": 4326}}),
         "geometryType": "esriGeometryPolygon", "inSR": "4326",
-        "spatialRel": "esriSpatialRelIntersects", "outFields": FIELDS,
+        "spatialRel": "esriSpatialRelIntersects", "outFields": "*",
         "returnGeometry": "false", "resultRecordCount": 20, "f": "json",
     }
     try:
