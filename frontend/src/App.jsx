@@ -178,7 +178,7 @@ export default function App() {
   // Browsers cannot prefill a separate site's form; CAPTCHA stays manual.
   async function startIrmDesktop() {
     const predio = String(properties?.n_predio || properties?.predio || '').trim();
-    if (!/^\\d{1,25}$/.test(predio)) {
+    if (!/^\d{1,25}$/.test(predio)) {
       setIrmCopyStatus('No se encontró un número de predio válido.');
       return;
     }
