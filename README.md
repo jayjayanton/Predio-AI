@@ -72,11 +72,30 @@ Potential applications include painting and flooring estimates, renovation plann
 
 A custom-trained computer vision model is **not** part of the current plan. The first goal is to extract and calculate from documented measurements, using OCR or more advanced techniques only when evidence shows they are needed.
 
-## Consulta IRM asistida (prototipo local)
+## Consulta IRM asistida — Playwright y Chromium
 
-Se añadió un módulo independiente de **Python + Playwright** en [`automation/irm_playwright.py`](automation/irm_playwright.py). Desde PowerShell se ejecuta con el **número real de predio**: `py automation/irm_playwright.py NUMERO_PREDIO`. El navegador se abre en el equipo del usuario, rellena el campo de predio, espera el CAPTCHA manual y detecta la página `irm.jsf`. Tras verificación humana, puede imprimir el informe como PDF local.
+La integración de escritorio está implementada de forma **experimental**: el botón **«Consultar IRM con Playwright (escritorio)»** del sitio web envía el número de predio a un puente Python local (`127.0.0.1:8765`). Playwright abre Chromium, rellena el número de predio, espera a que el usuario resuelva el CAPTCHA y detecta el informe oficial. Si lo valida, genera un PDF en la carpeta **Descargas** del usuario. La carga posterior del PDF en PredioAI sigue siendo manual.
 
-**No está integrado automáticamente al botón del sitio web**, no corre en Render y la impresión del informe real aún debe validarse. Consulte las [instrucciones completas de instalación y uso](automation/README.md).
+**Dependencias por componente (no existe un único requirements.txt):**
+
+| Componente | Archivo | Contenido relevante |
+| --- | --- | --- |
+| Backend FastAPI (Render) | [`backend/requirements.txt`](backend/requirements.txt) | FastAPI, HTTPX, PyMuPDF, Shapely, etc. **No requiere Playwright** |
+| Automatización local de escritorio | [`automation/requirements.txt`](automation/requirements.txt) | **`playwright>=1.50,<2`** |
+| Navegador Chromium | Instalado por Playwright | `py -m playwright install chromium` (descarga separada, no es paquete pip) |
+| Instalador Windows | [`automation/setup_windows.bat`](automation/setup_windows.bat) | Instala Playwright y Chromium, luego inicia el puente local |
+
+En Windows, después de `git pull origin main`, ejecute **`automation/setup_windows.bat`** para instalar lo necesario e iniciar el puente. Se necesita Python con el lanzador `py`. También puede instalar manualmente:
+
+```powershell
+py -m pip install -r automation/requirements.txt
+py -m playwright install chromium
+py automation/irm_bridge.py
+```
+
+El puente solo se ejecuta en el computador del usuario; no se instala en GitHub Pages ni Render. El CAPTCHA se completa manualmente. Si el puente no está disponible, siguen funcionando **«Copiar número»** y **«Abrir consulta IRM oficial»**.
+
+Consulte la [guía de instalación y solución de problemas](automation/README.md).
 
 ## Run locally
 
