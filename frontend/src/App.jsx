@@ -87,6 +87,14 @@ export default function App() {
   const pugsBasicCos = pugsSingleZone?.cos_pb_ba || null;
   const pugsGeneralMaxFloors = pugsSingleZone?.pisos_gm || null;
   const pugsUse = pugsSingleZone?.uso_prin || pugsSingleZone?.tipo_des || pugsSingleZone?.leyenda || null;
+  const pugsComparable = pugsSingleZone && !isCadastralPH;
+  const comparisonRows = [
+    { label: 'Lote mínimo', irm: irmValues.minLot, pugs: pugsSingleZone?.lot_min_ba, unit: 'm²' },
+    { label: 'COS PB', irm: irmValues.cosPb, pugs: pugsSingleZone?.cos_pb_ba, unit: '%' },
+    { label: 'Pisos básicos', irm: irmValues.floors, pugs: pugsSingleZone?.pisos_ba, unit: '' },
+  ];
+  const comparableValue = value => value !== null && value !== undefined && String(value).trim() !== '' && String(value).toLowerCase() !== 'no aplica';
+
   const isMultifamilyRequest = developmentType === 'apartments';
   const isSubdivisionRequest = developmentType === 'subdivision' || developmentType === 'multiple';
   const zoningReady = Boolean(pugsSingleZone && !isCadastralPH);
@@ -988,6 +996,8 @@ export default function App() {
               </div>)}
               <p className="note">Fuente: capa municipal PUGS 2024, ID 60. La intersección no calcula proporciones de superficie por zona ni acredita derechos constructivos. Compare siempre con el IRM.</p>
             </div>}
+            {pugsData?.cadastral && <p className="note">Cruce API: predio {pugsData.predio} · área individual {pugsData.cadastral.individual_area_m2 ?? 'No disponible'} m²{pugsData.cadastral.parent_lot_area_m2 ? ` · lote matriz ${pugsData.cadastral.parent_lot_area_m2} m²` : ''}.</p>}
+            {pugsData?.scope_warning && <p className="note">{pugsData.scope_warning}</p>}
             <p className="note">Los resultados PUGS son datos de referencia. La compatibilidad del proyecto y cualquier discrepancia con el IRM requieren validación municipal.</p>
             {irmExtraction && <p className="note">Compare los parámetros extraídos del IRM con el PUGS vigente. Si existen discrepancias, solicite aclaración municipal antes de evaluar el proyecto.</p>}
             </details>
@@ -1011,6 +1021,24 @@ export default function App() {
             {isCadastralPH && <p className="note">La geometría consultada puede representar el lote matriz de la propiedad horizontal, no la unidad individual. No se atribuyen sus derechos edificatorios al predio individual.</p>}
             <p className="source-note">Fuente: PUGS 2024, capa municipal 60. Estado preliminar; sin decisión legal automatizada.</p>
           </section>
+          {irmExtraction && <section className="property">
+            <h2>Comparación IRM y PUGS</h2>
+            <p className="note">Contraste automático de parámetros básicos publicados. El IRM puede contener reglas especiales, modificaciones o referencias que no se resuelven aquí.</p>
+            <table>
+              <thead><tr><th>Parámetro</th><th>IRM</th><th>PUGS básico</th><th>Comparación</th></tr></thead>
+              <tbody>{comparisonRows.map(row => {
+                const both = comparableValue(row.irm) && comparableValue(row.pugs);
+                const match = both && Number(String(row.irm).replace(',', '.')) === Number(String(row.pugs).replace(',', '.'));
+                return <tr key={row.label}>
+                  <td>{row.label}</td>
+                  <td>{comparableValue(row.irm) ? `${row.irm} ${row.unit}` : 'No extraído'}</td>
+                  <td>{pugsComparable && comparableValue(row.pugs) ? `${row.pugs} ${row.unit}` : 'No aplicable / sin verificar'}</td>
+                  <td>{!pugsComparable || !both ? 'No comparable' : match ? 'Coinciden' : 'Difieren — revisar'}</td>
+                </tr>;
+              })}</tbody>
+            </table>
+            <p className="source-note">Fuentes: PDF IRM aportado por el usuario (extracción no verificada), PUGS 2024 capa 60 (intersección espacial) y catastro 2024. En PH, el PUGS corresponde a la geometría matriz y no se compara como derecho de la unidad.</p>
+          </section>}
           <section className="property">
             <h2>Factibilidad del predio</h2>
             <p><strong>{parcelFeasibility}</strong></p>
