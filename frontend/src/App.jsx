@@ -964,16 +964,7 @@ export default function App() {
               {!Object.keys(irmExtraction.candidate_irm_fields || {}).length && <p>No se encontraron parámetros reconocibles. Verifique si el PDF está escaneado.</p>}
               {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
             </details>}
-            {irmExtraction?.evidence?.length > 0 && <div className="irm-evidence">
-              <h3>Mapas y afectaciones relevantes del IRM</h3>
-              <p className="note">Imágenes del PDF aportado; se muestran únicamente cuando se detectan referencias textuales a afectaciones o protección. No sustituyen un levantamiento georreferenciado.</p>
-              {irmExtraction.evidence.map(item => <details key={item.key} className="irm-document-details">
-                <summary>{item.title} · texto en página(s) {item.sourcePages.join(', ')}</summary>
-                <p className="note">{item.finding}</p>
-                {item.image && <figure><img src={item.image} alt={`Mapa de referencia del IRM, página ${item.imagePage}: ${item.title}`} loading="lazy" style={{width:'100%',maxWidth:'520px',height:'auto'}} /><figcaption>Mapa ilustrativo, página {item.imagePage} del PDF original.</figcaption></figure>}
-                <p className="note">{item.note}</p>
-              </details>)}
-            </div>}
+
           <p className="note">El IRM se contrasta con la zonificación PUGS para contextualizar qué tipos de construcción pueden permitirse en el área. La compatibilidad normativa y la factibilidad del predio se evalúan por separado.</p>
           </section>
           <section className="property">
@@ -998,6 +989,16 @@ export default function App() {
               </div>
               {isCadastralPH && <p className="note">Propiedad horizontal: el área del lote matriz no representa derechos constructivos independientes de esta unidad.</p>}
               <p className="note">Parámetros extraídos del IRM, pendientes de comprobación. La capacidad es teórica y no constituye autorización municipal.</p>
+            {irmExtraction?.evidence?.length > 0 && <div className="irm-evidence">
+              <h3>Mapas y afectaciones relevantes del IRM</h3>
+              <p className="note">Imágenes del PDF aportado; se muestran únicamente cuando se detectan referencias textuales a afectaciones o protección. No sustituyen un levantamiento georreferenciado.</p>
+              {irmExtraction.evidence.map(item => <details key={item.key} className="irm-document-details">
+                <summary>{item.title} · texto en página(s) {item.sourcePages.join(', ')}</summary>
+                <p className="note">{item.finding}</p>
+                {item.image && <figure><img src={item.image} alt={`Mapa de referencia del IRM, página ${item.imagePage}: ${item.title}`} loading="lazy" style={{width:'100%',maxWidth:'520px',height:'auto'}} /><figcaption>Mapa ilustrativo, página {item.imagePage} del PDF original.</figcaption></figure>}
+                <p className="note">{item.note}</p>
+              </details>)}
+            </div>}
               <div className="potential-results">
                 <h3>Potencial constructivo estimado</h3>
             <label className="irm-confirm"><input type="checkbox" checked={irmConfirmed} onChange={e => setIrmConfirmed(e.target.checked)} />
