@@ -14,9 +14,11 @@ echo Installing Playwright Chromium...
 py -m playwright install chromium
 if errorlevel 1 goto :fail
 echo.
-echo Setup complete. Starting PredioAI desktop bridge...
-py automation\irm_bridge.py
-exit /b %errorlevel%
+echo Setup complete. Installing background bridge for this Windows user...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "automation\install_background_bridge.ps1"
+if errorlevel 1 goto :fail
+echo PredioAI is ready. You can close this window.
+exit /b 0
 :fail
 echo.
 echo Setup failed. Review the error messages above.
