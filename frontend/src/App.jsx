@@ -81,6 +81,8 @@ export default function App() {
   const cadastralAreaLabel = isCadastralPH ? 'área atribuida al predio PH' : 'área catastral del predio';
   const pugsZones = pugsData?.zones || [];
   const dominantZone = pugsData?.dominant_zone || (pugsData?.status === 'single_zone' ? pugsZones[0] : null);
+  // Preserve the authoritative zoning identifier separately from its display label.
+  const pugsCode = dominantZone?.tipologia || null;
   const pugsUse = dominantZone?.tipo_des || dominantZone?.leyenda || dominantZone?.uso_prin || null;
   const pugsDescription = zone => {
     const raw = String(zone?.tipo_des || zone?.leyenda || zone?.uso_prin || 'Clasificación no disponible');
@@ -966,39 +968,6 @@ export default function App() {
           <p className="note">El IRM se contrasta con la zonificación PUGS para contextualizar qué tipos de construcción pueden permitirse en el área. La compatibilidad normativa y la factibilidad del predio se evalúan por separado.</p>
           </section>
           <section className="property">
-            <h2>Compatibilidad del proyecto</h2>
-            <label htmlFor="development-type"><strong>¿Qué desea construir?</strong></label>
-            <select id="development-type" value={developmentType} onChange={e => setDevelopmentType(e.target.value)}>
-              <option value="single">Una vivienda</option>
-              <option value="multiple">Varias viviendas / conjunto</option>
-              <option value="subdivision">Subdivisión de terreno</option>
-              <option value="apartments">Edificio multifamiliar</option>
-            </select>
-
-            {!irmExtraction ? <p className="note">Adjunte el IRM para activar el análisis de compatibilidad con el contexto PUGS.</p> : <div className="compatibility-overview">
-              <p className="compatibility-status"><strong>{projectCompatibility}</strong></p>
-              <p className="note">{singleZoningClassification ? 'Zonificación del polígono catastral:' : 'Zonificaciones intersectadas:'} <strong>{zoningClassifications.length ? zoningClassifications.map(pugsDescription).join(' / ') : 'No determinada'}</strong>.</p>
-              {pugsZones.length > 1 && <div className="zoning-intersections">
-                <strong>Zonas PUGS intersectadas ({pugsZones.length})</strong>
-                <ul>{pugsZones.map((zone, i) => <li key={zone.OBJECTID || i}>
-                  <strong>{zone.tipo_des || zone.leyenda || zone.uso_prin || `Zona ${i + 1}`}</strong>
-                  {zone._overlap_percent != null && <span> — {zone._overlap_percent}% del polígono</span>}
-                </li>)}</ul>
-              </div>}
-              {pugsZones.length > 1 && <p className="note">La zona predominante no reemplaza las otras zonas intersectadas; la norma aplicable depende de la ubicación exacta del proyecto.</p>}
-              <div className="capacity-inputs">
-                {[
-                  ['single', 'Casa / vivienda individual'],
-                  ['multiple', 'Varias viviendas / conjunto'],
-                  ['apartments', 'Edificio de departamentos']
-                ].map(([type, label]) => <div key={type}><strong>{label}</strong><p>{permissionLabels[projectPermission(type)] || 'Uso no verificado'}</p></div>)}
-              </div>
-              <p className="note">El cruce espacial describe la zona, pero no constituye por sí solo una autorización ni una prohibición. Los resultados definitivos requieren reglas oficiales de usos permitidos y el IRM correspondiente.</p>
-              {isCadastralPH && <p className="note">El cruce espacial corresponde al lote matriz de la propiedad horizontal, no a los derechos individuales de esta unidad.</p>}
-            </div>}
-            <p className="source-note">Fuentes: catastro municipal, IRM cargado y PUGS 2024 (unión espacial de polígonos).</p>
-          </section>
-          <section className="property">
             <h2>Factibilidad del predio</h2>
             {!irmExtraction ? <p className="note">Cargue el IRM para revisar las condiciones del predio y calcular su potencial constructivo.</p> : <>
               <p><strong>{parcelFeasibility}</strong></p>
@@ -1044,6 +1013,40 @@ export default function App() {
               </div>
             </>}
           </section>
+          <section className="property">
+            <h2>Compatibilidad del proyecto</h2>
+            <label htmlFor="development-type"><strong>¿Qué desea construir?</strong></label>
+            <select id="development-type" value={developmentType} onChange={e => setDevelopmentType(e.target.value)}>
+              <option value="single">Una vivienda</option>
+              <option value="multiple">Varias viviendas / conjunto</option>
+              <option value="subdivision">Subdivisión de terreno</option>
+              <option value="apartments">Edificio multifamiliar</option>
+            </select>
+
+            {!irmExtraction ? <p className="note">Adjunte el IRM para activar el análisis de compatibilidad con el contexto PUGS.</p> : <div className="compatibility-overview">
+              <p className="compatibility-status"><strong>{projectCompatibility}</strong></p>
+              <p className="note">{singleZoningClassification ? 'Zonificación del polígono catastral:' : 'Zonificaciones intersectadas:'} <strong>{zoningClassifications.length ? zoningClassifications.map(pugsDescription).join(' / ') : 'No determinada'}</strong>.</p>
+              {pugsZones.length > 1 && <div className="zoning-intersections">
+                <strong>Zonas PUGS intersectadas ({pugsZones.length})</strong>
+                <ul>{pugsZones.map((zone, i) => <li key={zone.OBJECTID || i}>
+                  <strong>{zone.tipo_des || zone.leyenda || zone.uso_prin || `Zona ${i + 1}`}</strong>
+                  {zone._overlap_percent != null && <span> — {zone._overlap_percent}% del polígono</span>}
+                </li>)}</ul>
+              </div>}
+              {pugsZones.length > 1 && <p className="note">La zona predominante no reemplaza las otras zonas intersectadas; la norma aplicable depende de la ubicación exacta del proyecto.</p>}
+              <div className="capacity-inputs">
+                {[
+                  ['single', 'Casa / vivienda individual'],
+                  ['multiple', 'Varias viviendas / conjunto'],
+                  ['apartments', 'Edificio de departamentos']
+                ].map(([type, label]) => <div key={type}><strong>{label}</strong><p>{permissionLabels[projectPermission(type)] || 'Uso no verificado'}</p></div>)}
+              </div>
+              <p className="note">El cruce espacial describe la zona, pero no constituye por sí solo una autorización ni una prohibición. Los resultados definitivos requieren reglas oficiales de usos permitidos y el IRM correspondiente.</p>
+              {isCadastralPH && <p className="note">El cruce espacial corresponde al lote matriz de la propiedad horizontal, no a los derechos individuales de esta unidad.</p>}
+            </div>}
+            <p className="source-note">Fuentes: catastro municipal, IRM cargado y PUGS 2024 (unión espacial de polígonos).</p>
+          </section>
+
 
           <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
         </main>
