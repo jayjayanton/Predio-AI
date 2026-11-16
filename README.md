@@ -15,6 +15,15 @@ Municipal cadastral data can describe a property, but it does not tell the whole
 
 PredioAI aims to connect those two sources: **where a property is** and **what its construction documents say about it**. A future user will be able to upload an authorized PDF, review extracted measurements, ask questions in Spanish, and export a traceable technical report.
 
+## Two user workflows
+
+The homepage now distinguishes **Propietarios y remodeladores** from **Promotores inmobiliarios**. Both reuse the same Quito cadastral search and map.
+
+- **Owners/remodelers:** the existing repair, maintenance, plan upload, selectable geometry and document-inspection workflow remains available.
+- **Developers:** search a predio, copy its predio number, open the official municipal IRM consultation, complete the CAPTCHA manually, and select the downloaded IRM PDF. Regulatory extraction, parcel scoring, and development feasibility are explicitly future capabilities, not operational outputs.
+
+The developer IRM upload currently selects a local file only; it does not send or parse it. The standalone Playwright desktop assistant is documented in [automation/README.md](automation/README.md) and is not launched by the website.
+
 ## Current capabilities
 
 - **Quito cadastral search:** Look up a property by **clave catastral** or **número de predio** using the municipal ArcGIS service.
