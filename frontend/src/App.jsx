@@ -1004,11 +1004,8 @@ export default function App() {
               </div>
               {isCadastralPH && <p className="note">Propiedad horizontal: el área del lote matriz no representa derechos constructivos independientes de esta unidad.</p>}
               <p className="note">Parámetros extraídos del IRM, pendientes de comprobación. La capacidad es teórica y no constituye autorización municipal.</p>
-            </>}
-          </section>
-          {irmExtraction && <section className="property">
-            <h2>Evaluación del potencial constructivo</h2>
-            <p className="note">Cálculos derivados de los parámetros del IRM presentados en Factibilidad del predio.</p>
+              <div className="potential-results">
+                <h3>Potencial constructivo estimado</h3>
             <label className="irm-confirm"><input type="checkbox" checked={irmConfirmed} onChange={e => setIrmConfirmed(e.target.checked)} />
               He revisado los valores, el uso de suelo y las restricciones en el IRM oficial.
             </label>
@@ -1026,8 +1023,12 @@ export default function App() {
               <p className="note">Compatibilidad de uso residencial: pendiente de validación. No es posible afirmar que se permitan o prohíban apartamentos únicamente con COS y pisos.</p>
               <p className="note">Estos límites no establecen cuántas viviendas pueden aprobarse ni su tamaño individual. Faltan uso de suelo, densidad, retiros, frente, afectaciones, acceso y otras condiciones.</p>
             </div> : <p className="note">No hay suficientes parámetros verificables para calcular. En propiedad horizontal se requiere confirmar el alcance del IRM: el COS del lote matriz no debe aplicarse automáticamente a la superficie atribuida de una unidad.</p>}
-            <p className="note">El IRM no autoriza construir. El resultado es orientativo y no sustituye la revisión normativa ni profesional.</p>
-          </section>}
+
+
+              </div>
+            </>}
+          </section>
+
           <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
         </main>
       )}
