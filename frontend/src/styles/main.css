@@ -299,3 +299,37 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .irm-evidence-item figure { margin:12px 0; }
 .irm-evidence-item img { display:block; border:1px solid #355258; border-radius:8px; }
 .irm-evidence-item figcaption { font-size:12px; color:#b3c9cd; margin-top:6px; }
+
+/* Mobile cadastral viewer: controls occupy their own toolbar above the map,
+   never cover the live-map heading or the Leaflet zoom controls. */
+.parcel-map-wrapper { display:flex; flex-direction:column; }
+.parcel-map-wrapper .basemap-switcher {
+  position:static; inset:auto; z-index:auto;
+  width:max-content; max-width:100%; align-self:flex-start;
+  flex-wrap:wrap; box-sizing:border-box; margin:8px 10px 4px;
+}
+.parcel-map-wrapper .parcel-layer-toggle {
+  position:static; align-self:flex-start; max-width:calc(100% - 20px);
+  margin:5px 10px 9px !important; line-height:1.35; font-size:12px !important;
+  color:#c8e3df; cursor:pointer;
+}
+.parcel-map-wrapper .parcel-layer-toggle input { accent-color:#26c9a0; }
+.parcel-map-wrapper .map { flex:1; min-height:420px; }
+/* Scope color to cadastral outlines, leaving the selected predio turquoise. */
+.leaflet-overlay-pane path.predio-nearby-outline:not(:hover) {
+  stroke:#9fe7b6;
+  stroke-width:1.7;
+  stroke-opacity:1;
+  fill-opacity:0;
+}
+@media(max-width:600px) {
+  .parcel-map-wrapper .basemap-switcher { margin:6px 8px 4px; gap:3px; }
+  .parcel-map-wrapper .basemap-switcher button { padding:8px 9px; font-size:11px; }
+  .parcel-map-wrapper .parcel-layer-toggle { margin:4px 8px 8px !important; }
+  .map-section,.parcel-map-wrapper { height:auto; min-height:0; }
+  .parcel-map-wrapper .map { height:440px; min-height:440px; flex:none; }
+  .map-top { top:8px; left:8px; right:8px; gap:5px; flex-wrap:wrap; }
+  .map-top span { padding:6px 8px; font-size:9px; }
+  .map-bottom { bottom:18px; left:8px; right:8px; gap:5px; }
+  .map-bottom span { padding:6px 8px; font-size:9px; }
+}
