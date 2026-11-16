@@ -119,6 +119,18 @@ export default function App() {
   };
   const protectedZones = pugsZones.filter(isProtectedZone);
   const buildingZones = pugsZones.filter(zone => !isProtectedZone(zone));
+  // A single source-ordered image list prevents the occupation diagram from
+  // floating above earlier IRM maps in a separate render block.
+  const irmImages = [
+    ...(irmExtraction?.evidence || []),
+    ...(irmExtraction?.occupationDiagram ? [{
+      ...irmExtraction.occupationDiagram,
+      key: 'occupation_diagram',
+      imageOrder: irmExtraction.occupationDiagram.imagePage * 1000000 + 999000,
+      title: 'Esquema de implantación y retiros'
+    }] : [])
+  ].sort((a,b) => (a.imageOrder ?? (a.imagePage || 9999)*1000000) -
+                   (b.imageOrder ?? (b.imagePage || 9999)*1000000));
   const irmRestrictions = irmExtraction?.evidence || [];
   const ravineRestriction = irmRestrictions.some(item => item.key === 'quebrada');
   const forestRestriction = irmRestrictions.some(item => item.key === 'forestal');
@@ -1163,12 +1175,12 @@ export default function App() {
               </div>
               {isCadastralPH && <p className="note">Propiedad horizontal: el área del lote matriz no representa derechos constructivos independientes de esta unidad.</p>}
               <p className="note">Parámetros extraídos del IRM, pendientes de comprobación. La capacidad es teórica y no constituye autorización municipal.</p>
-            {irmExtraction?.evidence?.length > 0 && <div className="irm-evidence">
+            {irmImages.length > 0 && <div className="irm-evidence">
               <h3>Mapas y afectaciones relevantes del IRM</h3>
               <p className="note">Imágenes del PDF aportado; se muestran únicamente cuando se detectan referencias textuales a afectaciones o protección. No sustituyen un levantamiento georreferenciado.</p>
-              {irmExtraction.evidence.map(item => <div key={item.key} className="irm-evidence-item">
-                <h4>{item.title} · texto en página(s) {item.sourcePages.join(', ')}</h4>
-                <p>{item.mapDescription || item.finding}</p>
+              {irmImages.map(item => <div key={item.key} className="irm-evidence-item">
+                <h4>{item.title} · {item.key === 'occupation_diagram' ? `imagen en página ${item.imagePage}` : `texto en página(s) ${item.sourcePages.join(', ')}`}</h4>
+                <p>{item.key === 'occupation_diagram' ? 'Esquema municipal de implantación y retiros. Los parámetros numéricos figuran en la sección de condiciones urbanísticas.' : (item.mapDescription || item.finding)}</p>
                 {item.key === 'proteccion' && <div className="note">
                   <strong>Superficie afectada según cruce PUGS:</strong>{' '}
                   {protectedZones.some(zone => Number.isFinite(Number(zone._overlap_m2)) && zone._overlap_m2 != null)
@@ -1188,14 +1200,6 @@ export default function App() {
                 <p className="note">{item.note}</p>
               </div>)}
             </div>}
-            {irmExtraction?.occupationDiagram && <figure className="irm-evidence-item">
-              <h3>Esquema de implantación y retiros (IRM)</h3>
-              <p className="note">Referencia gráfica municipal para interpretar la forma de ocupación, los retiros y el frente del lote. Los valores numéricos se presentan una sola vez en las condiciones urbanísticas anteriores.</p>
-              <img src={irmExtraction.occupationDiagram.image}
-                alt="Esquema de ocupación del suelo y retiros incluido en el IRM"
-                loading="lazy" style={{width:'100%',maxWidth:'420px',height:'auto'}} />
-              <figcaption>Página {irmExtraction.occupationDiagram.imagePage} del IRM original. {irmExtraction.occupationDiagram.note}</figcaption>
-            </figure>}
               <div className="potential-results">
                 <h3>Potencial constructivo estimado</h3>
             <label className="irm-confirm"><input type="checkbox" checked={irmConfirmed} onChange={e => setIrmConfirmed(e.target.checked)} />
