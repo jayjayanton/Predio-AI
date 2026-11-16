@@ -94,6 +94,26 @@ export default function App() {
   const singleZoningClassification = pugsZones.length === 1 || (hasMeasuredOverlap && dominantOverlap > 90);
   const zoningClassifications = singleZoningClassification && dominantZone ? [dominantZone] : pugsZones;
 
+  // Distinguish baseline building parameters from use permission and protected areas.
+  const isProtectedZone = zone => {
+    const code = String(zone?.tipologia || zone?.uso_prin || '').toUpperCase();
+    const description = String([zone?.tipo_des, zone?.leyenda, zone?.uso_prin].filter(Boolean).join(' ')).toLowerCase();
+    return code === 'PE' || /protecci[oó]n ecol[oó]gica|protecci[oó]n ambiental|conservaci[oó]n/.test(description);
+  };
+  const protectedZones = pugsZones.filter(isProtectedZone);
+  const buildingZones = pugsZones.filter(zone => !isProtectedZone(zone));
+  const irmRestrictions = irmExtraction?.evidence || [];
+  const ravineRestriction = irmRestrictions.some(item => item.key === 'quebrada');
+  const forestRestriction = irmRestrictions.some(item => item.key === 'forestal');
+  const basicBuildability = buildingZones.map(zone => ({
+    code: zone.cod_edi_ba || null,
+    designation: zone.edifi_ba || null,
+    minLot: zone.lot_min_ba,
+    floors: zone.pisos_ba,
+    cosPb: zone.cos_pb_ba,
+    overlap: zone._overlap_percent,
+    label: [zone.uso_prin, zone.leyenda].filter(Boolean).join(' - ')
+  }));
   const isSubdivisionRequest = developmentType === 'subdivision' || developmentType === 'multiple';
   const isMultifamilyRequest = developmentType === 'apartments';
   // A PUGS density label is not a verified residential use-permission matrix.
@@ -972,6 +992,21 @@ export default function App() {
                 </p>)}
                 {!singleZoningClassification && <p className="note">Ninguna zona supera el 90% de cobertura verificada; se muestran todas las zonas intersectadas.</p>}
               </div>}
+              {basicBuildability.length > 0 && <div className="zoning-buildability">
+                <h3>Edificabilidad básica por zona</h3>
+                {basicBuildability.map((zone, i) => <div key={i}>
+                  <p><strong>{zone.label || 'Zona residencial'}</strong>{zone.overlap != null ? ` — ${zone.overlap}% del polígono` : ''}</p>
+                  <p>Código: {zone.code || 'No disponible'}{zone.designation ? ` (${zone.designation})` : ''} · Lote mínimo: {zone.minLot ?? 'No disponible'} m² · COS PB: {zone.cosPb ?? 'No disponible'}% · Pisos: {zone.floors ?? 'No disponible'}</p>
+                </div>)}
+                <p className="note">Estos parámetros describen edificabilidad básica, no autorización para construir un tipo específico de vivienda.</p>
+              </div>}
+              {(protectedZones.length > 0 || ravineRestriction || forestRestriction) && <div className="inspection">
+                <strong>Restricciones territoriales identificadas</strong>
+                {protectedZones.map((zone,i) => <p key={zone.OBJECTID || i}>Zona de protección: {zone.leyenda || zone.tipo_des || zone.uso_prin || 'PE'}{zone._overlap_percent != null ? ` — ${zone._overlap_percent}% del lote matriz` : ''}. No aplicar aquí los parámetros constructivos de RUB-2.</p>)}
+                {ravineRestriction && <p>El IRM menciona quebrada y protección geográfica. La ubicación y el retiro definitivo requieren verificación municipal.</p>}
+                {forestRestriction && <p>El IRM menciona protección forestal. Debe verificarse la delimitación y normativa aplicable.</p>}
+                <p className="note">El cruce corresponde al polígono catastral disponible; no localiza automáticamente la unidad individual de propiedad horizontal.</p>
+              </div>}
               {developerAreaSource && <p className="note">{developerAreaSource}</p>}
               <div className="capacity-inputs">
                 <div><strong>Área del predio</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No extraída'}</p></div>
@@ -1046,6 +1081,7 @@ export default function App() {
                   ['apartments', 'Edificio de departamentos']
                 ].map(([type, label]) => <div key={type}><strong>{label}</strong><p>{permissionLabels[projectPermission(type)] || 'Uso no verificado'}</p></div>)}
               </div>
+              {(protectedZones.length > 0 || ravineRestriction || forestRestriction) && <p className="note">Existen afectaciones o zonas de protección en el polígono consultado. La viabilidad depende de ubicar el proyecto fuera de las áreas restringidas y comprobar las condiciones del IRM.</p>}
               <p className="note">El cruce espacial describe la zona, pero no constituye por sí solo una autorización ni una prohibición. Los resultados definitivos requieren reglas oficiales de usos permitidos y el IRM correspondiente.</p>
               {isCadastralPH && <p className="note">El cruce espacial corresponde al lote matriz de la propiedad horizontal, no a los derechos individuales de esta unidad.</p>}
             </div>}
