@@ -179,3 +179,8 @@ The new-construction workflow links to Quito's official PUGS 2024 geovisor, ArcG
 ### PUGS spatial query prototype
 
 `GET /api/pugs/{identifier_type}/{identifier}` retrieves a unique cadastral polygon and queries the official 2024 PUGS `MapServer/60/query` using ArcGIS `esriSpatialRelIntersects`, EPSG:4326, and the complete parcel polygon. The new-construction interface displays returned attributes and flags multiple-zone intersections. It does not compute intersection fractions, verify the server's current live behavior, resolve zoning-law exceptions, or grant legal permission. A failed municipal request is explicitly reported. The integration requires testing against known real predios and their IRMs before it can be relied on for eligibility screening.
+
+
+### In-app data provenance
+
+The frontend includes a **Fuentes de datos y metodología** section identifying the cadastral 2024 attribute service, conditional 2026 geometry source, municipal AIVA valuation layers, user-uploaded official IRM, PUGS 2024 geovisor and zoning layer 60, and PredioAI's own theoretical calculations. Source links and limitations are shown together; parcel geometry is not a building footprint, AIVA is not a market appraisal, and preliminary IRM/PUGS results are not permits.
