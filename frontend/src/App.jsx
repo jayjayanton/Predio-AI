@@ -65,8 +65,14 @@ export default function App() {
 
   // Property data
   const [data, setData] = useState(null);
-  const cadastralArea = Number(data?.features?.[0]?.properties?.area_terre);
+  const cadastralProperties = data?.features?.[0]?.properties;
+  const isCadastralPH = String(cadastralProperties?.tipo_propi || '').trim().toUpperCase() === 'PROPIEDAD HORIZONTAL';
+  const attributedArea = Number(cadastralProperties?.area_ter_1);
+  const parentLotArea = Number(cadastralProperties?.area_terre);
+  // Never substitute the parent-lot area for an individual PH predio.
+  const cadastralArea = isCadastralPH ? attributedArea : parentLotArea;
   const cadastralAreaValue = Number.isFinite(cadastralArea) && cadastralArea > 0 ? String(cadastralArea) : '';
+  const cadastralAreaLabel = isCadastralPH ? 'área atribuida al predio PH' : 'área catastral del predio';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -115,7 +121,7 @@ export default function App() {
     setIrmExtractError('');
     setIrmConfirmed(false);
     setIrmValues({ area: cadastralAreaValue, cosPb: '', cosTotal: '', floors: '', minLot: '', minFront: '', dwellingCode: '' });
-    setDeveloperAreaSource(cadastralAreaValue ? 'Área precargada del catastro municipal; confirme con el IRM. No es necesariamente el área edificable.' : 'Área no disponible en el catastro; verifique el IRM.');
+    setDeveloperAreaSource(cadastralAreaValue ? `Fuente: Catastro municipal, ${cadastralAreaLabel}; contrastar con el IRM. No representa automáticamente superficie edificable.` : 'Área específica no disponible; no se usará el área del lote matriz como sustituto.');
     if (!file) return;
     setIrmExtracting(true);
     try {
@@ -140,7 +146,7 @@ export default function App() {
           extraction: body
         }));
       } catch { /* browser storage may be disabled */ }
-      setDeveloperAreaSource(fields.area_terreno ? 'Área extraída del IRM (sin verificar).' : cadastralAreaValue ? 'Área precargada del catastro municipal porque el IRM no contenía un valor reconocible; verifique que corresponda al lote.' : 'Área no encontrada en IRM ni catastro; ingrésela manualmente.');
+      setDeveloperAreaSource(fields.area_terreno ? 'Fuente: IRM aportado (extracción automática, sin verificar).' : cadastralAreaValue ? `Fuente: Catastro municipal (${cadastralAreaLabel}); el IRM no contenía un área reconocible.` : 'Área del predio no disponible en las fuentes. No se utiliza el lote matriz como sustituto.');
     } catch (err) {
       setIrmExtractError(err.message);
     } finally {
@@ -156,7 +162,7 @@ export default function App() {
     setIrmConfirmed(false);
     setIrmExtraction(null);
     setIrmValues({ area: cadastralAreaValue, cosPb: '', cosTotal: '', floors: '', minLot: '', minFront: '', dwellingCode: '' });
-    setDeveloperAreaSource(cadastralAreaValue ? 'Área obtenida del catastro municipal; pendiente de contraste con el IRM.' : '');
+    setDeveloperAreaSource(cadastralAreaValue ? `Fuente: Catastro municipal (${cadastralAreaLabel}); pendiente de contraste con el IRM.` : 'Área específica no disponible; no se utiliza el lote matriz.');
     if (!predio) return;
     try {
       const saved = JSON.parse(sessionStorage.getItem('predioai-irm-' + predio) || 'null');
@@ -957,19 +963,18 @@ export default function App() {
               <option value="subdivision">Subdivisión de terreno</option>
               <option value="apartments">Edificio multifamiliar</option>
             </select>
-            <p className="note">Los campos detectados se rellenan automáticamente como candidatos. Confirme cada dato con el IRM oficial antes de calcular. Los valores pueden editarse.</p>
+            <p className="note">Los parámetros son de solo lectura y provienen del IRM o del catastro municipal. No se pueden modificar manualmente. Si falta un valor, el cálculo correspondiente permanece no disponible.</p>
             {developerAreaSource && <p className="note">{developerAreaSource}</p>}
             <div className="capacity-inputs">
-              <label>Área del terreno (IRM o catastro, m²)<input type="number" min="0" step="0.01" value={irmValues.area} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,area:e.target.value}));}} /></label>
-              <label>COS PB (%)<input type="number" min="0" max="100" step="0.01" value={irmValues.cosPb} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,cosPb:e.target.value}));}} /></label>
-              <label>COS total (%)<input type="number" min="0" step="0.01" value={irmValues.cosTotal} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,cosTotal:e.target.value}));}} /></label>
-              {showSubdivision && <label>Lote mínimo (m²)<input type="number" min="0" step="0.01" value={irmValues.minLot} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,minLot:e.target.value}));}} /></label>}
-              {showSubdivision && <label>Frente mínimo (m)<input type="number" min="0" step="0.01" value={irmValues.minFront} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,minFront:e.target.value}));}} /></label>}
-              {showHousingCode && <label>Designación de vivienda (si consta)<select value={irmValues.dwellingCode} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,dwellingCode:e.target.value}));}}>
-                <option value="">No identificada</option><option value="VU">VU</option><option value="VB">VB</option><option value="VM">VM</option>
-              </select></label>}
-              <label>Pisos permitidos<input type="number" min="1" step="1" value={irmValues.floors} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,floors:e.target.value}));}} /></label>
+              <div><strong>Área específica del predio (m²)</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No disponible'}</p></div>
+              <div><strong>COS PB (%)</strong><p>{irmValues.cosPb !== '' ? `${irmValues.cosPb}%` : 'No disponible'}</p></div>
+              <div><strong>COS total (%)</strong><p>{irmValues.cosTotal !== '' ? `${irmValues.cosTotal}%` : 'No disponible'}</p></div>
+              {showSubdivision && <div><strong>Lote mínimo (m²)</strong><p>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No disponible'}</p></div>}
+              {showSubdivision && <div><strong>Frente mínimo (m)</strong><p>{irmValues.minFront ? `${irmValues.minFront} m` : 'No disponible'}</p></div>}
+              {showHousingCode && <div><strong>Designación de vivienda</strong><p>{irmValues.dwellingCode || 'No identificada'}</p></div>}
+              <div><strong>Pisos permitidos</strong><p>{irmValues.floors || 'No disponible'}</p></div>
             </div>
+            {isCadastralPH && <p className="note">Propiedad horizontal: el lote matriz mide {Number.isFinite(parentLotArea) && parentLotArea > 0 ? formatArea(parentLotArea) : 'un área no disponible'}. Esa superficie NO se utiliza para evaluar el predio individual ni para estimar subdivisiones.</p>}
             <label className="irm-confirm"><input type="checkbox" checked={irmConfirmed} onChange={e => setIrmConfirmed(e.target.checked)} />
               He revisado los valores, el uso de suelo y las restricciones en el IRM oficial.
             </label>
@@ -979,14 +984,14 @@ export default function App() {
               <p>Superficie total computable por COS: <strong>{formatArea(Number(irmValues.area) * Number(irmValues.cosTotal) / 100)}</strong></p>
               <p>Pisos indicados en IRM: <strong>{irmValues.floors}</strong></p>
               <p className="note">Proyecto seleccionado: {developmentType === 'single' ? 'Una vivienda' : developmentType === 'multiple' ? 'Varias viviendas' : developmentType === 'subdivision' ? 'Subdivisión de terreno' : 'Edificio multifamiliar'}.</p>
-              {(developmentType === 'multiple' || developmentType === 'subdivision') && Number(irmValues.minLot) > 0 && <p><strong>Máximo teórico por área: {Math.floor(Number(irmValues.area) / Number(irmValues.minLot))} lotes</strong> de al menos {irmValues.minLot} m², antes de descontar vías, cesiones, accesos y otras exigencias. No es el número de viviendas autorizado.</p>}
-              {Number(irmValues.minLot) > 0 && <p>En un lote mínimo de {irmValues.minLot} m², el COS PB correspondería a {formatArea(Number(irmValues.minLot) * Number(irmValues.cosPb) / 100)} de ocupación en planta baja y el COS total a {formatArea(Number(irmValues.minLot) * Number(irmValues.cosTotal) / 100)} de superficie computable, sujetos a retiros y otras restricciones.</p>}
+              {!isCadastralPH && (developmentType === 'multiple' || developmentType === 'subdivision') && Number(irmValues.minLot) > 0 && <p><strong>Máximo teórico por área: {Math.floor(Number(irmValues.area) / Number(irmValues.minLot))} lotes</strong> de al menos {irmValues.minLot} m², antes de descontar vías, cesiones, accesos y otras exigencias. No es el número de viviendas autorizado.</p>}
+              {!isCadastralPH && Number(irmValues.minLot) > 0 && <p>En un lote mínimo de {irmValues.minLot} m², el COS PB correspondería a {formatArea(Number(irmValues.minLot) * Number(irmValues.cosPb) / 100)} de ocupación en planta baja y el COS total a {formatArea(Number(irmValues.minLot) * Number(irmValues.cosTotal) / 100)} de superficie computable, sujetos a retiros y otras restricciones.</p>}
               {Number(irmValues.minFront) > 0 && <p>Frente mínimo indicado: {irmValues.minFront} m. Su cumplimiento geométrico aún no se comprueba.</p>}
               {irmValues.dwellingCode && <p>Designación detectada: {irmValues.dwellingCode}. Debe confirmarse su significado y aplicación en la normativa vigente.</p>}
               <p className="note">{developmentType === 'apartments' ? 'Para un edificio multifamiliar debe verificarse expresamente la compatibilidad de uso, densidad y normativa aplicable; los pisos y el COS no bastan.' : developmentType === 'single' ? 'Para vivienda individual deben verificarse retiros, uso permitido y condiciones del lote.' : 'Para múltiples viviendas o subdivisión se requieren además frente, lote mínimo, accesos, cesiones y permisos correspondientes.'}</p>
               <p className="note">Compatibilidad de uso residencial: pendiente de validación. No es posible afirmar que se permitan o prohíban apartamentos únicamente con COS y pisos.</p>
               <p className="note">Estos límites no establecen cuántas viviendas pueden aprobarse ni su tamaño individual. Faltan uso de suelo, densidad, retiros, frente, afectaciones, acceso y otras condiciones.</p>
-            </div> : <p className="note">Complete los cuatro campos y confirme su revisión del IRM para calcular límites teóricos. No se inventan datos del IRM.</p>}
+            </div> : <p className="note">No hay suficientes parámetros verificables para calcular. Consulte el IRM oficial; no se admiten cifras inventadas ni editadas por el usuario.</p>}
             <p className="note">El IRM no autoriza construir. El resultado es orientativo y no sustituye la revisión normativa ni profesional.</p>
           </section>}
           <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
