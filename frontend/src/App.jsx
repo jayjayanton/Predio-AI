@@ -6,7 +6,7 @@ const WORK_ACTIVITIES = {
   expansion: [['expand_room','Ampliar habitación'],['new_space','Construir nuevo espacio'],['add_floor','Añadir piso']],
 };
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import ParcelMap from './components/ParcelMap.jsx';
 import BlueprintViewer from './components/BlueprintViewer.jsx';
 
@@ -124,6 +124,13 @@ export default function App() {
       }
       setIrmExtraction(body);
       setIrmValues({ area: parsed('area_terreno'), cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos') });
+      try {
+        const predio = String(properties?.n_predio || '').trim();
+        if (predio) sessionStorage.setItem('predioai-irm-' + predio, JSON.stringify({
+          values: { area: parsed('area_terreno'), cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos') },
+          extraction: body
+        }));
+      } catch { /* browser storage may be disabled */ }
       setDeveloperAreaSource(fields.area_terreno ? 'Área detectada en el IRM; confirme que corresponde al terreno evaluado.' : 'El área del terreno no se extrajo del IRM. Ingrésela manualmente después de verificarla.');
     } catch (err) {
       setIrmExtractError(err.message);
@@ -131,6 +138,25 @@ export default function App() {
       setIrmExtracting(false);
     }
   }
+
+  // Keep extracted metadata (never the PDF itself) for this browser tab only.
+  // Scoped to the selected predio to avoid mixing different properties.
+  useEffect(() => {
+    const predio = String(properties?.n_predio || '').trim();
+    setDeveloperIrm(null);
+    setIrmConfirmed(false);
+    setIrmExtraction(null);
+    setIrmValues({ area: '', cosPb: '', cosTotal: '', floors: '' });
+    if (!predio) return;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('predioai-irm-' + predio) || 'null');
+      if (saved?.values && saved?.extraction) {
+        setIrmValues(saved.values);
+        setIrmExtraction(saved.extraction);
+        setDeveloperAreaSource('Datos recuperados de esta pestaña; vuelva a verificar el IRM antes de calcular.');
+      }
+    } catch { /* storage may be disabled */ }
+  }, [data]);
 
   // Municipal property attributes
   const properties = data?.features?.[0]?.properties;
