@@ -174,3 +174,8 @@ A homepage screenshot will be added here when available. Save it at **`docs/imag
 ### PUGS 2024 regulatory source (new construction)
 
 The new-construction workflow links to Quito's official PUGS 2024 geovisor, ArcGIS MapServer, and Ordinance 003-2024. These are authoritative **reference sources**, not an automated parcel-level zoning lookup yet. The cadastral `zonificaci` attribute is **not** a substitute for the PUGS planning designation. A future spatial overlay must verify service layer IDs, layer currency, intersection of the full parcel geometry (not just a centroid), multiple-zone overlaps, and basic versus maximum buildability before using PUGS values for eligibility decisions. IRM discrepancies must be flagged, never silently overwritten.
+
+
+### PUGS spatial query prototype
+
+`GET /api/pugs/{identifier_type}/{identifier}` retrieves a unique cadastral polygon and queries the official 2024 PUGS `MapServer/60/query` using ArcGIS `esriSpatialRelIntersects`, EPSG:4326, and the complete parcel polygon. The new-construction interface displays returned attributes and flags multiple-zone intersections. It does not compute intersection fractions, verify the server's current live behavior, resolve zoning-law exceptions, or grant legal permission. A failed municipal request is explicitly reported. The integration requires testing against known real predios and their IRMs before it can be relied on for eligibility screening.
