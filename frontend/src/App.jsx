@@ -985,17 +985,10 @@ export default function App() {
             <h2>Factibilidad del predio</h2>
             {!irmExtraction ? <p className="note">Cargue el IRM para revisar las condiciones del predio y calcular su potencial constructivo.</p> : <>
               <p><strong>{parcelFeasibility}</strong></p>
-              {zoningClassifications.length > 0 && <div className="zoning-classification">
-                <strong>{singleZoningClassification ? 'Clasificación PUGS:' : 'Clasificaciones PUGS:'}</strong>
-                {zoningClassifications.map((zone, i) => <p key={zone.OBJECTID || i}>
-                  {[zone.uso_prin, zone.leyenda].filter(value => value != null && String(value).trim() !== '').join(' - ') || 'Clasificación no disponible'}{!singleZoningClassification && zone._overlap_percent != null ? ` — ${zone._overlap_percent}% del polígono` : ''}
-                </p>)}
-                {!singleZoningClassification && <p className="note">Ninguna zona supera el 90% de cobertura verificada; se muestran todas las zonas intersectadas.</p>}
-              </div>}
               {basicBuildability.length > 0 && <div className="zoning-buildability">
                 <h3>Código de edificabilidad básica (PUGS)</h3>
                 {basicBuildability.map((zone, i) => <div key={i}>
-                  <p><strong>{zone.label || 'Zona residencial'}</strong>{zone.overlap != null ? ` — ${zone.overlap}% del polígono` : ''}</p>
+                  <p><strong>{zone.designation || zone.code || 'Edificabilidad básica'}</strong></p>
                   <p>Código: {zone.code || 'No disponible'}{zone.designation ? ` (${zone.designation})` : ''} · Lote mínimo: {zone.minLot ?? 'No disponible'} m² · COS PB: {zone.cosPb ?? 'No disponible'}% · Pisos: {zone.floors ?? 'No disponible'}</p>
                 </div>)}
                 <p className="note">Estos parámetros describen edificabilidad básica, no autorización para construir un tipo específico de vivienda.</p>
@@ -1023,8 +1016,8 @@ export default function App() {
               <p className="note">Imágenes del PDF aportado; se muestran únicamente cuando se detectan referencias textuales a afectaciones o protección. No sustituyen un levantamiento georreferenciado.</p>
               {irmExtraction.evidence.map(item => <div key={item.key} className="irm-evidence-item">
                 <h4>{item.title} · texto en página(s) {item.sourcePages.join(', ')}</h4>
-                <p className="note">{item.finding}</p>
-                {item.image && <figure><img src={item.image} alt={`Mapa de referencia del IRM, página ${item.imagePage}: ${item.title}`} loading="lazy" style={{width:'100%',maxWidth:'520px',height:'auto'}} /><figcaption>Mapa ilustrativo, página {item.imagePage} del PDF original.</figcaption></figure>}
+                <p>{item.mapDescription || item.finding}</p>
+                {item.image && <figure><img src={item.image} alt={`Mapa de referencia del IRM, página ${item.imagePage}: ${item.title}`} loading="lazy" style={{width:'100%',maxWidth:'520px',height:'auto'}} /><figcaption>Recorte del mapa oficial, página {item.imagePage} del PDF original.</figcaption></figure>}
                 <p className="note">{item.note}</p>
               </div>)}
             </div>}
