@@ -81,9 +81,21 @@ function VisibleParcels({enabled}) {
   const map=useMap();
   const [features,setFeatures]=useState(null);
   const [status,setStatus]=useState('');
+  // Retain completed features across pans, while bounding browser memory.
+  const cache=React.useRef(new Map());
   useEffect(()=>{
     if(!enabled){setFeatures(null);setStatus('');return;}
     let timer=null,controller=null,seq=0;
+    const publish=(bounds,message)=>{
+      const visible=[];
+      for(const feature of cache.current.values()){
+        const box=feature._bbox;
+        if(box && box[0]<=bounds.getEast()&&box[2]>=bounds.getWest()&&
+           box[1]<=bounds.getNorth()&&box[3]>=bounds.getSouth())visible.push(feature);
+      }
+      setFeatures({type:'FeatureCollection',features:visible.map(({_bbox,...f})=>f)});
+      setStatus(message);
+    };
     const update=()=>{
       if(timer)clearTimeout(timer);
       if(controller)controller.abort();
@@ -93,70 +105,77 @@ function VisibleParcels({enabled}) {
         setStatus('Acérquese al zoom 16 para ver los predios cercanos.');
         return;
       }
+      const bounds=map.getBounds();
+      publish(bounds,'Cargando predios del área visible…');
       timer=setTimeout(async()=>{
         controller=new AbortController();
         const signal=controller.signal;
-        const bounds=map.getBounds();
         const queue=[{west:bounds.getWest(),south:bounds.getSouth(),east:bounds.getEast(),north:bounds.getNorth(),depth:0}];
-        const unique=new Map();
-        let queries=0,limited=false;
-        setFeatures(null);
-        setStatus('Consultando predios visibles…');
+        let queries=0,limited=false,completed=0;
+        const requestTile=async(tile)=>{
+          const params=new URLSearchParams({
+            where:'1=1',
+            geometry:JSON.stringify({xmin:tile.west,ymin:tile.south,xmax:tile.east,ymax:tile.north,spatialReference:{wkid:4326}}),
+            geometryType:'esriGeometryEnvelope',inSR:'4326',
+            spatialRel:'esriSpatialRelIntersects',outFields:'predio',
+            returnGeometry:'true',outSR:'4326',
+            resultRecordCount:String(MAX_BATCH+1),f:'geojson'
+          });
+          const response=await fetch(PARCEL_SERVICE+'?'+params,{signal});
+          if(!response.ok)throw new Error('HTTP '+response.status);
+          const payload=await response.json();
+          if(payload.error)throw new Error(payload.error.message||'ArcGIS error');
+          if(payload.type!=='FeatureCollection'||!Array.isArray(payload.features))throw new Error('GeoJSON inválido');
+          return payload;
+        };
         try{
-          while(queue.length && queries<MAX_QUERIES && unique.size<MAX_RENDERED){
-            const tile=queue.shift();
-            const params=new URLSearchParams({
-              where:'1=1',
-              geometry:JSON.stringify({xmin:tile.west,ymin:tile.south,xmax:tile.east,ymax:tile.north,spatialReference:{wkid:4326}}),
-              geometryType:'esriGeometryEnvelope',inSR:'4326',
-              spatialRel:'esriSpatialRelIntersects',outFields:'predio',
-              returnGeometry:'true',outSR:'4326',
-              resultRecordCount:String(MAX_BATCH+1),f:'geojson'
-            });
-            queries++;
-            const response=await fetch(PARCEL_SERVICE+'?'+params,{signal});
-            if(!response.ok)throw new Error('Servicio catastral no disponible');
-            const payload=await response.json();
-            if(payload.error)throw new Error(payload.error.message||'Error de ArcGIS');
-            if(payload.type!=='FeatureCollection'||!Array.isArray(payload.features))throw new Error('Respuesta catastral inválida');
-            const overflow=payload.features.length>MAX_BATCH||payload.exceededTransferLimit;
-            if(overflow){
-              if(tile.depth<MAX_DEPTH){
-                const midX=(tile.west+tile.east)/2,midY=(tile.south+tile.north)/2;
-                queue.push(
-                  {west:tile.west,south:tile.south,east:midX,north:midY,depth:tile.depth+1},
-                  {west:midX,south:tile.south,east:tile.east,north:midY,depth:tile.depth+1},
-                  {west:tile.west,south:midY,east:midX,north:tile.north,depth:tile.depth+1},
-                  {west:midX,south:midY,east:tile.east,north:tile.north,depth:tile.depth+1}
-                );
-              }else limited=true;
-              continue;
+          // Process independent spatial tiles in parallel to avoid long
+          // sequential waits on mobile. Subdivide overflowing tiles.
+          while(queue.length && queries<MAX_QUERIES && !signal.aborted){
+            const batch=queue.splice(0,Math.min(4,MAX_QUERIES-queries));
+            queries+=batch.length;
+            const results=await Promise.all(batch.map(async tile=>({tile,payload:await requestTile(tile)})));
+            for(const {tile,payload} of results){
+              const overflow=payload.features.length>MAX_BATCH||payload.exceededTransferLimit;
+              if(overflow){
+                if(tile.depth<MAX_DEPTH){
+                  const mx=(tile.west+tile.east)/2,my=(tile.south+tile.north)/2;
+                  queue.push(
+                    {west:tile.west,south:tile.south,east:mx,north:my,depth:tile.depth+1},
+                    {west:mx,south:tile.south,east:tile.east,north:my,depth:tile.depth+1},
+                    {west:tile.west,south:my,east:mx,north:tile.north,depth:tile.depth+1},
+                    {west:mx,south:my,east:tile.east,north:tile.north,depth:tile.depth+1}
+                  );
+                }else limited=true;
+                continue;
+              }
+              completed++;
+              for(const feature of payload.features){
+                if(!feature.geometry)continue;
+                const key=String(feature.properties?.predio??feature.id??'')||JSON.stringify(feature.geometry);
+                if(cache.current.has(key))continue;
+                // Bounding box for viewport filtering, including multipolygons.
+                const coords=[];
+                const walk=v=>{if(!Array.isArray(v))return;if(typeof v[0]==='number'&&typeof v[1]==='number')coords.push(v);else v.forEach(walk);};
+                walk(feature.geometry.coordinates);
+                if(!coords.length)continue;
+                const xs=coords.map(p=>p[0]),ys=coords.map(p=>p[1]);
+                cache.current.set(key,{...feature,_bbox:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]});
+              }
             }
-            for(const feature of payload.features){
-              if(!feature.geometry)continue;
-              // Geometry-based fallback avoids collapsing distinct PH records
-              // without a stable identifier, while preventing tile overlaps.
-              const key=String(feature.properties?.predio??feature.id??'')||JSON.stringify(feature.geometry);
-              if(!unique.has(key))unique.set(key,feature);
-              if(unique.size>=MAX_RENDERED){limited=true;break;}
-            }
-            // Show completed tiles immediately rather than leaving a blank map
-            // while remaining spatial batches are still downloading.
-            if(request===seq&&!signal.aborted&&unique.size){
-              setFeatures({type:'FeatureCollection',features:[...unique.values()]});
-              setStatus(unique.size+' predios cargados · completando área visible…');
-            }
+            if(request!==seq||signal.aborted)return;
+            // Cap retained features; recent neighborhoods are preferred.
+            while(cache.current.size>5000)cache.current.delete(cache.current.keys().next().value);
+            publish(bounds,completed+' áreas consultadas · cargando límites…');
           }
           if(queue.length)limited=true;
           if(request!==seq||signal.aborted)return;
-          setFeatures({type:'FeatureCollection',features:[...unique.values()]});
-          setStatus(unique.size+' predios visibles'+(limited?' · cobertura parcial; acerque el mapa':'')+' (catastro 2026).');
+          publish(bounds,'Consulta terminada'+(limited?' · cobertura parcial; acerque el mapa':'')+' · catastro 2026');
         }catch(error){
           if(error.name==='AbortError'||request!==seq)return;
-          if(!unique.size)setFeatures(null);
-          setStatus('Error de catastro: '+String(error.message||'Error de red').slice(0,100));
+          publish(bounds,'Error catastral: '+String(error.message||'Red').slice(0,85));
         }
-      },350);
+      },300);
     };
     map.on('moveend',update);
     update();
