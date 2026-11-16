@@ -985,6 +985,12 @@ export default function App() {
             <h2>Factibilidad del predio</h2>
             {!irmExtraction ? <p className="note">Cargue el IRM para revisar las condiciones del predio y calcular su potencial constructivo.</p> : <>
               <p><strong>{parcelFeasibility}</strong></p>
+              {zoningClassifications.length > 0 && <div className="zoning-classification">
+                <strong>{singleZoningClassification ? 'Clasificación PUGS:' : 'Clasificaciones PUGS:'}</strong>
+                {zoningClassifications.map((zone, i) => <p key={zone.OBJECTID || i}>
+                  {[zone.uso_prin, zone.leyenda].filter(value => value != null && String(value).trim() !== '').join(' - ') || 'Clasificación no disponible'}
+                </p>)}
+              </div>}
               {basicBuildability.length > 0 && <div className="zoning-buildability">
                 <h3>Código de edificabilidad básica (PUGS)</h3>
                 {basicBuildability.map((zone, i) => <div key={i}>
