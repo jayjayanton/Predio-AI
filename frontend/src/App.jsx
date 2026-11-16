@@ -126,7 +126,7 @@ export default function App() {
     ...(irmExtraction?.occupationDiagram ? [{
       ...irmExtraction.occupationDiagram,
       key: 'occupation_diagram',
-      imageOrder: irmExtraction.occupationDiagram.imagePage * 1000000 + 999000,
+      imageOrder: irmExtraction.occupationDiagram.imageOrder ?? (irmExtraction.occupationDiagram.imagePage * 1000000 + 999000),
       title: 'Esquema de implantación y retiros'
     }] : [])
   ].sort((a,b) => (a.imageOrder ?? (a.imagePage || 9999)*1000000) -
