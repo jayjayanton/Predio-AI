@@ -997,14 +997,15 @@ export default function App() {
                   const fields = irmExtraction?.candidate_irm_fields || {};
                   const municipalCode = fields.codigo_municipal_edificabilidad?.raw || basicBuildability[0]?.designation || basicBuildability[0]?.code || null;
                   const descriptiveCode = fields.codigo_edificabilidad_basica?.raw || null;
-                  const match = descriptiveCode?.match(/^([A-Z])(\\d+)(\\d)(?:-(\\d+))$/);
+                  const match = descriptiveCode?.match(/^([A-Z])(\d+)(\d)(?:-(\d+))$/);
                   const description = match && match[2].length >= 3
                     ? `${match[1] === 'A' ? 'Ocupación aislada' : 'Forma de ocupación por verificar'} · Lote mínimo ${Number(match[2]).toLocaleString('es-EC')} m² · ${match[3]} pisos · COS PB ${match[4]}%`
                     : null;
                   return <>
-                    <p><strong>Código municipal:</strong> {municipalCode || 'No disponible'}</p>
-                    <p><strong>Código de edificabilidad básica:</strong> {descriptiveCode || 'No identificado en el IRM'}</p>
-                    {description && <p className="note">{description}</p>}
+                    <p><strong>Código municipal</strong></p>
+                    <p>{municipalCode || 'No disponible'}</p>
+                    <p><strong>CÓDIGO DE EDIFICABILIDAD BÁSICA</strong></p>
+                    <p>{descriptiveCode || 'No identificado en el IRM'}{description ? ` - ${description}` : ''}</p>
                     {!descriptiveCode && <p className="note">El código descriptivo debe confirmarse en el IRM; no se deduce a partir del identificador municipal.</p>}
                   </>;
                 })()}
