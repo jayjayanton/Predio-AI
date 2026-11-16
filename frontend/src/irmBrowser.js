@@ -152,6 +152,22 @@ async function cropPdfRegion(page,x,top,width,height) {
   return crop;
 }
 
+// Reject empty or mostly white crops rather than displaying an incorrect
+// screenshot as a municipal map on a phone.
+function hasMapContent(canvas) {
+  if(!canvas)return false;
+  const {data}=canvas.getContext('2d',{willReadFrequently:true})
+    .getImageData(0,0,canvas.width,canvas.height);
+  let colored=0,samples=0;
+  for(let i=0;i<data.length;i+=32){
+    const r=data[i],g=data[i+1],b=data[i+2];
+    samples++;
+    if(Math.max(r,g,b)-Math.min(r,g,b)>14 &&
+       Math.min(r,g,b)<245) colored++;
+  }
+  return samples>0 && colored/samples>0.08;
+}
+
 function findHeadingPosition(items, heading) {
   const target=normalizeHeading(heading);
   const first=target.split(' ')[0];
@@ -189,7 +205,7 @@ async function extractMapRegion(pdf, heading) {
       top=18;
     }
     const canvas=await cropPdfRegion(mapPage,x,top,size,size);
-    if(!canvas)return null;
+    if(!hasMapContent(canvas))return null;
     return {image:canvas.toDataURL('image/png'),imagePage:mapPageNo,
       // The map heading defines the document reading order even when the
       // graphic itself continues onto the following PDF page.
@@ -298,6 +314,7 @@ export async function inspectIrmInBrowser(file) {
     evidence.sort((a,b) => (a.imageOrder ?? Number.MAX_SAFE_INTEGER) - (b.imageOrder ?? Number.MAX_SAFE_INTEGER));
     const occupationDiagram=await extractOccupationDiagram(pdf);
     return {filename:file.name,pages:pdf.numPages,candidate_irm_fields:fields,evidence,occupationDiagram,pugsAssignments,
-      warnings:[],stored:false,verified:false,regulatory_eligibility:'pending_review'};
+      warnings:evidence.filter(item=>!item.image).map(item=>`No se pudo validar el recorte cartográfico: ${item.title}. Revise el PDF original.`),
+      stored:false,verified:false,regulatory_eligibility:'pending_review'};
   } finally {await pdf.destroy();}
 }
