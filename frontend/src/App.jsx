@@ -947,13 +947,13 @@ export default function App() {
             {irmExtracting && <p role="status">Extrayendo parámetros del IRM…</p>}
             {irmExtractError && <p role="alert" className="error">{irmExtractError}</p>}
             {developerIrm && <p role="status">Archivo seleccionado: {developerIrm.name}</p>}
-            {irmExtraction && <div className="inspection">
-              <strong>Campos detectados automáticamente (sin verificar)</strong>
-              <p>Se procesaron {irmExtraction.pages} páginas. El PDF no se almacena en el servidor.</p>
+            {irmExtraction && <details className="inspection irm-document-details">
+              <summary><strong>Detalles del IRM cargado</strong> · {irmExtraction.filename || developerIrm?.name || 'Documento procesado'} · {irmExtraction.pages} página(s)</summary>
+              <p className="note">Campos extraídos automáticamente (sin verificar). El archivo PDF no se almacena en el servidor.</p>
               <dl>{Object.entries(irmExtraction.candidate_irm_fields || {}).map(([key, value]) => <React.Fragment key={key}><dt>{key}</dt><dd>{value.raw}</dd></React.Fragment>)}</dl>
               {!Object.keys(irmExtraction.candidate_irm_fields || {}).length && <p>No se encontraron parámetros reconocibles. Verifique si el PDF está escaneado.</p>}
               {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
-            </div>}
+            </details>}
           </section>
           <section className="property">
             <h2>Verificación normativa PUGS 2024</h2>
@@ -978,6 +978,18 @@ export default function App() {
             <p className="note">Los resultados PUGS son datos de referencia. La compatibilidad del proyecto y cualquier discrepancia con el IRM requieren validación municipal.</p>
             {irmExtraction && <p className="note">Compare los parámetros extraídos del IRM con el PUGS vigente. Si existen discrepancias, solicite aclaración municipal antes de evaluar el proyecto.</p>}
           </section>
+          {irmExtraction && <section className="property">
+            <h2>Resumen de parámetros del terreno</h2>
+            <div className="capacity-inputs">
+              <div><strong>Área del predio</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No disponible'}</p></div>
+              <div><strong>Lote mínimo</strong><p>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No disponible'}</p></div>
+              <div><strong>Frente mínimo</strong><p>{irmValues.minFront ? `${irmValues.minFront} m` : 'No disponible'}</p></div>
+              <div><strong>COS PB / COS total</strong><p>{irmValues.cosPb || '—'}% / {irmValues.cosTotal || '—'}%</p></div>
+              <div><strong>Pisos permitidos</strong><p>{irmValues.floors || 'No disponible'}</p></div>
+              <div><strong>Subdivisión teórica por superficie</strong><p>{!isCadastralPH && Number(irmValues.area) > 0 && Number(irmValues.minLot) > 0 ? `${Math.floor(Number(irmValues.area) / Number(irmValues.minLot))} lotes como máximo por área` : 'No calculable'}</p></div>
+            </div>
+            <p className="note">Valores extraídos del IRM o catastro sin verificación normativa. El número de lotes es solo un límite aritmético, no una autorización de subdivisión.</p>
+          </section>}
           {irmExtraction && <section className="property">
             <h2>Evaluación del potencial constructivo</h2>
             <p>Seleccione un objetivo residencial e introduzca los parámetros confirmados del IRM para explorar la capacidad constructiva teórica. La puntuación de aptitud comparativa queda para una fase posterior.</p>
