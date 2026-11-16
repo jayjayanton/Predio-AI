@@ -1185,6 +1185,26 @@ export default function App() {
         </main>
       )}
 
+      <section className="property" aria-label="Fuentes de datos y metodología">
+        <h2>Fuentes de datos y metodología</h2>
+        <p className="note">PredioAI distingue datos oficiales consultados, documentos aportados por el usuario y cálculos orientativos. La fecha de cada capa no equivale a la fecha de consulta.</p>
+        <dl>
+          <dt>Catastro municipal de Quito (atributos 2024)</dt>
+          <dd>Identificación, superficie registrada, frente, régimen de propiedad, uso registrado y avalúos. Fuente: <a href="https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_a_2024/FeatureServer/0" target="_blank" rel="noopener noreferrer">ArcGIS predios_a_2024 ↗</a>.</dd>
+          <dt>Geometría predial (2026, cuando disponible)</dt>
+          <dd>Polígono de referencia consultado en <a href="https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_2026_feb/FeatureServer/5" target="_blank" rel="noopener noreferrer">predios_2026_feb ↗</a>. Si no se encuentra una coincidencia válida, se conserva la geometría catastral original. El polígono no es la huella edificada.</dd>
+          <dt>AIVA municipal (valores zonales)</dt>
+          <dd>Valores referenciales de suelo por zona, no precios de mercado ni tasaciones comerciales. <a href="https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmc/valoracion_del_suelo/MapServer" target="_blank" rel="noopener noreferrer">Servicio municipal AIVA ↗</a>. La consulta por punto puede ser insuficiente en predios que atraviesan varias zonas.</dd>
+          <dt>IRM oficial (archivo proporcionado por el usuario)</dt>
+          <dd><a href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf" target="_blank" rel="noopener noreferrer">Consulta municipal IRM ↗</a>. Los parámetros se extraen como candidatos sin verificar; el PDF no se almacena en el servidor. El IRM no constituye permiso de construcción.</dd>
+          <dt>PUGS 2024 (normativa y zonificación)</dt>
+          <dd><a href="https://habitat.quito.gob.ec/geovisore" target="_blank" rel="noopener noreferrer">Geovisor oficial ↗</a> · <a href="https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmot/plan_de_uso_y_gestion_del_suelo_2024/MapServer/60" target="_blank" rel="noopener noreferrer">Capa de uso de suelo y edificabilidad, ID 60 ↗</a>. La consulta espacial por intersección del polígono es experimental; no determina por sí sola permisos ni superficies por zona.</dd>
+          <dt>Cálculos propios de PredioAI</dt>
+          <dd>Estimaciones teóricas basadas en área, COS y lote mínimo; no incluyen automáticamente retiros, vías, cesiones, densidad, excepciones normativas ni autorización municipal.</dd>
+        </dl>
+        <p className="note">Cuando existan diferencias entre catastro, IRM y PUGS, prevalece la necesidad de verificar la normativa y documentación vigente ante el Municipio.</p>
+      </section>
+
       {/* FOOTER */}
 
       <footer>
