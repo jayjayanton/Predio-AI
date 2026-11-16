@@ -57,7 +57,6 @@ export default function App() {
   const [developerAreaSource, setDeveloperAreaSource] = useState('');
   const showSubdivision = ['multiple', 'subdivision'].includes(developmentType);
   const showHousingCode = developmentType !== 'subdivision';
-  const capacityReady = (!isCadastralPH || Boolean(irmExtraction?.candidate_irm_fields?.area_terreno)) && Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
   // Search state
   const [identifier, setIdentifier] = useState('');
   const [identifierType, setIdentifierType] =
@@ -73,6 +72,7 @@ export default function App() {
   const cadastralArea = isCadastralPH ? attributedArea : parentLotArea;
   const cadastralAreaValue = Number.isFinite(cadastralArea) && cadastralArea > 0 ? String(cadastralArea) : '';
   const cadastralAreaLabel = isCadastralPH ? 'área atribuida al predio PH' : 'área catastral del predio';
+  const capacityReady = (!isCadastralPH || Boolean(irmExtraction?.candidate_irm_fields?.area_terreno)) && Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
