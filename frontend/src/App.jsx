@@ -79,6 +79,24 @@ export default function App() {
   const cadastralArea = isCadastralPH ? attributedArea : parentLotArea;
   const cadastralAreaValue = Number.isFinite(cadastralArea) && cadastralArea > 0 ? String(cadastralArea) : '';
   const cadastralAreaLabel = isCadastralPH ? 'área atribuida al predio PH' : 'área catastral del predio';
+  const pugsZones = pugsData?.zones || [];
+  const pugsSingleZone = pugsData?.status === 'single_zone' && pugsZones.length === 1 ? pugsZones[0] : null;
+  const pugsHousing = pugsSingleZone?.unidad_viv || null;
+  const pugsBasicMinLot = pugsSingleZone?.lot_min_ba || null;
+  const pugsBasicFloors = pugsSingleZone?.pisos_ba || null;
+  const pugsBasicCos = pugsSingleZone?.cos_pb_ba || null;
+  const pugsGeneralMaxFloors = pugsSingleZone?.pisos_gm || null;
+  const pugsUse = pugsSingleZone?.uso_prin || pugsSingleZone?.tipo_des || pugsSingleZone?.leyenda || null;
+  const isMultifamilyRequest = developmentType === 'apartments';
+  const isSubdivisionRequest = developmentType === 'subdivision' || developmentType === 'multiple';
+  const zoningReady = Boolean(pugsSingleZone && !isCadastralPH);
+  const projectCompatibility = !zoningReady ? 'No determinada' : 'Revisión normativa necesaria';
+  const parcelFeasibility = isCadastralPH
+    ? 'Revisión de propiedad horizontal requerida'
+    : !irmExtraction || !zoningReady ? 'Información insuficiente'
+    : isSubdivisionRequest && Number(irmValues.area) > 0 && Number(irmValues.minLot) > 0 && Number(irmValues.area) < Number(irmValues.minLot)
+      ? 'Superficie insuficiente para un nuevo lote mínimo'
+      : 'Evaluación preliminar pendiente de restricciones';
   const capacityReady = (!isCadastralPH || Boolean(irmExtraction?.candidate_irm_fields?.area_terreno)) && Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -973,6 +991,31 @@ export default function App() {
             <p className="note">Los resultados PUGS son datos de referencia. La compatibilidad del proyecto y cualquier discrepancia con el IRM requieren validación municipal.</p>
             {irmExtraction && <p className="note">Compare los parámetros extraídos del IRM con el PUGS vigente. Si existen discrepancias, solicite aclaración municipal antes de evaluar el proyecto.</p>}
             </details>
+          </section>
+          <section className="property">
+            <h2>Compatibilidad del proyecto</h2>
+            <p><strong>{projectCompatibility}</strong></p>
+            <p>Proyecto seleccionado: {developmentType === 'apartments' ? 'Edificio multifamiliar' : developmentType === 'single' ? 'Vivienda individual' : developmentType === 'multiple' ? 'Varias viviendas' : 'Subdivisión'}.</p>
+            <p>Uso / tipología PUGS: <strong>{pugsUse || 'No determinado'}</strong></p>
+            <p>Unidades de vivienda (campo PUGS): <strong>{pugsHousing || 'No disponible'}</strong></p>
+            <p className="note">{isMultifamilyRequest ? 'La zonificación residencial por sí sola no confirma permiso para departamentos: deben verificarse la designación de unidades, densidad, uso permitido y condiciones específicas.' : 'La clasificación PUGS requiere interpretación de la normativa aplicable antes de emitir un dictamen de compatibilidad.'}</p>
+            {pugsData?.status === 'multiple_zones' && <p className="note">El polígono intersecta varias zonas PUGS; no se asigna una sola norma a todo el predio.</p>}
+            {isCadastralPH && <p className="note">La geometría consultada puede representar el lote matriz de la propiedad horizontal, no la unidad individual. No se atribuyen sus derechos edificatorios al predio individual.</p>}
+            <p className="source-note">Fuente: PUGS 2024, capa municipal 60. Estado preliminar; sin decisión legal automatizada.</p>
+          </section>
+          <section className="property">
+            <h2>Factibilidad del predio</h2>
+            <p><strong>{parcelFeasibility}</strong></p>
+            <dl>
+              <dt>Área individual de referencia</dt><dd>{cadastralAreaValue ? formatArea(Number(cadastralAreaValue)) : 'No disponible'}</dd>
+              <dt>Lote mínimo del IRM</dt><dd>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No disponible'}</dd>
+              <dt>Lote mínimo PUGS, edificabilidad básica</dt><dd>{pugsBasicMinLot || 'No disponible'}</dd>
+              <dt>COS PB PUGS, básico</dt><dd>{pugsBasicCos || 'No disponible'}</dd>
+              <dt>Pisos PUGS, básicos</dt><dd>{pugsBasicFloors || 'No disponible'}</dd>
+              <dt>Pisos PUGS, máximo general</dt><dd>{pugsGeneralMaxFloors || 'No disponible'}</dd>
+            </dl>
+            <p className="note">El máximo general puede depender de condiciones o contraprestaciones; no equivale automáticamente al derecho edificatorio básico. Las restricciones, el frente, la forma del lote y los permisos siguen pendientes de revisión.</p>
+            <p className="source-note">Fuentes: catastro municipal, IRM aportado y PUGS 2024. Los valores ausentes no se suponen.</p>
           </section>
           {irmExtraction && <section className="property">
             <h2>Resumen de parámetros del terreno</h2>
