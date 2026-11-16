@@ -4,7 +4,7 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 const patterns = {
-  predio: /(?:n[uú]mero\s*(?:de\s*)?predio|datos\s*del\s*predio\s*n[uú]mero)\s*:?\s*(\d{3,15})/i,
+  predio: /datos\s*del\s*predio[\s\S]{0,250}?n[uú]mero\s*:?\s*(\d{3,15})/i,
   lote_minimo: /lote\s*m[ií]nimo\s*:?\s*([\d.,]+)\s*m2/i,
   frente_minimo: /frente\s*m[ií]nimo\s*:?\s*([\d.,]+)\s*m/i,
   cos_pb: /cos\s*pb\s*:?\s*([\d.,]+)\s*%/i,
@@ -13,10 +13,10 @@ const patterns = {
   area_terreno: /[aá]rea\s*(?:seg[uú]n\s*escritura|del\s*terreno)\s*:?\s*([\d.,]+)\s*m2/i,
 };
 const evidenceTypes = [
-  {key:'quebrada', rx:/quebrada\s*abierta|protecci[oó]n\s*de\s*quebrada|zona\s*de\s*protecci[oó]n\s*de\s*quebrada/i, title:'Quebrada y franja de protección', mapPages:[7]},
-  {key:'forestal', rx:/bosque\s*protector|protecci[oó]n\s*forestal|cobertura\s*forestal/i, title:'Protección forestal', mapPages:[9]},
-  {key:'fallas', rx:/falla\s*geol[oó]gica|falla\s*tect[oó]nica/i, title:'Falla geológica', mapPages:[7]},
-  {key:'proteccion', rx:/protecci[oó]n\s*ecol[oó]gica/i, title:'Zona de protección ecológica', mapPages:[6]},
+  {key:'quebrada', rx:/quebrada\s*abierta|protecci[oó]n\s*de\s*quebrada|zona\s*de\s*protecci[oó]n\s*de\s*quebrada/i, title:'Quebrada y franja de protección', mapPages:[7], finding:'El IRM menciona una quebrada y su protección. Verifique las restricciones y la definición municipal del borde antes de construir.'},
+  {key:'forestal', rx:/bosque\s*protector|protecci[oó]n\s*forestal|cobertura\s*forestal/i, title:'Protección forestal', mapPages:[9], finding:'El documento menciona protección forestal; confirme el polígono y la norma aplicable.'},
+  {key:'fallas', rx:/falla\s*geol[oó]gica|falla\s*tect[oó]nica/i, title:'Falla geológica', mapPages:[7], finding:'Se menciona una falla geológica; solicite verificación técnica de la ubicación y afectación.'},
+  {key:'proteccion', rx:/protecci[oó]n\s*ecol[oó]gica/i, title:'Zona de protección ecológica', mapPages:[6], finding:'El IRM contiene una designación de protección ecológica, que puede afectar una parte del lote matriz.'},
 ];
 
 async function renderEvidencePage(pdf, pageNumber) {
@@ -55,7 +55,7 @@ export async function inspectIrmInBrowser(file) {
       const matches=pageTexts.flatMap((value,i)=>type.rx.test(value)?[i+1]:[]);
       if (!matches.length) continue;
       const page=type.mapPages.find(n=>n<=pdf.numPages);
-      evidence.push({key:type.key,title:type.title,sourcePages:matches,
+      evidence.push({key:type.key,title:type.title,finding:type.finding,sourcePages:matches,
         imagePage:page||null,
         image:page?await renderEvidencePage(pdf,page):null,
         note:'Mapa del IRM para revisión visual; la delimitación exacta requiere verificación municipal.'});
