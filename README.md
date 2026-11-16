@@ -199,3 +199,8 @@ The new-construction cadastral summary flags a selected predio whose individual 
 ### Cadastral date provenance
 
 The original `predios_a_2024` ArcGIS layer publishes `fecha_escr` (deed date) and `fecha_insc` (registration date), alongside `area_const` and `uso_constr`. The new-construction summary displays the two dates separately. Neither is treated as a verified building construction year, which remains unavailable without a distinct source.
+
+
+### IRM document disclosure and concise development summary
+
+Once an IRM is processed, its extracted raw fields are available under a collapsed, keyboard-accessible **Detalles del IRM cargado** disclosure. A separate **Resumen de parámetros del terreno** remains visible, emphasizing the individual predio area, minimum lot and frontage, COS, floors and theoretical subdivision count where computable. The latter is strictly area-based and is not an approved subdivision or housing-unit count.
