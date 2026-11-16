@@ -170,11 +170,40 @@ export default function App() {
   const irmRequired = ['remodel', 'structural', 'expansion'].includes(workType);
   // OPTIONAL WORKFLOW SELECTORS — END
   const [irmCopyStatus, setIrmCopyStatus] = useState('');
+  const [irmBridgeBusy, setIrmBridgeBusy] = useState(false);
   const [inspection, setInspection] = useState(null);
   const [inspecting, setInspecting] = useState(false);
 
   // Copy the known predio number and open the official portal on a user click.
   // Browsers cannot prefill a separate site's form; CAPTCHA stays manual.
+  async function startIrmDesktop() {
+    const predio = String(properties?.n_predio || properties?.predio || '').trim();
+    if (!/^\\d{1,25}$/.test(predio)) {
+      setIrmCopyStatus('No se encontró un número de predio válido.');
+      return;
+    }
+    setIrmBridgeBusy(true);
+    setIrmCopyStatus('Conectando con Playwright en su computadora…');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch('http://127.0.0.1:8765/irm/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ predio }),
+        signal: controller.signal
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'El puente local no respondió correctamente.');
+      setIrmCopyStatus('Playwright iniciado para el predio ' + predio + '. Complete el CAPTCHA en la ventana Chromium que se abrió.');
+    } catch (error) {
+      setIrmCopyStatus('No se pudo conectar con Playwright local. Inicie «py automation/irm_bridge.py» en su computadora y vuelva a intentar. También puede usar «Copiar número» y abrir el portal manualmente. Detalle: ' + (error?.message || 'conexión bloqueada'));
+    } finally {
+      clearTimeout(timeout);
+      setIrmBridgeBusy(false);
+    }
+  }
+
   async function copyIrmPredio() {
     const number = String(properties?.n_predio || properties?.predio || '').trim();
     if (!number) {
@@ -1032,8 +1061,9 @@ export default function App() {
               <button type="button" className="secondary" onClick={copyIrmPredio}>Copiar número</button>
             </div>
             {irmCopyStatus && <p role="status" className="note">{irmCopyStatus}</p>}
-            <a className="irm-open-link" href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf" target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
-            <p className="note">Complete el CAPTCHA manualmente. La automatización Playwright local no está integrada a la web.</p>
+            <button type="button" className="secondary" disabled={irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consultar IRM con Playwright (escritorio)'}</button>
+                    <a className="irm-open-link" href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf" target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
+            <p className="note">Complete el CAPTCHA manualmente. La consulta asistida requiere iniciar el puente local en su computadora. Si no está disponible, utilice el enlace oficial y pegue el número manualmente.</p>
             <details><summary>Consulta asistida desde computadora</summary>
               <p>El prototipo local puede abrir el portal y esperar la verificación manual.</p>
               <a href="https://github.com/jayjayanton/Predio-AI/blob/main/automation/README.md" target="_blank" rel="noopener noreferrer">Instrucciones de Playwright ↗</a>
@@ -1215,11 +1245,12 @@ export default function App() {
                         Copiar número
                       </button>
                     </div>
+                    <button type="button" className="secondary" disabled={irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consultar IRM con Playwright (escritorio)'}</button>
                     <a className="irm-open-link"
                       href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
                       target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
                     {irmCopyStatus && <p className="note" role="status">{irmCopyStatus}</p>}
-                    <p className="note">El portal municipal no permite precargar el número mediante este enlace. Pulse «Copiar número», abra la consulta y péguelo en el campo de búsqueda. El código de verificación se completa manualmente.</p>
+                    <p className="note">Para rellenar automáticamente el predio, inicie el puente local y pulse «Consultar IRM con Playwright». Si no está instalado, use «Copiar número» y el enlace oficial. El CAPTCHA siempre se completa manualmente.</p>
                   </div>
                   <details className="irm-desktop-guide">
                     <summary>Alternativa experimental: consulta IRM asistida en computadora</summary>
