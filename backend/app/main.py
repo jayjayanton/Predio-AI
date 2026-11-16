@@ -449,3 +449,16 @@ async def extract_irm(file: UploadFile = File(...)):
         "verified": False,
         "regulatory_eligibility": "pending_review",
     }
+
+
+# PUGS 2024: evidence-only spatial intersection (not a permit decision).
+from .pugs import lookup_pugs
+
+@app.get("/api/pugs/{identifier_type}/{identifier}")
+async def pugs_for_predio(identifier_type: str, identifier: str):
+    try:
+        return await lookup_pugs(identifier, identifier_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except MunicipalError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
