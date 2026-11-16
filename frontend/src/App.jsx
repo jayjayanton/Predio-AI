@@ -1020,24 +1020,6 @@ export default function App() {
             {isCadastralPH && <p className="note">La geometría consultada puede representar el lote matriz de la propiedad horizontal, no la unidad individual. No se atribuyen sus derechos edificatorios al predio individual.</p>}
             <p className="source-note">Fuente: PUGS 2024, capa municipal 60. Estado preliminar; sin decisión legal automatizada.</p>
           </section>
-          {irmExtraction && <section className="property">
-            <h2>Comparación IRM y PUGS</h2>
-            <p className="note">Contraste automático de parámetros básicos publicados. El IRM puede contener reglas especiales, modificaciones o referencias que no se resuelven aquí.</p>
-            <table>
-              <thead><tr><th>Parámetro</th><th>IRM</th><th>PUGS básico</th><th>Comparación</th></tr></thead>
-              <tbody>{comparisonRows.map(row => {
-                const both = comparableValue(row.irm) && comparableValue(row.pugs);
-                const match = both && Number(String(row.irm).replace(',', '.')) === Number(String(row.pugs).replace(',', '.'));
-                return <tr key={row.label}>
-                  <td>{row.label}</td>
-                  <td>{comparableValue(row.irm) ? `${row.irm} ${row.unit}` : 'No extraído'}</td>
-                  <td>{pugsComparable && comparableValue(row.pugs) ? `${row.pugs} ${row.unit}` : 'No aplicable / sin verificar'}</td>
-                  <td>{!pugsComparable || !both ? 'No comparable' : match ? 'Coinciden' : 'Difieren — revisar'}</td>
-                </tr>;
-              })}</tbody>
-            </table>
-            <p className="source-note">Fuentes: PDF IRM aportado por el usuario (extracción no verificada), PUGS 2024 capa 60 (intersección espacial) y catastro 2024. En PH, el PUGS corresponde a la geometría matriz y no se compara como derecho de la unidad.</p>
-          </section>}
           <section className="property">
             <h2>Factibilidad del predio</h2>
             <p><strong>{parcelFeasibility}</strong></p>
@@ -1066,8 +1048,6 @@ export default function App() {
           </section>}
           {irmExtraction && <section className="property">
             <h2>Evaluación del potencial constructivo</h2>
-            <p>Seleccione un objetivo residencial e introduzca los parámetros confirmados del IRM para explorar la capacidad constructiva teórica. La puntuación de aptitud comparativa queda para una fase posterior.</p>
-            <p className="note">Los parámetros son de solo lectura y provienen del IRM o del catastro municipal. No se pueden modificar manualmente. Si falta un valor, el cálculo correspondiente permanece no disponible.</p>
             {developerAreaSource && <p className="note">{developerAreaSource}</p>}
             <div className="capacity-inputs">
               <div><strong>Área específica del predio (m²)</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No disponible'}</p></div>
