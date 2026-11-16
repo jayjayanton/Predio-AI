@@ -211,6 +211,14 @@ export default function App() {
   const isPH =
     properties?.tipo_propi?.trim().toUpperCase() ===
     'PROPIEDAD HORIZONTAL';
+  // Construction dates are not inferred from the parcel geometry or cadastral update year.
+  // Only use a documented construction-year attribute once its schema is validated.
+  const constructionYear = null;
+  const existingConstruction = Number(properties?.area_const) > 0;
+  const minimumLot = Number(irmValues.minLot);
+  const relevantArea = Number(cadastralAreaValue);
+  const smallerThanMinimum = irmExtraction && minimumLot > 0 && relevantArea > 0 && relevantArea < minimumLot;
+
 
   // Urban/rural classification from municipal 2024 cadastral attribute.
   // Do not infer a classification when the field is absent or ambiguous.
@@ -899,7 +907,15 @@ export default function App() {
               <dt>Superficie del lote matriz</dt><dd>{formatArea(lotProfile.landArea)}</dd>
               <dt>Frente registrado</dt><dd>{typeof lotProfile.frontage === 'number' ? `${lotProfile.frontage} m` : 'No disponible'}</dd>
               <dt>Construcción registrada</dt><dd>{formatArea(lotProfile.constructionArea)}</dd>
+              <dt>Año de construcción</dt><dd>{constructionYear ?? 'No disponible en la fuente verificada'}</dd>
             </dl>
+            {existingConstruction && <p className="note">Existe superficie de construcción registrada en el catastro. Esto no confirma la fecha de construcción ni la existencia de una licencia municipal.</p>}
+            {smallerThanMinimum && <div className="inspection" role="status">
+              <strong>Advertencia: predio menor al lote mínimo indicado</strong>
+              <p>El área individual registrada ({formatArea(relevantArea)}) es inferior al lote mínimo extraído del IRM ({formatArea(minimumLot)}). Esto no demuestra que la edificación existente sea ilegal.</p>
+              {existingConstruction && <p>El catastro registra construcción existente, pero no se dispone de un año de construcción verificado. La edificación podría haber sido aprobada bajo normas anteriores o pertenecer a un régimen de propiedad horizontal.</p>}
+              <p>Antes de evaluar ampliaciones, subdivisiones o nuevas construcciones, revise el año de aprobación, la licencia y la declaratoria de propiedad horizontal cuando corresponda.</p>
+            </div>}
             <p className="note">{isPH ? 'El predio corresponde a propiedad horizontal: el área del lote matriz no representa un terreno independiente disponible para subdivisión.' : 'El registro catastral no confirma por sí solo si el lote es independiente, está vacío o admite subdivisión.'}</p>
             <p className="note">Estos datos describen el predio existente. La posibilidad de construir viviendas, edificios o fraccionar el terreno depende del IRM y de la normativa aplicable.</p>
           </section>
