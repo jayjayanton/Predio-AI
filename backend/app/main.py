@@ -427,3 +427,25 @@ async def analyze_project_documents(
         ],
     }
 # OPTIONAL DOCUMENT ANALYSIS V2 — END
+
+
+# IRM-only extraction for the new-construction workflow.
+# Uploaded PDF is processed in memory, never stored on the server.
+@app.post("/api/irm/extract")
+async def extract_irm(file: UploadFile = File(...)):
+    content = await file.read(MAX_UPLOAD + 1)
+    if len(content) > MAX_UPLOAD:
+        raise HTTPException(status_code=413, detail="IRM exceeds 15 MB")
+    try:
+        result = analyze_document(content, file.filename or "", "irm")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        "filename": result["filename"],
+        "candidate_irm_fields": result.get("candidate_irm_fields", {}),
+        "warnings": result.get("warnings", []),
+        "pages": len(result.get("pages", [])),
+        "stored": False,
+        "verified": False,
+        "regulatory_eligibility": "pending_review",
+    }
