@@ -18,6 +18,9 @@ MAX_TEXT = 25_000
 IRM_PATTERNS = {
     "predio": r"(?i)(?:n[uú]mero\s+de\s+predio|predio\s*(?:n[°ºo.]*)?)\s*[:#-]?\s*(\d{3,15})",
     "area_terreno": r"(?i)(?:[aá]rea\s+(?:del\s+)?terreno|superficie\s+(?:del\s+)?terreno)\s*[:=]?\s*(\d{1,7}(?:[.,]\d{1,2})?)\s*m(?:²|2|\b)",
+    "lote_minimo": r"(?i)\b(?:lote|área\s+de\s+lote)\s*m[ií]nimo\s*[:=]?\s*(\d{1,7}(?:[.,]\d{1,2})?)\s*m(?:²|2|\\b)",
+    "frente_minimo": r"(?i)\bfrente\s*m[ií]nimo\s*[:=]?\s*(\d{1,5}(?:[.,]\d{1,2})?)\s*m(?:etros)?\b",
+    "vivienda_tipo": r"(?i)\b(?:tipo\s+de\s+vivienda|n[uú]mero\s+de\s+viviendas)\s*[:=]?\s*(VU|VB|VM)\b",
     "cos_pb": r"(?i)\bCOS\s*(?:PB|planta\s+baja)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*%",
     "cos_total": r"(?i)\bCOS\s*total\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*%",
     "altura": r"(?i)\baltura\s*(?:m[aá]xima|edificaci[oó]n)?\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*(?:m|metros)\b",
