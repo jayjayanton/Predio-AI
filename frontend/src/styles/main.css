@@ -292,3 +292,10 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .compatibility-overview { margin:14px 0; }
 .compatibility-status { font-size:1.1rem; margin:0 0 8px; }
 .compatibility-overview .note { margin:4px 0; }
+
+.irm-evidence { margin:20px 0; }
+.irm-evidence-item { border-top:1px solid #355258; padding:14px 0; }
+.irm-evidence-item h4 { margin:0 0 10px; }
+.irm-evidence-item figure { margin:12px 0; }
+.irm-evidence-item img { display:block; border:1px solid #355258; border-radius:8px; }
+.irm-evidence-item figcaption { font-size:12px; color:#b3c9cd; margin-top:6px; }
