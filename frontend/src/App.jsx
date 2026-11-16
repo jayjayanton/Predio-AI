@@ -80,41 +80,25 @@ export default function App() {
   const cadastralAreaValue = Number.isFinite(cadastralArea) && cadastralArea > 0 ? String(cadastralArea) : '';
   const cadastralAreaLabel = isCadastralPH ? 'área atribuida al predio PH' : 'área catastral del predio';
   const pugsZones = pugsData?.zones || [];
-  const pugsSingleZone = pugsData?.status === 'single_zone' && pugsZones.length === 1 ? pugsZones[0] : null;
-  const pugsHousing = pugsSingleZone?.unidad_viv || null;
-  const pugsBasicMinLot = pugsSingleZone?.lot_min_ba || null;
-  const pugsBasicFloors = pugsSingleZone?.pisos_ba || null;
-  const pugsBasicCos = pugsSingleZone?.cos_pb_ba || null;
-  const pugsGeneralMaxFloors = pugsSingleZone?.pisos_gm || null;
-  const pugsUse = pugsSingleZone?.uso_prin || pugsSingleZone?.tipo_des || pugsSingleZone?.leyenda || null;
-  const pugsComparable = pugsSingleZone && !isCadastralPH;
-  const comparisonRows = [
-    { label: 'Lote mínimo', irm: irmValues.minLot, pugs: pugsSingleZone?.lot_min_ba, unit: 'm²' },
-    { label: 'COS PB', irm: irmValues.cosPb, pugs: pugsSingleZone?.cos_pb_ba, unit: '%' },
-    { label: 'Pisos básicos', irm: irmValues.floors, pugs: pugsSingleZone?.pisos_ba, unit: '' },
-  ];
-  const comparableValue = value => value !== null && value !== undefined && String(value).trim() !== '' && String(value).toLowerCase() !== 'no aplica';
-
-  const isMultifamilyRequest = developmentType === 'apartments';
+  const dominantZone = pugsData?.dominant_zone || (pugsData?.status === 'single_zone' ? pugsZones[0] : null);
+  const pugsUse = dominantZone?.tipo_des || dominantZone?.leyenda || dominantZone?.uso_prin || null;
   const isSubdivisionRequest = developmentType === 'subdivision' || developmentType === 'multiple';
-  // Zoning context is independent of the individual PH ownership regime.
-  // A PUGS land-use label alone is NOT an official use-permission matrix.
-  const zoningReady = Boolean(pugsSingleZone);
-  const officialUsePermission = pugsData?.use_permissions?.[developmentType];
-  const permissionVerified = pugsData?.use_permissions_verified === true &&
-    pugsData?.status === 'single_zone' &&
-    ['permitted', 'prohibited', 'conditional'].includes(officialUsePermission);
-  const projectCompatibility = permissionVerified
-    ? officialUsePermission === 'prohibited' ? 'No permitido por la zonificación PUGS'
-      : officialUsePermission === 'permitted' ? 'Permitido por la zonificación PUGS'
-      : 'Permitido con condiciones'
-    : 'Pendiente de verificación normativa';
-  const parcelFeasibility = isCadastralPH
-    ? 'Revisión de propiedad horizontal requerida'
-    : !irmExtraction || !zoningReady ? 'Información insuficiente'
+  const isMultifamilyRequest = developmentType === 'apartments';
+  // A PUGS density label is not a verified residential use-permission matrix.
+  const projectPermission = type => {
+    const value = pugsData?.use_permissions?.[type];
+    return irmExtraction && pugsData?.use_permissions_verified === true &&
+      pugsData?.status === 'single_zone' &&
+      ['permitted', 'prohibited', 'conditional'].includes(value) ? value : null;
+  };
+  const permissionLabels = { permitted: 'Permitido por zonificación', prohibited: 'No permitido por zonificación', conditional: 'Permitido con condiciones' };
+  const projectCompatibility = !irmExtraction ? 'Pendiente de cargar el IRM'
+    : permissionLabels[projectPermission(developmentType)] || 'Pendiente de verificar usos permitidos';
+  const parcelFeasibility = !irmExtraction ? 'Pendiente de cargar el IRM'
+    : isCadastralPH ? 'Revisión de propiedad horizontal requerida'
     : isSubdivisionRequest && Number(irmValues.area) > 0 && Number(irmValues.minLot) > 0 && Number(irmValues.area) < Number(irmValues.minLot)
       ? 'Superficie insuficiente para un nuevo lote mínimo'
-      : 'Evaluación preliminar pendiente de restricciones';
+      : 'Factibilidad sujeta a retiros, uso y permisos';
   const capacityReady = (!isCadastralPH || Boolean(irmExtraction?.candidate_irm_fields?.area_terreno)) && Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -982,15 +966,21 @@ export default function App() {
               <option value="apartments">Edificio multifamiliar</option>
             </select>
 
-            <div className="compatibility-overview">
+            {!irmExtraction ? <p className="note">Adjunte el IRM para activar el análisis de compatibilidad con el contexto PUGS.</p> : <div className="compatibility-overview">
               <p className="compatibility-status"><strong>{projectCompatibility}</strong></p>
-              <p className="note">{pugsData?.status === 'multiple_zones' ? `Se detectaron ${pugsZones.length} zonas en el polígono del lote matriz; la compatibilidad del área requiere verificar la zona correspondiente.` : pugsSingleZone ? `Zonificación consultada: ${pugsUse || 'Sin denominación'}.` : 'No se obtuvo una zonificación única verificable para este predio.'}</p>
-              {pugsSingleZone && pugsHousing && !['no aplica','n/a','n/d'].includes(String(pugsHousing).toLowerCase().trim()) && <p>Designación de vivienda: <strong>{pugsHousing}</strong></p>}
-            </div>
-            <p className="note">{permissionVerified ? 'Resultado basado en una regla de uso del suelo verificada; la factibilidad del predio se evalúa por separado.' : 'La zonificación PUGS es contexto territorial. Sin una regla de usos permitidos/prohibidos verificada, no se puede afirmar que este tipo de proyecto esté autorizado o prohibido.'}</p>
-
-            {isCadastralPH && <p className="note">La geometría consultada puede representar el lote matriz de la propiedad horizontal, no la unidad individual. No se atribuyen sus derechos edificatorios al predio individual.</p>}
-            <p className="source-note">Fuente: PUGS 2024, capa municipal 60. Estado preliminar; sin decisión legal automatizada.</p>
+              <p className="note">Zonificación PUGS predominante en el polígono catastral: <strong>{pugsUse || 'No determinada'}</strong>{dominantZone?._overlap_percent != null ? ` (${dominantZone._overlap_percent}% del polígono)` : ''}.</p>
+              {pugsZones.length > 1 && <p className="note">El polígono intersecta {pugsZones.length} zonas; el uso permitido debe verificarse en la ubicación exacta de la obra.</p>}
+              <div className="capacity-inputs">
+                {[
+                  ['single', 'Casa / vivienda individual'],
+                  ['multiple', 'Varias viviendas / conjunto'],
+                  ['apartments', 'Edificio de departamentos']
+                ].map(([type, label]) => <div key={type}><strong>{label}</strong><p>{permissionLabels[projectPermission(type)] || 'Uso no verificado'}</p></div>)}
+              </div>
+              <p className="note">El cruce espacial describe la zona, pero no constituye por sí solo una autorización ni una prohibición. Los resultados definitivos requieren reglas oficiales de usos permitidos y el IRM correspondiente.</p>
+              {isCadastralPH && <p className="note">El cruce espacial corresponde al lote matriz de la propiedad horizontal, no a los derechos individuales de esta unidad.</p>}
+            </div>}
+            <p className="source-note">Fuentes: catastro municipal, IRM cargado y PUGS 2024 (unión espacial de polígonos).</p>
           </section>
           <section className="property">
             <h2>Factibilidad del predio</h2>
