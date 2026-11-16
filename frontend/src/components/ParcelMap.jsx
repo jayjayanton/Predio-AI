@@ -137,6 +137,12 @@ function VisibleParcels({enabled}) {
               if(!unique.has(key))unique.set(key,feature);
               if(unique.size>=MAX_RENDERED){limited=true;break;}
             }
+            // Show completed tiles immediately rather than leaving a blank map
+            // while remaining spatial batches are still downloading.
+            if(request===seq&&!signal.aborted&&unique.size){
+              setFeatures({type:'FeatureCollection',features:[...unique.values()]});
+              setStatus(unique.size+' predios cargados · completando área visible…');
+            }
           }
           if(queue.length)limited=true;
           if(request!==seq||signal.aborted)return;
@@ -144,8 +150,8 @@ function VisibleParcels({enabled}) {
           setStatus(unique.size+' predios visibles'+(limited?' · cobertura parcial; acerque el mapa':'')+' (catastro 2026).');
         }catch(error){
           if(error.name==='AbortError'||request!==seq)return;
-          setFeatures(null);
-          setStatus('No se pudo cargar la capa catastral. Intente nuevamente.');
+          if(!unique.size)setFeatures(null);
+          setStatus('Error de catastro: '+String(error.message||'Error de red').slice(0,100));
         }
       },350);
     };
@@ -155,7 +161,7 @@ function VisibleParcels({enabled}) {
   },[map,enabled]);
   return <>
     {features?.features?.length>0&&<GeoJSON key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
-      style={{color:'#e9ab3e',weight:1.3,fillOpacity:0.03}}
+      style={{color:'#ff9d00',weight:2.5,fillColor:'#ffb347',fillOpacity:0.09}}
       onEachFeature={(feature,layer)=>layer.bindPopup('Predio: '+String(feature.properties?.predio||'No identificado'))}/>}
     {status&&<div className="leaflet-top leaflet-right" style={{pointerEvents:'none',marginTop:62}}><div className="leaflet-control" style={{background:'rgba(255,255,255,.94)',color:'#263238',padding:'5px 8px',margin:'0 8px',fontSize:11,maxWidth:180,borderRadius:6}}>{status}</div></div>}
   </>;
