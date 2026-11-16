@@ -15,21 +15,21 @@ const patterns = {
   area_terreno: /[aá]rea\s*(?:seg[uú]n\s*escritura|del\s*terreno)\s*:?\s*([\d.,]+)\s*m2/i,
 };
 const evidenceTypes = [
-  {key:'quebrada', rx:/quebrada\\s*abierta|protecci[oó]n\\s*de\\s*quebrada|zona\\s*de\\s*protecci[oó]n\\s*de\\s*quebrada/i,
+  {key:'quebrada', rx:/quebrada\s*abierta|protecci[oó]n\s*de\s*quebrada|zona\s*de\s*protecci[oó]n\s*de\s*quebrada/i,
    title:'Quebrada y protección geográfica', mapHeading:'ACCIDENTES GEOGRÁFICOS',
    finding:'El IRM identifica una quebrada y una franja de protección. El mapa muestra la ubicación referencial de los accidentes geográficos respecto del lote resaltado; el borde y retiro definitivo requieren definición municipal.'},
-  {key:'forestal', rx:/bosque\\s*protector|protecci[oó]n\\s*forestal|cobertura\\s*forestal/i,
+  {key:'forestal', rx:/bosque\s*protector|protecci[oó]n\s*forestal|cobertura\s*forestal/i,
    title:'Protección forestal', mapHeading:'SISTEMA NACIONAL DE ÁREAS PROTEGIDAS',
    finding:'El documento menciona protección forestal. El mapa representa áreas protegidas en el entorno, pero no acredita por sí solo cobertura forestal dentro del predio.'},
-  {key:'fallas', rx:/falla\\s*geol[oó]gica|falla\\s*tect[oó]nica/i,
+  {key:'fallas', rx:/falla\s*geol[oó]gica|falla\s*tect[oó]nica/i,
    title:'Falla geológica', mapHeading:'ACCIDENTES GEOGRÁFICOS',
    finding:'El documento menciona una falla. El mapa de accidentes geográficos es contextual y no delimita necesariamente una falla tectónica; requiere estudio técnico.'},
-  {key:'proteccion', rx:/protecci[oó]n\\s*ecol[oó]gica/i,
+  {key:'proteccion', rx:/protecci[oó]n\s*ecol[oó]gica/i,
    title:'Protección ecológica', mapHeading:'USO DE SUELO ESPECÍFICO',
    finding:'El IRM identifica una designación de protección ecológica. El mapa de uso de suelo específico muestra las zonas de uso en torno al lote; debe contrastarse con los polígonos oficiales para determinar la superficie afectada.'},
 ];
 
-const normalizeHeading = value => String(value || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toUpperCase().replace(/\\s+/g, ' ').trim();
+const normalizeHeading = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
 
 // Layout-based computer vision: locate the map heading in the PDF text layer,
 // then crop the square cartographic panel rather than screenshotting the full page.
