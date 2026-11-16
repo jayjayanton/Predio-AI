@@ -49,7 +49,7 @@ export default function App() {
   const [irmExtractError, setIrmExtractError] = useState('');
   const [irmConfirmed, setIrmConfirmed] = useState(false);
   const [developmentType, setDevelopmentType] = useState('single');
-  const [irmValues, setIrmValues] = useState({ area: '', cosPb: '', cosTotal: '', floors: '' });
+  const [irmValues, setIrmValues] = useState({ area: '', cosPb: '', cosTotal: '', floors: '', minLot: '', minFront: '', dwellingCode: '' });
   const [developerAreaSource, setDeveloperAreaSource] = useState('');
   const capacityReady = Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
   // Search state
@@ -106,7 +106,7 @@ export default function App() {
     setIrmExtraction(null);
     setIrmExtractError('');
     setIrmConfirmed(false);
-    setIrmValues({ area: '', cosPb: '', cosTotal: '', floors: '' });
+    setIrmValues({ area: '', cosPb: '', cosTotal: '', floors: '', minLot: '', minFront: '', dwellingCode: '' });
     if (!file) return;
     setIrmExtracting(true);
     try {
@@ -123,11 +123,11 @@ export default function App() {
         throw new Error('El número de predio del IRM no coincide con el predio seleccionado. Revise el documento.');
       }
       setIrmExtraction(body);
-      setIrmValues({ area: parsed('area_terreno'), cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos') });
+      setIrmValues({ area: parsed('area_terreno'), cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos'), minLot: parsed('lote_minimo'), minFront: parsed('frente_minimo'), dwellingCode: parsed('vivienda_tipo') });
       try {
         const predio = String(properties?.n_predio || '').trim();
         if (predio) sessionStorage.setItem('predioai-irm-' + predio, JSON.stringify({
-          values: { area: parsed('area_terreno'), cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos') },
+          values: { area: parsed('area_terreno'), cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos'), minLot: parsed('lote_minimo'), minFront: parsed('frente_minimo'), dwellingCode: parsed('vivienda_tipo') },
           extraction: body
         }));
       } catch { /* browser storage may be disabled */ }
@@ -146,7 +146,7 @@ export default function App() {
     setDeveloperIrm(null);
     setIrmConfirmed(false);
     setIrmExtraction(null);
-    setIrmValues({ area: '', cosPb: '', cosTotal: '', floors: '' });
+    setIrmValues({ area: '', cosPb: '', cosTotal: '', floors: '', minLot: '', minFront: '', dwellingCode: '' });
     if (!predio) return;
     try {
       const saved = JSON.parse(sessionStorage.getItem('predioai-irm-' + predio) || 'null');
@@ -863,13 +863,14 @@ export default function App() {
               {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
             </div>}
           </section>
-          <section className="property">
+          {irmExtraction && <section className="property">
             <h2>Evaluación del potencial constructivo</h2>
             <p>Seleccione un objetivo residencial e introduzca los parámetros confirmados del IRM para explorar la capacidad constructiva teórica. La puntuación de aptitud comparativa queda para una fase posterior.</p>
             <label htmlFor="development-type"><strong>¿Qué desea construir?</strong></label>
             <select id="development-type" value={developmentType} onChange={e => setDevelopmentType(e.target.value)}>
               <option value="single">Una vivienda</option>
               <option value="multiple">Varias viviendas / conjunto</option>
+              <option value="subdivision">Subdivisión de terreno</option>
               <option value="apartments">Edificio multifamiliar</option>
             </select>
             <p className="note">Los campos detectados se rellenan automáticamente como candidatos. Confirme cada dato con el IRM oficial antes de calcular. Los valores pueden editarse.</p>
@@ -878,6 +879,11 @@ export default function App() {
               <label>Área de terreno del IRM (m²)<input type="number" min="0" step="0.01" value={irmValues.area} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,area:e.target.value}));}} /></label>
               <label>COS PB (%)<input type="number" min="0" max="100" step="0.01" value={irmValues.cosPb} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,cosPb:e.target.value}));}} /></label>
               <label>COS total (%)<input type="number" min="0" step="0.01" value={irmValues.cosTotal} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,cosTotal:e.target.value}));}} /></label>
+              <label>Lote mínimo (m²)<input type="number" min="0" step="0.01" value={irmValues.minLot} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,minLot:e.target.value}));}} /></label>
+              <label>Frente mínimo (m)<input type="number" min="0" step="0.01" value={irmValues.minFront} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,minFront:e.target.value}));}} /></label>
+              <label>Designación de vivienda (si consta)<select value={irmValues.dwellingCode} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,dwellingCode:e.target.value}));}}>
+                <option value="">No identificada</option><option value="VU">VU</option><option value="VB">VB</option><option value="VM">VM</option>
+              </select></label>
               <label>Pisos permitidos<input type="number" min="1" step="1" value={irmValues.floors} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,floors:e.target.value}));}} /></label>
             </div>
             <label className="irm-confirm"><input type="checkbox" checked={irmConfirmed} onChange={e => setIrmConfirmed(e.target.checked)} />
@@ -889,11 +895,15 @@ export default function App() {
               <p>Superficie total computable por COS: <strong>{formatArea(Number(irmValues.area) * Number(irmValues.cosTotal) / 100)}</strong></p>
               <p>Pisos indicados en IRM: <strong>{irmValues.floors}</strong></p>
               <p className="note">Proyecto seleccionado: {developmentType === 'single' ? 'Una vivienda' : developmentType === 'multiple' ? 'Varias viviendas' : 'Edificio multifamiliar'}.</p>
+              {(developmentType === 'multiple' || developmentType === 'subdivision') && Number(irmValues.minLot) > 0 && <p><strong>Máximo teórico por área: {Math.floor(Number(irmValues.area) / Number(irmValues.minLot))} lotes</strong> de al menos {irmValues.minLot} m², antes de descontar vías, cesiones, accesos y otras exigencias. No es el número de viviendas autorizado.</p>}
+              {Number(irmValues.minLot) > 0 && <p>En un lote mínimo de {irmValues.minLot} m², el COS PB correspondería a {formatArea(Number(irmValues.minLot) * Number(irmValues.cosPb) / 100)} de ocupación en planta baja y el COS total a {formatArea(Number(irmValues.minLot) * Number(irmValues.cosTotal) / 100)} de superficie computable, sujetos a retiros y otras restricciones.</p>}
+              {Number(irmValues.minFront) > 0 && <p>Frente mínimo indicado: {irmValues.minFront} m. Su cumplimiento geométrico aún no se comprueba.</p>}
+              {irmValues.dwellingCode && <p>Designación detectada: {irmValues.dwellingCode}. Debe confirmarse su significado y aplicación en la normativa vigente.</p>}
               <p className="note">Compatibilidad de uso residencial: pendiente de validación. No es posible afirmar que se permitan o prohíban apartamentos únicamente con COS y pisos.</p>
               <p className="note">Estos límites no establecen cuántas viviendas pueden aprobarse ni su tamaño individual. Faltan uso de suelo, densidad, retiros, frente, afectaciones, acceso y otras condiciones.</p>
             </div> : <p className="note">Complete los cuatro campos y confirme su revisión del IRM para calcular límites teóricos. No se inventan datos del IRM.</p>}
             <p className="note">El IRM no autoriza construir. El resultado es orientativo y no sustituye la revisión normativa ni profesional.</p>
-          </section>
+          </section>}
           <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
         </main>
       )}
