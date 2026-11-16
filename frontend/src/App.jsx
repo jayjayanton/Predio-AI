@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import ParcelMap from './components/ParcelMap.jsx';
 import BlueprintViewer from './components/BlueprintViewer.jsx';
 import { inspectIrmInBrowser } from './irmBrowser.js';
+import ResidentialSimulator from './ResidentialSimulator.jsx';
 
 // ============================================================
 // 1. CONFIGURATION
@@ -1272,6 +1273,22 @@ export default function App() {
                 <p className="note">Estas denominaciones no autorizan por sí solas un número de viviendas. Deben contrastarse con el área mínima, la asignación territorial y los requisitos municipales. No se presume que VU, VB y VM sean todos los sufijos posibles.</p>
                 <p className="note">Referencia normativa: <a href="https://habitat.quito.gob.ec/wp-content/uploads/2025/07/ORD-003-2024-PMDOT-PUGS.pdf" target="_blank" rel="noopener noreferrer">Ordenanza PMDOT-PUGS 003-2024</a>.</p>
               </section>
+              <ResidentialSimulator
+                area={irmValues.area}
+                minLot={irmValues.minLot}
+                minFront={irmValues.minFront}
+                cosPb={irmValues.cosPb}
+                cosTotal={irmValues.cosTotal}
+                floors={irmValues.floors}
+                setbacks={{
+                  front:irmExtraction?.candidate_irm_fields?.retiro_frontal?.raw,
+                  rear:irmExtraction?.candidate_irm_fields?.retiro_posterior?.raw,
+                  lateral:irmExtraction?.candidate_irm_fields?.retiro_lateral?.raw,
+                  blocks:irmExtraction?.candidate_irm_fields?.entre_bloques?.raw
+                }}
+                suffix={irmExtraction?.candidate_irm_fields?.codigo_edificabilidad_basica?.raw?.match(/\\(([A-Z]{2,5})\\)\\s*$/)?.[1] || null}
+                isPH={isCadastralPH}
+              />
               <div className="potential-results">
                 <h3>Potencial constructivo estimado</h3>
             <label className="irm-confirm"><input type="checkbox" checked={irmConfirmed} onChange={e => setIrmConfirmed(e.target.checked)} />
