@@ -265,3 +265,8 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .developer-irm-panel { display: grid; gap: 12px; margin-bottom: 20px; }
 .developer-irm-panel input[type=file] { max-width: 100%; }
 @media(max-width:600px) { .audience-options { flex-direction: column; } .audience-options button { width: 100%; } }
+
+.capacity-inputs { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:16px 0; }
+.capacity-inputs label { display:flex; flex-direction:column; gap:6px; }
+.capacity-inputs input { width:100%; padding:10px; border:1px solid #aab7c2; border-radius:7px; }
+.capacity-results { border:1px solid #b5c7bb; border-radius:10px; padding:16px; margin:16px 0; }
