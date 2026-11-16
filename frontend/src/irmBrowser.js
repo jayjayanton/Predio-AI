@@ -41,7 +41,16 @@ async function extractMapRegion(pdf, heading) {
     const content=await page.getTextContent();
     // Headings are often split across multiple PDF text spans.
     const items=content.items.filter(item=>String(item.str || '').trim());
-    const match=items.find((item,index)=>normalizeHeading(items.slice(index,index+5).map(x=>x.str).join(' ')).includes(target));
+    // Start at the heading itself, never a preceding item whose look-ahead
+    // includes the heading (that previously cropped the *previous* map).
+    const words=target.split(' ');
+    let match=null;
+    for (let index=0;index<items.length;index++) {
+      const first=normalizeHeading(items[index].str);
+      if (!first.startsWith(words[0])) continue;
+      const combined=normalizeHeading(items.slice(index,index+words.length+2).map(x=>x.str).join(' '));
+      if (combined.startsWith(target)) { match=items[index]; break; }
+    }
     if (!match) continue;
     const headingY=page.view[3] - match.transform[5];
     let mapPage=page;
