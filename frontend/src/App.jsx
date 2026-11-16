@@ -697,18 +697,19 @@ export default function App() {
                     ? formatRate(properties.avaluo_con / properties.area_const)
                     : 'No disponible'}</dd>
                 </dl>
-                {irmExtraction?.candidate_irm_fields?.avaluo_total_certificado && <div className="irm-valuation">
+                {irmExtraction && Object.keys(irmExtraction.candidate_irm_fields || {}).some(key => key.startsWith('avaluo_')) && <div className="irm-valuation">
                   <h3>Desglose del avalúo según documento municipal cargado</h3>
-                  <p className="note">Fuente: PDF aportado por el usuario. Se presenta por separado del catastro 2024; los valores no se mezclan.</p>
+                  <p className="note">Fuente: cédula catastral o IRM aportado por el usuario. Valores extraídos automáticamente, sujetos a revisión; no se mezclan con el avalúo GIS 2024.</p>
+                  <p className="note">Las construcciones comunales y adicionales proporcionales a la alícuota corresponden a la participación atribuida al predio en propiedad horizontal, no a una superficie privada adicional.</p>
                   <dl>
                     {[
                       ['avaluo_terreno','Avalúo del terreno'],
-                      ['avaluo_cubiertas','Construcciones cubiertas'],
-                      ['avaluo_abiertas','Construcciones abiertas'],
-                      ['avaluo_instalaciones','Instalaciones especiales'],
-                      ['avaluo_comunales_cubiertas','Construcciones comunales cubiertas (alícuota)'],
-                      ['avaluo_comunales_abiertas','Construcciones comunales abiertas (alícuota)'],
-                      ['avaluo_adicionales','Adicionales constructivos (alícuota)'],
+                      ['avaluo_cubiertas','Avalúo de construcciones cubiertas'],
+                      ['avaluo_abiertas','Avalúo de construcciones abiertas'],
+                      ['avaluo_instalaciones','Avalúo de instalaciones especiales'],
+                      ['avaluo_comunales_cubiertas','Avalúo de construcciones comunales cubiertas proporcional a la alícuota'],
+                      ['avaluo_comunales_abiertas','Avalúo de construcciones comunales abiertas proporcional a la alícuota'],
+                      ['avaluo_adicionales','Avalúo de adicionales constructivos proporcional a la alícuota'],
                       ['avaluo_comunal_especial','Avalúo comunal especial'],
                       ['avaluo_total_certificado','Avalúo total del bien inmueble']
                     ].map(([key,label]) => {
@@ -721,6 +722,7 @@ export default function App() {
                     const fields=irmExtraction.candidate_irm_fields;
                     const componentKeys=['avaluo_terreno','avaluo_cubiertas','avaluo_abiertas','avaluo_instalaciones','avaluo_comunales_cubiertas','avaluo_comunales_abiertas','avaluo_adicionales','avaluo_comunal_especial'];
                     const allPresent=componentKeys.every(key=>fields[key]?.raw != null);
+                    if (!fields.avaluo_total_certificado?.raw) return <p className="note">No se extrajo el avalúo total del documento; compruebe los valores antes de utilizarlos.</p>;
                     const total=Number(fields.avaluo_total_certificado.raw.replace(/,/g,''));
                     const sum=componentKeys.reduce((acc,key)=>acc+Number((fields[key]?.raw||'0').replace(/,/g,'')),0);
                     return <p className="note">{allPresent ? (Math.abs(sum-total)<0.02 ? 'Desglose verificado aritméticamente contra el total del PDF.' : 'Advertencia: los componentes extraídos no coinciden con el total del PDF; revisar manualmente.') : 'Desglose parcial: no se puede validar la suma hasta extraer todos los componentes.'}</p>;
