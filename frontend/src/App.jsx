@@ -994,6 +994,14 @@ export default function App() {
           </section>
           <section className="property">
             <h2>Compatibilidad del proyecto</h2>
+            <label htmlFor="development-type"><strong>¿Qué desea construir?</strong></label>
+            <select id="development-type" value={developmentType} onChange={e => setDevelopmentType(e.target.value)}>
+              <option value="single">Una vivienda</option>
+              <option value="multiple">Varias viviendas / conjunto</option>
+              <option value="subdivision">Subdivisión de terreno</option>
+              <option value="apartments">Edificio multifamiliar</option>
+            </select>
+
             <p><strong>{projectCompatibility}</strong></p>
             <p>Proyecto seleccionado: {developmentType === 'apartments' ? 'Edificio multifamiliar' : developmentType === 'single' ? 'Vivienda individual' : developmentType === 'multiple' ? 'Varias viviendas' : 'Subdivisión'}.</p>
             <p>Uso / tipología PUGS: <strong>{pugsUse || 'No determinado'}</strong></p>
@@ -1032,13 +1040,6 @@ export default function App() {
           {irmExtraction && <section className="property">
             <h2>Evaluación del potencial constructivo</h2>
             <p>Seleccione un objetivo residencial e introduzca los parámetros confirmados del IRM para explorar la capacidad constructiva teórica. La puntuación de aptitud comparativa queda para una fase posterior.</p>
-            <label htmlFor="development-type"><strong>¿Qué desea construir?</strong></label>
-            <select id="development-type" value={developmentType} onChange={e => setDevelopmentType(e.target.value)}>
-              <option value="single">Una vivienda</option>
-              <option value="multiple">Varias viviendas / conjunto</option>
-              <option value="subdivision">Subdivisión de terreno</option>
-              <option value="apartments">Edificio multifamiliar</option>
-            </select>
             <p className="note">Los parámetros son de solo lectura y provienen del IRM o del catastro municipal. No se pueden modificar manualmente. Si falta un valor, el cálculo correspondiente permanece no disponible.</p>
             {developerAreaSource && <p className="note">{developerAreaSource}</p>}
             <div className="capacity-inputs">
