@@ -3,7 +3,7 @@ import React, {useMemo, useState} from 'react';
 // Conceptual rectangular parcel model. This is NOT a cadastral survey,
 // subdivision design, residential density entitlement, or permit decision.
 export default function ResidentialSimulator({area, minLot, minFront, cosPb, cosTotal, floors, setbacks, suffix, isPH}) {
-  const [effectiveHomes,setHomes]=useState(1);
+  const [homes,setHomes]=useState(1);
   const [frontage,setFrontage]=useState(Math.max(1,Number(minFront)||30));
   const [mode,setMode]=useState('whole');
   const nArea=Number(area), nMinLot=Number(minLot), nCos=Number(cosPb), nTotal=Number(cosTotal);
@@ -67,25 +67,35 @@ export default function ResidentialSimulator({area, minLot, minFront, cosPb, cos
         <div><strong>Dimensiones propuestas</strong><p>{scenario.best?fmt(scenario.best.side)+' × '+fmt(scenario.best.side)+' m':'No cabe en el modelo'}</p></div>
         <div><strong>Área máxima por vivienda con pisos</strong><p>{scenario.perBuildingFloors==null?'No disponible':fmt(scenario.perBuildingFloors)+' m²'}</p></div>
       </div>
-      <svg viewBox="0 0 360 270" role="img" aria-label="Implantación conceptual de edificios dentro de un lote rectangular" style={{width:'100%',maxWidth:560}}>
-        <rect x="24" y="12" width="312" height="226" fill="#e3eee5" stroke="#547a60" strokeWidth="2"/>
-        {scenario.best&&scenario.envelopeW>0&&scenario.envelopeD>0&&(()=>{
-          const sx=312/frontage,sy=226/scenario.depth;
-          const rects=[];
-          const {columns,rows,side}=scenario.best;
+      {(() => {
+        // Uniform metres-to-pixels scale: a 30 x 83 m lot must not look square.
+        // SVG viewBox remains fixed and responsive on desktop and mobile.
+        const scale=Math.min(300/frontage,215/scenario.depth);
+        const w=frontage*scale,h=scenario.depth*scale;
+        const left=(360-w)/2,top=10+(215-h)/2;
+        const rects=[];
+        if(scenario.best&&scenario.envelopeW>0&&scenario.envelopeD>0){
+          const {columns,side}=scenario.best;
           const usedW=columns*side+(columns-1)*gap;
-          const usedD=rows*side+(rows-1)*gap;
+          const usedD=scenario.best.rows*side+(scenario.best.rows-1)*gap;
           const x0=lateral+(scenario.envelopeW-usedW)/2;
           const y0=rear+(scenario.envelopeD-usedD)/2;
           for(let i=0;i<effectiveHomes;i++){
             const col=i%columns,row=Math.floor(i/columns);
-            rects.push(<g key={i}><rect x={24+(x0+col*(side+gap))*sx} y={12+(y0+row*(side+gap))*sy} width={side*sx} height={side*sy} fill="#ce861b" stroke="#915e16"/><text x={24+(x0+col*(side+gap)+side/2)*sx} y={12+(y0+row*(side+gap)+side/2)*sy} fontSize="11" textAnchor="middle" fill="white">{i+1}</text></g>);
+            const x=left+(x0+col*(side+gap))*scale;
+            const y=top+(y0+row*(side+gap))*scale;
+            rects.push(<g key={i}><rect x={x} y={y} width={side*scale} height={side*scale} fill="#ce861b" stroke="#915e16"/><text x={x+side*scale/2} y={y+side*scale/2+3} fontSize="10" textAnchor="middle" fill="white">{i+1}</text></g>);
           }
-          return <><rect x={24+lateral*sx} y={12+rear*sy} width={scenario.envelopeW*sx} height={scenario.envelopeD*sy} fill="none" stroke="#477c5b" strokeDasharray="5 4"/>{rects}</>;
-        })()}
-        <rect x="24" y="238" width="312" height="20" fill="#6e7f85"/>
-        <text x="180" y="252" textAnchor="middle" fontSize="11" fill="white">Vía / frente supuesto: {fmt(frontage)} m</text>
-      </svg>
+        }
+        return <svg viewBox="0 0 360 270" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Implantación conceptual proporcional de edificios dentro de un lote rectangular" style={{width:'100%',maxWidth:560,height:'auto',display:'block'}}>
+          <rect x={left} y={top} width={w} height={h} fill="#e3eee5" stroke="#547a60" strokeWidth="2"/>
+          {scenario.envelopeW>0&&scenario.envelopeD>0&&<rect x={left+lateral*scale} y={top+rear*scale} width={scenario.envelopeW*scale} height={scenario.envelopeD*scale} fill="none" stroke="#477c5b" strokeDasharray="5 4"/>}
+          {rects}
+          <rect x={left} y={top+h} width={w} height="18" fill="#6e7f85"/>
+          <text x="180" y={Math.min(258,top+h+31)} textAnchor="middle" fontSize="10" fill="currentColor">Vía / frente supuesto: {fmt(frontage)} m</text>
+        </svg>;
+      })()}
+      <p className="note">La planta está dibujada con la misma escala horizontal y vertical. Es un lote rectangular hipotético, no una medición catastral.</p>
       <p><strong>Cabida geométrica:</strong> {scenario.geometricFit?'Distribución rectangular ilustrativa encontrada.':'No se encontró una distribución útil con las restricciones seleccionadas.'}</p>
       <p><strong>Referencia de densidad:</strong> {scenario.preliminaryUnits!=null?`Hasta ${scenario.preliminaryUnits} vivienda(s) por la relación preliminar ${suffix} / lote mínimo; ${effectiveHomes>scenario.preliminaryUnits?'el escenario supera esta referencia.':'el escenario no supera esta referencia.'}`:'No determinada a partir del sufijo; requiere verificación normativa.'}</p>
       <p className="note">Una solución geométrica no autoriza viviendas adicionales. La cuadrícula no modela vías internas, topografía, retiros viales especiales, redes, zonas protegidas ni permisos. {isPH?'Propiedad horizontal: no atribuir capacidad del lote matriz a una unidad individual.':''}</p>
