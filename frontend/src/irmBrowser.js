@@ -79,11 +79,13 @@ function extractPugsAssignments(pageTexts) {
     const code= specific?.[1] || null;
     if(!code)return null;
     const description=(specific?.[2]||'').replace(/\s+/g,' ').trim();
+    const general=block.match(/uso\s+(?:de\s+)?suelo\s+general\s*:?\s*\(\s*([A-Z]+)\s*\)\s*([\s\S]{0,100}?)(?=\s+uso\s+(?:de\s+)?suelo\s+espec[ií]fico\b|$)/i);
     const basic=block.match(/c[oó]digo\s+edificabilidad\s*:?\s*(A\d{1,4})\s*\(\s*([^)]+)\s*\)/i);
     return {
       index:index+1, code, description,
       classification:take(/clasificaci[oó]n\s*:?\s*\(\s*([A-Z]{1,4})\s*\)/i),
-      generalUse:take(/uso\s+(?:de\s+)?suelo\s+general\s*:?\s*\(\s*([A-Z]+)\s*\)/i),
+      generalUse:general?.[1] || null,
+      generalDescription:general?.[2]?.replace(/\s+/g,' ').trim() || null,
       treatment:take(/tratamiento\s*:?\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]{3,45}?)(?=\s+PIT\s*:|$)/i),
       pit:take(/\bPIT\s*:?\s*([A-Z]{1,4}-PIT[A-Z0-9]+)/i),
       buildability:basic?basic[1]+' ('+basic[2].trim()+')':null,
