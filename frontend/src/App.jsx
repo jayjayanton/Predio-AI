@@ -993,11 +993,10 @@ export default function App() {
               </div>}
               {basicBuildability.length > 0 && <div className="zoning-buildability">
                 <h3>Código de edificabilidad básica (PUGS)</h3>
-                {basicBuildability.map((zone, i) => <div key={i}>
-                  <p><strong>{zone.designation || zone.code || 'Edificabilidad básica'}</strong></p>
-                  <p>Código: {zone.code || 'No disponible'}{zone.designation ? ` (${zone.designation})` : ''} · Lote mínimo: {zone.minLot ?? 'No disponible'} m² · COS PB: {zone.cosPb ?? 'No disponible'}% · Pisos: {zone.floors ?? 'No disponible'}</p>
-                </div>)}
-                <p className="note">Estos parámetros describen edificabilidad básica, no autorización para construir un tipo específico de vivienda.</p>
+                {basicBuildability.map((zone, i) => <p key={i}>
+                  <strong>{zone.code || 'No disponible'}</strong>
+                  {zone.designation?.startsWith('A') ? ' — Edificabilidad básica, ocupación aislada' : ' — Identificador municipal de edificabilidad básica'}
+                </p>)}
               </div>}
               {(protectedZones.length > 0 || ravineRestriction || forestRestriction) && <div className="inspection">
                 <strong>Restricciones territoriales identificadas</strong>
