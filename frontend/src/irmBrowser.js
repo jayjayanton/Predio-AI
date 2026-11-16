@@ -26,24 +26,24 @@ const patterns = {
 // Read PUGS parameters from the IRM's own APROVECHAMIENTO URBANÍSTICO section,
 // rather than matching identically named labels elsewhere in the document.
 const pugsPatterns = {
-  clasificacion_suelo: /clasificaci[oó]n\\s*:?\\s*(?:\\(\\s*([A-Z]{1,4})\\s*\\)\\s*)?([^:;\\n]{4,55}?)(?=\\s+subclasificaci[oó]n\\s*:|$)/i,
-  subclasificacion_suelo: /subclasificaci[oó]n\\s*:?\\s*([^:;\\n]{3,65}?)(?=\\s+(?:componente|uso\\s+suelo|tratamiento|PIT)\\s*:|$)/i,
-  uso_suelo_general: /uso\\s+(?:de\\s+)?suelo\\s+general\\s*:?\\s*(?:\\(\\s*([A-Z]+)\\s*\\)\\s*)?([^:;\\n]{3,65}?)(?=\\s+uso\\s+(?:de\\s+)?suelo\\s+espec[ií]fico\\s*:|$)/i,
-  uso_suelo_especifico: /uso\\s+(?:de\\s+)?suelo\\s+espec[ií]fico\\s*:?\\s*(?:\\(\\s*([A-Z]+)\\s*\\)\\s*)?([^:;\\n]{3,65}?)(?=\\s+tratamiento\\s*:|$)/i,
-  tratamiento: /tratamiento\\s*:?\\s*([^:;\\n]{3,60}?)(?=\\s+PIT\\s*:|$)/i,
-  pit: /\\bPIT\\s*:?\\s*([A-Z0-9-]{5,30})/i,
-  forma_ocupacion: /forma\\s+de\\s+ocupaci[oó]n\\s*:?\\s*(?:\\(\\s*[A-Z]\\s*\\)\\s*)?([^:;\\n]{3,45}?)(?=\\s+retiro\\s+frontal\\s*:|$)/i,
-  retiro_frontal: /retiro\\s+frontal\\s*:?\\s*([\\d.,]+)\\s*m\\b/i,
-  retiro_lateral: /retiro\\s+lateral\\s*:?\\s*([\\d.,]+)\\s*m\\b/i,
-  retiro_posterior: /retiro\\s+posterior\\s*:?\\s*([\\d.,]+)\\s*m\\b/i,
-  entre_bloques: /entre\\s+bloques\\s*:?\\s*([\\d.,]+)\\s*m\\b/i,
-  altura_pisos: /altura\\s+de\\s+pisos\\s*:?\\s*([\\d.,]+)\\s*m\\b/i,
-  servicios_basicos: /factibilidad\\s+de\\s+servicios\\s+b[aá]sicos\\s*:?\\s*(S[IÍ]|NO)/i,
+  clasificacion_suelo: /clasificaci[oó]n\s*:?\s*(?:\(\s*([A-Z]{1,4})\s*\)\s*)?([^:;\n]{4,55}?)(?=\s+subclasificaci[oó]n\s*:|$)/i,
+  subclasificacion_suelo: /subclasificaci[oó]n\s*:?\s*([^:;\n]{3,65}?)(?=\s+(?:componente|uso\s+suelo|tratamiento|PIT)\s*:|$)/i,
+  uso_suelo_general: /uso\s+(?:de\s+)?suelo\s+general\s*:?\s*(?:\(\s*([A-Z]+)\s*\)\s*)?([^:;\n]{3,65}?)(?=\s+uso\s+(?:de\s+)?suelo\s+espec[ií]fico\s*:|$)/i,
+  uso_suelo_especifico: /uso\s+(?:de\s+)?suelo\s+espec[ií]fico\s*:?\s*(?:\(\s*([A-Z]+)\s*\)\s*)?([^:;\n]{3,65}?)(?=\s+tratamiento\s*:|$)/i,
+  tratamiento: /tratamiento\s*:?\s*([^:;\n]{3,60}?)(?=\s+PIT\s*:|$)/i,
+  pit: /\bPIT\s*:?\s*([A-Z0-9-]{5,30})/i,
+  forma_ocupacion: /forma\s+de\s+ocupaci[oó]n\s*:?\s*(?:\(\s*[A-Z]\s*\)\s*)?([^:;\n]{3,45}?)(?=\s+retiro\s+frontal\s*:|$)/i,
+  retiro_frontal: /retiro\s+frontal\s*:?\s*([\d.,]+)\s*m\b/i,
+  retiro_lateral: /retiro\s+lateral\s*:?\s*([\d.,]+)\s*m\b/i,
+  retiro_posterior: /retiro\s+posterior\s*:?\s*([\d.,]+)\s*m\b/i,
+  entre_bloques: /entre\s+bloques\s*:?\s*([\d.,]+)\s*m\b/i,
+  altura_pisos: /altura\s+de\s+pisos\s*:?\s*([\d.,]+)\s*m\b/i,
+  servicios_basicos: /factibilidad\s+de\s+servicios\s+b[aá]sicos\s*:?\s*(S[IÍ]|NO)/i,
 };
 const pugsNumberKeys = new Set(['retiro_frontal','retiro_lateral','retiro_posterior','entre_bloques','altura_pisos']);
 function extractPugsSection(pageTexts) {
-  const startRx = /APROVECHAMIENTO\\s+URBAN[IÍ]STICO\\s*\\(\\s*PUGS\\s*\\)/i;
-  const stopRx = /(?:AFECTACIONES\\s+(?:ESPECIALES|VIALES)|OBSERVACIONES\\s+GENERALES|NOTAS\\s+IMPORTANTES|DATOS\\s+DEL\\s+PREDIO)/i;
+  const startRx = /APROVECHAMIENTO\s+URBAN[IÍ]STICO\s*\(\s*PUGS\s*\)/i;
+  const stopRx = /(?:AFECTACIONES\s+(?:ESPECIALES|VIALES)|OBSERVACIONES\s+GENERALES|NOTAS\s+IMPORTANTES|DATOS\s+DEL\s+PREDIO)/i;
   const startPage = pageTexts.findIndex(value => startRx.test(value));
   if (startPage < 0) return {};
   // Include continuation onto next page but do not scan unrelated sections.
