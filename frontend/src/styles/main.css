@@ -283,3 +283,12 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .pugs-disclosure > summary::marker { content:''; }
 .pugs-disclosure[open] > summary span { transform:rotate(180deg); }
 .pugs-disclosure > summary span { transition:transform .15s ease; }
+
+/* Clear, accessible links and compact regulatory controls on dark backgrounds. */
+.shell a:not(.leaflet-control-zoom a) { color:#6ee7ff; text-decoration:underline; text-underline-offset:3px; }
+.shell a:not(.leaflet-control-zoom a):hover { color:#b6f4ff; }
+.shell a:not(.leaflet-control-zoom a):focus-visible { outline:2px solid #6ee7ff; outline-offset:3px; }
+.developer-irm-panel > .pugs-disclosure { margin-top:12px; border-top:1px solid #355258; padding-top:12px; display:block; width:100%; }
+.compatibility-overview { margin:14px 0; }
+.compatibility-status { font-size:1.1rem; margin:0 0 8px; }
+.compatibility-overview .note { margin:4px 0; }
