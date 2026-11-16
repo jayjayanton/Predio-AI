@@ -9,6 +9,7 @@ const WORK_ACTIVITIES = {
 import React, { useEffect, useState } from 'react';
 import ParcelMap from './components/ParcelMap.jsx';
 import BlueprintViewer from './components/BlueprintViewer.jsx';
+import { inspectIrmInBrowser } from './irmBrowser.js';
 
 // ============================================================
 // 1. CONFIGURATION
@@ -163,11 +164,9 @@ export default function App() {
     if (!file) return;
     setIrmExtracting(true);
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const response = await fetch(`${API}/api/irm/extract`, { method: 'POST', body: form });
-      const body = await response.json();
-      if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'No se pudo leer el IRM');
+      // GitHub Pages is static: parse locally instead of calling localhost:8000.
+      // The PDF never leaves the user's browser.
+      const body = await inspectIrmInBrowser(file);
       const fields = body.candidate_irm_fields || {};
       const parsed = key => fields[key]?.raw?.replace(',', '.') || '';
       const selectedPredio = String(properties?.n_predio || '').trim();
@@ -179,7 +178,7 @@ export default function App() {
       setIrmValues({ area: parsed('area_terreno') || cadastralAreaValue, cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos'), minLot: parsed('lote_minimo'), minFront: parsed('frente_minimo'), dwellingCode: parsed('vivienda_tipo') });
       setDeveloperAreaSource(fields.area_terreno ? 'Fuente: IRM aportado (extracción automática, sin verificar).' : cadastralAreaValue ? `Fuente: Catastro municipal (${cadastralAreaLabel}); el IRM no contenía un área reconocible.` : 'Área del predio no disponible en las fuentes. No se utiliza el lote matriz como sustituto.');
     } catch (err) {
-      setIrmExtractError(err.message);
+      setIrmExtractError(err?.message || "No se pudo procesar el PDF. Compruebe el formato e inténtelo de nuevo.");
     } finally {
       setIrmExtracting(false);
     }
@@ -965,6 +964,15 @@ export default function App() {
               {!Object.keys(irmExtraction.candidate_irm_fields || {}).length && <p>No se encontraron parámetros reconocibles. Verifique si el PDF está escaneado.</p>}
               {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
             </details>}
+            {irmExtraction?.evidence?.length > 0 && <div className="irm-evidence">
+              <h3>Mapas y afectaciones relevantes del IRM</h3>
+              <p className="note">Imágenes del PDF aportado; se muestran únicamente cuando se detectan referencias textuales a afectaciones o protección. No sustituyen un levantamiento georreferenciado.</p>
+              {irmExtraction.evidence.map(item => <details key={item.key} className="irm-document-details">
+                <summary>{item.title} · texto en página(s) {item.sourcePages.join(', ')}</summary>
+                {item.image && <figure><img src={item.image} alt={`Mapa de referencia del IRM, página ${item.imagePage}: ${item.title}`} loading="lazy" style={{width:'100%',maxWidth:'520px',height:'auto'}} /><figcaption>Mapa ilustrativo, página {item.imagePage} del PDF original.</figcaption></figure>}
+                <p className="note">{item.note}</p>
+              </details>)}
+            </div>}
           <p className="note">El IRM se contrasta con la zonificación PUGS para contextualizar qué tipos de construcción pueden permitirse en el área. La compatibilidad normativa y la factibilidad del predio se evalúan por separado.</p>
           </section>
           <section className="property">
