@@ -1342,8 +1342,8 @@ export default function App() {
           <dd><a href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf" target="_blank" rel="noopener noreferrer">Consulta municipal IRM ↗</a>. Los parámetros se extraen como candidatos sin verificar; el PDF no se almacena en el servidor. El IRM no constituye permiso de construcción.</dd>
           <dt>PUGS 2024 (normativa y zonificación)</dt>
           <dd><a href="https://habitat.quito.gob.ec/geovisore" target="_blank" rel="noopener noreferrer">Geovisor oficial ↗</a> · <a href="https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmot/plan_de_uso_y_gestion_del_suelo_2024/MapServer/60" target="_blank" rel="noopener noreferrer">Capa de uso de suelo y edificabilidad, ID 60 ↗</a>. La consulta espacial por intersección del polígono es experimental; no determina por sí sola permisos ni superficies por zona.</dd>
-          <dt>Cálculos propios de PredioAI</dt>
-          <dd>Estimaciones teóricas basadas en área, COS y lote mínimo; no incluyen automáticamente retiros, vías, cesiones, densidad, excepciones normativas ni autorización municipal.</dd>
+          <dt>Análisis y cálculos de PredioAI</dt>
+          <dd>Análisis cuantitativos y espaciales realizados a partir de información catastral, parámetros de edificabilidad, COS, superficies del predio y normativa urbanística disponible en fuentes municipales oficiales. Los resultados se calculan mediante procedimientos reproducibles y se encuentran sujetos a las condiciones y limitaciones de los datos consultados. La evaluación identifica los parámetros aplicables y las restricciones documentadas. Los retiros, afectaciones viales, cesiones, densidad, excepciones normativas y demás condiciones se incorporan cuando existe información suficiente para su análisis. Los resultados no sustituyen la verificación técnica ni la autorización de las autoridades municipales competentes.</dd>
         </dl>
         <p className="note">Cuando existan diferencias entre catastro, IRM y PUGS, prevalece la necesidad de verificar la normativa y documentación vigente ante el Municipio.</p>
       </section>
