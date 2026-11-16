@@ -1286,7 +1286,7 @@ export default function App() {
                   lateral:irmExtraction?.candidate_irm_fields?.retiro_lateral?.raw,
                   blocks:irmExtraction?.candidate_irm_fields?.entre_bloques?.raw
                 }}
-                suffix={irmExtraction?.candidate_irm_fields?.codigo_edificabilidad_basica?.raw?.match(/\\(([A-Z]{2,5})\\)\\s*$/)?.[1] || null}
+                suffix={irmExtraction?.candidate_irm_fields?.codigo_edificabilidad_basica?.raw?.match(/\(([A-Z]{2,5})\)\s*$/)?.[1] || null}
                 isPH={isCadastralPH}
               />
               <div className="potential-results">
