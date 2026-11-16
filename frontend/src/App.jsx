@@ -984,7 +984,7 @@ export default function App() {
 
             <div className="compatibility-overview">
               <p className="compatibility-status"><strong>{projectCompatibility}</strong></p>
-              <p className="note">{pugsData?.status === 'multiple_zones' ? `Se detectaron ${pugsZones.length} zonas en el polígono del lote matriz; revise sus detalles en PUGS.` : pugsSingleZone ? `Zonificación consultada: ${pugsUse || 'Sin denominación'}.` : 'No se obtuvo una zonificación única verificable para este predio.'}</p>
+              <p className="note">{pugsData?.status === 'multiple_zones' ? `Se detectaron ${pugsZones.length} zonas en el polígono del lote matriz; la compatibilidad del área requiere verificar la zona correspondiente.` : pugsSingleZone ? `Zonificación consultada: ${pugsUse || 'Sin denominación'}.` : 'No se obtuvo una zonificación única verificable para este predio.'}</p>
               {pugsSingleZone && pugsHousing && !['no aplica','n/a','n/d'].includes(String(pugsHousing).toLowerCase().trim()) && <p>Designación de vivienda: <strong>{pugsHousing}</strong></p>}
             </div>
             <p className="note">{permissionVerified ? 'Resultado basado en una regla de uso del suelo verificada; la factibilidad del predio se evalúa por separado.' : 'La zonificación PUGS es contexto territorial. Sin una regla de usos permitidos/prohibidos verificada, no se puede afirmar que este tipo de proyecto esté autorizado o prohibido.'}</p>
