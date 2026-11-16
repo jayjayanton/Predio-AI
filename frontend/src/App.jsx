@@ -195,8 +195,16 @@ export default function App() {
         throw new Error('El número de predio del IRM no coincide con el predio seleccionado. Revise el documento.');
       }
       setIrmExtraction(body);
-      setIrmValues({ area: parsed('area_terreno') || cadastralAreaValue, cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos'), minLot: parsed('lote_minimo'), minFront: parsed('frente_minimo'), dwellingCode: parsed('vivienda_tipo') });
-      setDeveloperAreaSource(fields.area_terreno ? 'Fuente: IRM aportado (extracción automática, sin verificar).' : cadastralAreaValue ? `Fuente: Catastro municipal (${cadastralAreaLabel}); el IRM no contenía un área reconocible.` : 'Área del predio no disponible en las fuentes. No se utiliza el lote matriz como sustituto.');
+      // IRM "Área según escritura" describes the global lot for PH properties.
+      // Never overwrite the individually attributed cadastral area with that value.
+      const irmArea = parsed('area_terreno');
+      const selectedArea = isCadastralPH ? cadastralAreaValue : (irmArea || cadastralAreaValue);
+      setIrmValues({ area: selectedArea, cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos'), minLot: parsed('lote_minimo'), minFront: parsed('frente_minimo'), dwellingCode: parsed('vivienda_tipo') });
+      setDeveloperAreaSource(isCadastralPH
+        ? (cadastralAreaValue
+          ? 'Fuente: Catastro municipal, superficie atribuida al predio en propiedad horizontal (area_ter_1). El área según escritura del IRM corresponde al lote matriz y no se utiliza como área individual.'
+          : 'No se dispone de superficie individual verificada para este predio PH. No se sustituye por el área del lote matriz.')
+        : fields.area_terreno ? 'Fuente: IRM aportado (extracción automática, sin verificar).' : cadastralAreaValue ? `Fuente: Catastro municipal (${cadastralAreaLabel}); el IRM no contenía un área reconocible.` : 'Área del predio no disponible en las fuentes.');
     } catch (err) {
       setIrmExtractError(err?.message || "No se pudo procesar el PDF. Compruebe el formato e inténtelo de nuevo.");
     } finally {
