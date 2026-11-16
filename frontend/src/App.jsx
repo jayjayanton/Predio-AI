@@ -1177,6 +1177,21 @@ export default function App() {
               {irmExtraction.evidence.map(item => <div key={item.key} className="irm-evidence-item">
                 <h4>{item.title} · texto en página(s) {item.sourcePages.join(', ')}</h4>
                 <p>{item.mapDescription || item.finding}</p>
+                {item.key === 'proteccion' && <div className="note">
+                  <strong>Superficie afectada según cruce PUGS:</strong>{' '}
+                  {protectedZones.some(zone => Number.isFinite(Number(zone._overlap_m2)) && zone._overlap_m2 != null)
+                    ? protectedZones.filter(zone => zone._overlap_m2 != null && Number.isFinite(Number(zone._overlap_m2))).map((zone,index) =>
+                        <span key={zone.OBJECTID || index}>
+                          {index > 0 ? '; ' : ''}
+                          {zone.leyenda || zone.tipo_des || zone.uso_prin || 'PE'}: {formatArea(Number(zone._overlap_m2))}
+                          {zone._overlap_percent != null ? ` (${Number(zone._overlap_percent).toLocaleString('es-EC')}% del polígono catastral)` : ''}
+                        </span>)
+                    : 'No cuantificada: el IRM identifica protección ecológica, pero no se dispone de una intersección espacial válida.'}
+                  <p className="note">Medición provisional por intersección de polígonos PUGS y geometría catastral. En propiedad horizontal corresponde al lote matriz, no a la superficie exclusiva de la unidad. El cálculo no delimita por sí solo el retiro legal ni acredita la superficie edificable.</p>
+                </div>}
+                {item.key === 'quebrada' && <p className="note"><strong>Superficie de protección de quebrada:</strong> no cuantificada. El IRM identifica la quebrada abierta y exige definir el borde superior y retiro definitivo con la autoridad municipal. La imagen es referencial y no permite calcular con precisión el área restringida.</p>}
+                {item.key === 'fallas' && <p className="note"><strong>Área afectada por falla:</strong> no cuantificada. Se requiere una capa geológica oficial con delimitación espacial verificable.</p>}
+                {item.key === 'forestal' && <p className="note"><strong>Área de protección forestal:</strong> no cuantificada con la información disponible. No debe equipararse automáticamente a la zona PE ni a las áreas protegidas visibles en el mapa.</p>}
                 {item.image && <figure><img src={item.image} alt={`Mapa de referencia del IRM, página ${item.imagePage}: ${item.title}`} loading="lazy" style={{width:'100%',maxWidth:'520px',height:'auto'}} /><figcaption>Recorte del mapa oficial, página {item.imagePage} del PDF original.</figcaption></figure>}
                 <p className="note">{item.note}</p>
               </div>)}
