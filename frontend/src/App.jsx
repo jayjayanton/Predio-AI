@@ -44,6 +44,9 @@ export default function App() {
   const [step, setStep] = useState('property');
   const [audience, setAudience] = useState('remodeler');
   const [developerIrm, setDeveloperIrm] = useState(null);
+  const [developmentType, setDevelopmentType] = useState('single');
+  const [irmValues, setIrmValues] = useState({ area: '', cosPb: '', cosTotal: '', floors: '' });
+  const capacityReady = Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
   // Search state
   const [identifier, setIdentifier] = useState('');
   const [identifierType, setIdentifierType] =
@@ -243,9 +246,9 @@ export default function App() {
           <button type="button" aria-pressed={audience === 'remodeler'} className={audience === 'remodeler' ? 'active' : ''}
             onClick={() => { setAudience('remodeler'); setStep('property'); setInspection(null); }}>Propietarios y remodeladores</button>
           <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''}
-            onClick={() => { setAudience('developer'); setStep('property'); setInspection(null); }}>Promotores inmobiliarios</button>
+            onClick={() => { setAudience('developer'); setStep('property'); setInspection(null); }}>Nueva construcción y terrenos</button>
         </div>
-        <p className="note">{audience === 'developer' ? 'Busque un predio y consulte su IRM oficial para preparar la evaluación.' : 'Consulte su predio y revise planos para mantenimiento y remodelaciones.'}</p>
+        <p className="note">{audience === 'developer' ? 'Busque un terreno, consulte su IRM y explore qué tipo de vivienda podría desarrollar.' : 'Consulte su predio y revise planos para mantenimiento y remodelaciones.'}</p>
       </section>
       {/* MAIN LAYOUT */}
 
@@ -767,9 +770,9 @@ export default function App() {
       {step === 'project' && properties && audience === 'developer' && (
         <main className="workspace-page">
           <div className="workspace-heading"><div>
-            <span className="eyebrow">PROMOTORES INMOBILIARIOS · PASO 2</span>
-            <h1>IRM y evaluación del predio {properties.n_predio || identifier}</h1>
-            <p>Consulte el IRM oficial para iniciar la evaluación del terreno.</p>
+            <span className="eyebrow">NUEVA CONSTRUCCIÓN · PASO 2</span>
+            <h1>Potencial de construcción del predio {properties.n_predio || identifier}</h1>
+            <p>Consulte el IRM oficial y revise el potencial para construir una vivienda o un conjunto residencial.</p>
           </div></div>
           <section className="property developer-irm-panel">
             <h2>Consulta del IRM</h2>
@@ -790,9 +793,29 @@ export default function App() {
             {developerIrm && <p role="status">Seleccionado: {developerIrm.name}. La extracción normativa sigue en desarrollo; el archivo no se ha enviado ni analizado.</p>}
           </section>
           <section className="property">
-            <h2>Evaluación de terreno · Próximamente</h2>
-            <p>La evaluación combinará parámetros verificados del IRM, catastro y capas GIS para puntuar terrenos según el tipo de desarrollo.</p>
-            <p className="note">No se calculan COS, retiros, altura ni puntuaciones sin validar los datos. No constituye autorización de construcción.</p>
+            <h2>Evaluación del potencial constructivo</h2>
+            <p>Seleccione un objetivo residencial e introduzca los parámetros confirmados del IRM para explorar la capacidad constructiva teórica. La puntuación de aptitud comparativa queda para una fase posterior.</p>
+            <label htmlFor="development-type"><strong>¿Qué desea construir?</strong></label>
+            <select id="development-type" value={developmentType} onChange={e => setDevelopmentType(e.target.value)}>
+              <option value="single">Una vivienda</option>
+              <option value="multiple">Varias viviendas / conjunto</option>
+              <option value="apartments">Edificio multifamiliar</option>
+            </select>
+            <p className="note">Ingrese únicamente los valores que haya verificado en el IRM. El archivo seleccionado arriba todavía no se interpreta automáticamente.</p>
+            <div className="capacity-inputs">
+              <label>Área de terreno del IRM (m²)<input type="number" min="0" step="0.01" value={irmValues.area} onChange={e => setIrmValues(v => ({...v,area:e.target.value}))} /></label>
+              <label>COS PB (%)<input type="number" min="0" max="100" step="0.01" value={irmValues.cosPb} onChange={e => setIrmValues(v => ({...v,cosPb:e.target.value}))} /></label>
+              <label>COS total (%)<input type="number" min="0" step="0.01" value={irmValues.cosTotal} onChange={e => setIrmValues(v => ({...v,cosTotal:e.target.value}))} /></label>
+              <label>Pisos permitidos<input type="number" min="1" step="1" value={irmValues.floors} onChange={e => setIrmValues(v => ({...v,floors:e.target.value}))} /></label>
+            </div>
+            {capacityReady ? <div className="capacity-results" role="status">
+              <h3>Capacidad teórica según COS</h3>
+              <p>Ocupación máxima de planta baja por COS: <strong>{formatArea(Number(irmValues.area) * Number(irmValues.cosPb) / 100)}</strong></p>
+              <p>Superficie total computable por COS: <strong>{formatArea(Number(irmValues.area) * Number(irmValues.cosTotal) / 100)}</strong></p>
+              <p>Pisos indicados en IRM: <strong>{irmValues.floors}</strong></p>
+              <p className="note">Estos límites no establecen cuántas viviendas pueden aprobarse ni su tamaño individual. Faltan uso de suelo, densidad, retiros, frente, afectaciones, acceso y otras condiciones.</p>
+            </div> : <p className="note">Complete los cuatro campos con valores verificados para calcular límites teóricos. No se inventan datos del IRM.</p>}
+            <p className="note">El IRM no autoriza construir. El resultado es orientativo y no sustituye la revisión normativa ni profesional.</p>
           </section>
           <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
         </main>
