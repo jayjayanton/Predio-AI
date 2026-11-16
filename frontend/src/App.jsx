@@ -1130,7 +1130,7 @@ export default function App() {
                 {irmPugsAssignments.map((assignment,index) => {
                   const matching = pugsZones.filter(zone => {
                     const label=[zone.tipologia,zone.uso_prin,zone.leyenda,zone.tipo_des].filter(Boolean).join(' ').toUpperCase();
-                    return new RegExp('(^|[^A-Z0-9])'+assignment.code.replace(/[.*+?^${}()|[\]\\]/g,'\\              {zoningClassifications.length > 0 && <div className="zoning-classification">')+'([^A-Z0-9]|$)').test(label);
+                    return label.split(/[^A-Z0-9-]+/).includes(assignment.code.toUpperCase());
                   });
                   return <div key={assignment.code+'-'+index} className="irm-evidence-item">
                     <p><strong>{assignment.code}{assignment.description ? ' — '+assignment.description : ''}</strong>{assignment.isProtection ? ' · Protección ecológica' : ''}</p>
