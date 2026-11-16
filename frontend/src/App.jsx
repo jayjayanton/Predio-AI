@@ -1147,7 +1147,7 @@ export default function App() {
                 })}
                 <p className="note">El IRM documenta las asignaciones, pero no indica por sí solo qué superficie corresponde a cada una. Las superficies GIS son cruces provisionales sobre el polígono catastral; no se atribuyen a la unidad PH.</p>
               </div>}
-              {zoningClassifications.length > 0 && <div className="zoning-classification">
+              {!irmHasLandUse && zoningClassifications.length > 0 && <div className="zoning-classification">
                 <strong>{singleZoningClassification ? 'Clasificación PUGS:' : 'Clasificaciones PUGS:'}</strong>
                 {zoningClassifications.map((zone, i) => <p key={zone.OBJECTID || i}>
                   {[zone.uso_prin, zone.leyenda].filter(value => value != null && String(value).trim() !== '').join(' - ') || 'Clasificación no disponible'}
@@ -1202,7 +1202,7 @@ export default function App() {
                 {!isCadastralPH && Number(irmValues.area) > 0 && Number(irmValues.minLot) > 0 && <div><strong>Máximo teórico de lotes por área</strong><p>{Math.floor(Number(irmValues.area) / Number(irmValues.minLot))} (sin descontar vías ni cesiones)</p></div>}
               </div>
               {isCadastralPH && <p className="note">Propiedad horizontal: el área del lote matriz no representa derechos constructivos independientes de esta unidad.</p>}
-              <p className="note">Parámetros extraídos del IRM, pendientes de comprobación. La capacidad es teórica y no constituye autorización municipal.</p>
+              <p className="note">Parámetros documentados en el IRM y cálculos de PredioAI basados en las áreas disponibles. La aplicación no sustituye la verificación de restricciones ni la autorización municipal.</p>
             {irmImages.length > 0 && <div className="irm-evidence">
               <h3>Mapas y afectaciones relevantes del IRM</h3>
               <p className="note">Imágenes del PDF aportado; se muestran únicamente cuando se detectan referencias textuales a afectaciones o protección. No sustituyen un levantamiento georreferenciado.</p>
