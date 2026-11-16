@@ -1107,7 +1107,7 @@ export default function App() {
                     return label.split(/[^A-Z0-9-]+/).includes(assignment.code.toUpperCase());
                   });
                   return <div key={assignment.code+'-'+index} className="irm-evidence-item">
-                    <p><strong>Uso de suelo general:</strong> {assignment.generalUse || 'No extraído'}</p>
+                    <p><strong>Uso de suelo general:</strong> {assignment.generalUse || 'No extraído'}{assignment.generalDescription ? ' — '+assignment.generalDescription : ''}</p>
                     <p><strong>Uso de suelo específico:</strong> {assignment.code}{assignment.description ? ' — '+assignment.description : ''}{assignment.isProtection ? ' · Protección ecológica' : ''}</p>
                     <p className="note">{[
                       assignment.classification ? 'Clasificación '+assignment.classification : null,
