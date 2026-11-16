@@ -974,9 +974,7 @@ export default function App() {
               {!Object.keys(irmExtraction.candidate_irm_fields || {}).length && <p>No se encontraron parámetros reconocibles. Verifique si el PDF está escaneado.</p>}
               {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
             </details>}
-          </section>
-          <section className="property">
-            <details className="irm-document-details pugs-disclosure">
+          <details className="irm-document-details pugs-disclosure">
               <summary><strong>Verificación normativa PUGS 2024</strong> <span aria-hidden="true">▾</span></summary>
             <p>Consulte la zonificación vigente del predio en el geovisor oficial de Quito. El PUGS permite contrastar el uso del suelo, la edificabilidad básica y máxima, el lote mínimo y otras condiciones con el IRM.</p>
             <p>Clasificación catastral: <strong>{landClassification}</strong>. Este dato no sustituye la zonificación PUGS.</p>
@@ -991,7 +989,7 @@ export default function App() {
               {pugsData.zones?.map((zone, i) => <div key={i}>
                 <h3>Zona {i + 1}: {zone.leyenda || zone.tipo_des || 'Sin descripción'}</h3>
                 <dl>
-                  {Object.entries(zone).filter(([key, value]) => value != null && value !== '').map(([key, value]) => <React.Fragment key={key}><dt>{key}</dt><dd>{String(value)}</dd></React.Fragment>)}
+                  {Object.entries(zone).filter(([key, value]) => value != null && String(value).trim() !== '' && !['no aplica','n/a','n/d','null'].includes(String(value).toLowerCase().trim())).map(([key, value]) => <React.Fragment key={key}><dt>{key}</dt><dd>{String(value)}</dd></React.Fragment>)}
                 </dl>
               </div>)}
               <p className="note">Fuente: capa municipal PUGS 2024, ID 60. La intersección no calcula proporciones de superficie por zona ni acredita derechos constructivos. Compare siempre con el IRM.</p>
@@ -1000,7 +998,7 @@ export default function App() {
             {pugsData?.scope_warning && <p className="note">{pugsData.scope_warning}</p>}
             <p className="note">Los resultados PUGS son datos de referencia. La compatibilidad del proyecto y cualquier discrepancia con el IRM requieren validación municipal.</p>
             {irmExtraction && <p className="note">Compare los parámetros extraídos del IRM con el PUGS vigente. Si existen discrepancias, solicite aclaración municipal antes de evaluar el proyecto.</p>}
-            </details>
+          </details>
           </section>
           <section className="property">
             <h2>Compatibilidad del proyecto</h2>
@@ -1012,12 +1010,13 @@ export default function App() {
               <option value="apartments">Edificio multifamiliar</option>
             </select>
 
-            <p><strong>{projectCompatibility}</strong></p>
-            <p>Proyecto seleccionado: {developmentType === 'apartments' ? 'Edificio multifamiliar' : developmentType === 'single' ? 'Vivienda individual' : developmentType === 'multiple' ? 'Varias viviendas' : 'Subdivisión'}.</p>
-            <p>Uso / tipología PUGS: <strong>{pugsUse || 'No determinado'}</strong></p>
-            <p>Unidades de vivienda (campo PUGS): <strong>{pugsHousing || 'No disponible'}</strong></p>
+            <div className="compatibility-overview">
+              <p className="compatibility-status"><strong>{projectCompatibility}</strong></p>
+              <p className="note">{pugsData?.status === 'multiple_zones' ? `Se detectaron ${pugsZones.length} zonas en el polígono del lote matriz; revise sus detalles en PUGS.` : pugsSingleZone ? `Zonificación consultada: ${pugsUse || 'Sin denominación'}.` : 'No se obtuvo una zonificación única verificable para este predio.'}</p>
+              {pugsSingleZone && pugsHousing && !['no aplica','n/a','n/d'].includes(String(pugsHousing).toLowerCase().trim()) && <p>Designación de vivienda: <strong>{pugsHousing}</strong></p>}
+            </div>
             <p className="note">{isMultifamilyRequest ? 'La zonificación residencial por sí sola no confirma permiso para departamentos: deben verificarse la designación de unidades, densidad, uso permitido y condiciones específicas.' : 'La clasificación PUGS requiere interpretación de la normativa aplicable antes de emitir un dictamen de compatibilidad.'}</p>
-            {pugsData?.status === 'multiple_zones' && <p className="note">El polígono intersecta varias zonas PUGS; no se asigna una sola norma a todo el predio.</p>}
+
             {isCadastralPH && <p className="note">La geometría consultada puede representar el lote matriz de la propiedad horizontal, no la unidad individual. No se atribuyen sus derechos edificatorios al predio individual.</p>}
             <p className="source-note">Fuente: PUGS 2024, capa municipal 60. Estado preliminar; sin decisión legal automatizada.</p>
           </section>
