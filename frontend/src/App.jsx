@@ -97,8 +97,18 @@ export default function App() {
 
   const isMultifamilyRequest = developmentType === 'apartments';
   const isSubdivisionRequest = developmentType === 'subdivision' || developmentType === 'multiple';
-  const zoningReady = Boolean(pugsSingleZone && !isCadastralPH);
-  const projectCompatibility = !zoningReady ? 'No determinada' : 'Revisión normativa necesaria';
+  // Zoning context is independent of the individual PH ownership regime.
+  // A PUGS land-use label alone is NOT an official use-permission matrix.
+  const zoningReady = Boolean(pugsSingleZone);
+  const officialUsePermission = pugsData?.use_permissions?.[developmentType];
+  const permissionVerified = pugsData?.use_permissions_verified === true &&
+    pugsData?.status === 'single_zone' &&
+    ['permitted', 'prohibited', 'conditional'].includes(officialUsePermission);
+  const projectCompatibility = permissionVerified
+    ? officialUsePermission === 'prohibited' ? 'No permitido por la zonificación PUGS'
+      : officialUsePermission === 'permitted' ? 'Permitido por la zonificación PUGS'
+      : 'Permitido con condiciones'
+    : 'Pendiente de verificación normativa';
   const parcelFeasibility = isCadastralPH
     ? 'Revisión de propiedad horizontal requerida'
     : !irmExtraction || !zoningReady ? 'Información insuficiente'
@@ -1001,7 +1011,7 @@ export default function App() {
               <p className="note">{pugsData?.status === 'multiple_zones' ? `Se detectaron ${pugsZones.length} zonas en el polígono del lote matriz; revise sus detalles en PUGS.` : pugsSingleZone ? `Zonificación consultada: ${pugsUse || 'Sin denominación'}.` : 'No se obtuvo una zonificación única verificable para este predio.'}</p>
               {pugsSingleZone && pugsHousing && !['no aplica','n/a','n/d'].includes(String(pugsHousing).toLowerCase().trim()) && <p>Designación de vivienda: <strong>{pugsHousing}</strong></p>}
             </div>
-            <p className="note">{isMultifamilyRequest ? 'La zonificación residencial por sí sola no confirma permiso para departamentos: deben verificarse la designación de unidades, densidad, uso permitido y condiciones específicas.' : 'La clasificación PUGS requiere interpretación de la normativa aplicable antes de emitir un dictamen de compatibilidad.'}</p>
+            <p className="note">{permissionVerified ? 'Resultado basado en una regla de uso del suelo verificada; la factibilidad del predio se evalúa por separado.' : 'La zonificación PUGS es contexto territorial. Sin una regla de usos permitidos/prohibidos verificada, no se puede afirmar que este tipo de proyecto esté autorizado o prohibido.'}</p>
 
             {isCadastralPH && <p className="note">La geometría consultada puede representar el lote matriz de la propiedad horizontal, no la unidad individual. No se atribuyen sus derechos edificatorios al predio individual.</p>}
             <p className="source-note">Fuente: PUGS 2024, capa municipal 60. Estado preliminar; sin decisión legal automatizada.</p>
