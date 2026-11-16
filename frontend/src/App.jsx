@@ -1081,7 +1081,33 @@ export default function App() {
             <h2>Factibilidad del predio</h2>
             {!irmExtraction ? <p className="note">Cargue el IRM para revisar las condiciones del predio y calcular su potencial constructivo.</p> : <>
               <p><strong>{parcelFeasibility}</strong></p>
-              {zoningClassifications.length > 0 && <div className="zoning-classification">
+              {(() => {
+                const f=irmExtraction?.candidate_irm_fields || {};
+                const rows=[
+                  ['clasificacion_suelo','Clasificación de suelo'],
+                  ['subclasificacion_suelo','Subclasificación'],
+                  ['uso_suelo_general','Uso de suelo general'],
+                  ['uso_suelo_especifico','Uso de suelo específico'],
+                  ['tratamiento','Tratamiento urbanístico'],
+                  ['pit','Polígono de intervención territorial (PIT)'],
+                  ['forma_ocupacion','Forma de ocupación'],
+                  ['retiro_frontal','Retiro frontal','m'],
+                  ['retiro_lateral','Retiro lateral','m'],
+                  ['retiro_posterior','Retiro posterior','m'],
+                  ['entre_bloques','Separación entre bloques','m'],
+                  ['altura_pisos','Altura de edificación','m'],
+                  ['servicios_basicos','Factibilidad de servicios básicos']
+                ].filter(([key])=>f[key]?.raw);
+                return rows.length ? <div className="zoning-buildability">
+                  <h3>Condiciones urbanísticas adicionales del IRM</h3>
+                  <p className="note">Parámetros documentados en APROVECHAMIENTO URBANÍSTICO (PUGS). No se repiten aquí COS, pisos, lote ni frente mínimo, que se muestran en el cuadro de capacidad.</p>
+                  <dl>{rows.map(([key,label,unit])=><React.Fragment key={key}>
+                    <dt>{label}</dt><dd>{f[key].raw}{unit ? ' '+unit : ''}</dd>
+                  </React.Fragment>)}</dl>
+                  <p className="note">Extracción automática pendiente de revisión con el PDF municipal.</p>
+                </div> : null;
+              })()}
+              {(!irmExtraction?.candidate_irm_fields?.clasificacion_suelo || zoningClassifications.length > 1) && zoningClassifications.length > 0 && <div className="zoning-classification">
                 <strong>{singleZoningClassification ? 'Clasificación PUGS:' : 'Clasificaciones PUGS:'}</strong>
                 {zoningClassifications.map((zone, i) => <p key={zone.OBJECTID || i}>
                   {[zone.uso_prin, zone.leyenda].filter(value => value != null && String(value).trim() !== '').join(' - ') || 'Clasificación no disponible'}
@@ -1101,7 +1127,7 @@ export default function App() {
                     <p><strong>Código municipal</strong></p>
                     <p>{municipalCode || 'No disponible'}</p>
                     <p><strong>CÓDIGO DE EDIFICABILIDAD BÁSICA</strong></p>
-                    <p>{descriptiveCode || 'No identificado en el IRM'}{description ? ` - ${description}` : ''}</p>
+                    <p>{descriptiveCode || 'No identificado en el IRM'}</p>
                     {!descriptiveCode && <p className="note">El código descriptivo debe confirmarse en el IRM; no se deduce a partir del identificador municipal.</p>}
                   </>;
                 })()}
