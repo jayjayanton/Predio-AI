@@ -957,13 +957,7 @@ export default function App() {
             {irmExtracting && <p role="status">Extrayendo parámetros del IRM…</p>}
             {irmExtractError && <p role="alert" className="error">{irmExtractError}</p>}
             {developerIrm && <p role="status">Archivo seleccionado: {developerIrm.name}</p>}
-            {irmExtraction && <details className="inspection irm-document-details">
-              <summary><strong>Detalles del IRM cargado</strong> · {irmExtraction.filename || developerIrm?.name || 'Documento procesado'} · {irmExtraction.pages} página(s)</summary>
-              <p className="note">Campos extraídos automáticamente (sin verificar). El archivo PDF no se almacena en el servidor.</p>
-              <dl>{Object.entries(irmExtraction.candidate_irm_fields || {}).map(([key, value]) => <React.Fragment key={key}><dt>{key}</dt><dd>{value.raw}</dd></React.Fragment>)}</dl>
-              {!Object.keys(irmExtraction.candidate_irm_fields || {}).length && <p>No se encontraron parámetros reconocibles. Verifique si el PDF está escaneado.</p>}
-              {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
-            </details>}
+
 
           <p className="note">El IRM se contrasta con la zonificación PUGS para contextualizar qué tipos de construcción pueden permitirse en el área. La compatibilidad normativa y la factibilidad del predio se evalúan por separado.</p>
           </section>
