@@ -6,7 +6,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 const patterns = {
   predio: /datos\s*del\s*predio[\s\S]{0,250}?n[uú]mero\s*:?\s*(\d{3,15})/i,
   codigo_municipal_edificabilidad: /c[oó]digo\s*(?:de\s*)?edificabilidad\s*:?\s*(A\d{1,4})/i,
-  codigo_edificabilidad_basica: /c[oó]digo\s*(?:de\s*)?edificabilidad\s*:?\s*A\d{1,4}\s*\(\s*([A-Z]\d{3,6}-\d{1,3})\s*\)/i,
+  codigo_edificabilidad_basica: /c[oó]digo\s*(?:de\s*)?edificabilidad\s*:?\s*A\d{1,4}\s*\(\s*([A-Z]\d{3,6}-\d{1,3}(?:\s*\([A-Z0-9-]+\))?)\s*\)/i,
   avaluo_terreno: /aval[uú]o\s*del\s*terreno\s*:?\s*\$?\s*([\d,]+\.\d{2})/i,
   avaluo_cubiertas: /aval[uú]o\s*de\s*construcciones\s*cubiertas\s*:?\s*\$?\s*([\d,]+\.\d{2})/i,
   avaluo_abiertas: /aval[uú]o\s*de\s*construcciones\s*abiertas\s*:?\s*\$?\s*([\d,]+\.\d{2})/i,
@@ -80,7 +80,7 @@ function extractPugsAssignments(pageTexts) {
     if(!code)return null;
     const description=(specific?.[2]||'').replace(/\s+/g,' ').trim();
     const general=block.match(/uso\s+(?:de\s+)?suelo\s+general\s*:?\s*\(\s*([A-Z]+)\s*\)\s*([\s\S]{0,100}?)(?=\s+uso\s+(?:de\s+)?suelo\s+espec[ií]fico\b|$)/i);
-    const basic=block.match(/c[oó]digo\s+edificabilidad\s*:?\s*(A\d{1,4})\s*\(\s*([^)]+)\s*\)/i);
+    const basic=block.match(/c[oó]digo\s+edificabilidad\s*:?\s*(A\d{1,4})\s*\(\s*([A-Z]\d{3,6}-\d{1,3}(?:\s*\([A-Z0-9-]+\))?|PQ)\s*\)/i);
     return {
       index:index+1, code, description,
       classification:take(/clasificaci[oó]n\s*:?\s*\(\s*([A-Z]{1,4})\s*\)/i),
