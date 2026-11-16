@@ -5,6 +5,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 const patterns = {
   predio: /datos\s*del\s*predio[\s\S]{0,250}?n[uú]mero\s*:?\s*(\d{3,15})/i,
+  codigo_municipal_edificabilidad: /c[oó]digo\s*(?:de\s*)?edificabilidad\s*:?\s*(A\d{1,4})/i,
+  codigo_edificabilidad_basica: /c[oó]digo\s*(?:de\s*)?edificabilidad\s*:?\s*A\d{1,4}\s*\(\s*([A-Z]\d{3,6}-\d{1,3})\s*\)/i,
   lote_minimo: /lote\s*m[ií]nimo\s*:?\s*([\d.,]+)\s*m2/i,
   frente_minimo: /frente\s*m[ií]nimo\s*:?\s*([\d.,]+)\s*m/i,
   cos_pb: /cos\s*pb\s*:?\s*([\d.,]+)\s*%/i,
