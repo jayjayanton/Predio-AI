@@ -76,6 +76,11 @@ export default function App() {
   const [irmConfirmed, setIrmConfirmed] = useState(false);
   const [developmentType, setDevelopmentType] = useState('single');
   const [landGoal, setLandGoal] = useState('individual');
+  const [searchLandClass,setSearchLandClass]=useState('all');
+  const [searchAreaMin,setSearchAreaMin]=useState('500');
+  const [searchAreaMax,setSearchAreaMax]=useState('6000');
+  const [searchHousingType,setSearchHousingType]=useState('all');
+  const [searchOccupation,setSearchOccupation]=useState('all');
   const [pugsData, setPugsData] = useState(null);
   const [pugsLoading, setPugsLoading] = useState(false);
   const [pugsError, setPugsError] = useState('');
@@ -482,6 +487,45 @@ export default function App() {
         </div>
         <p className="note">{audience === 'developer' ? 'Busque un terreno, consulte su IRM y explore qué tipo de vivienda podría desarrollar.' : 'Consulte su predio y revise planos para mantenimiento y remodelaciones.'}</p>
       </section>
+      {audience === 'developer' && <section className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
+        <h2>Exploración de terrenos · Criterios de selección</h2>
+        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Estos filtros preparan el perfil de búsqueda; todavía no ejecutan una búsqueda masiva ni sustituyen la zonificación oficial de cada predio.</p>
+        <div className="development-filter-grid">
+          <label>Clasificación del suelo
+            <select value={searchLandClass} onChange={e=>setSearchLandClass(e.target.value)}>
+              <option value="all">Urbano y rural</option>
+              <option value="urban">Suelo urbano</option>
+              <option value="rural">Suelo rural</option>
+            </select>
+          </label>
+          <label>Superficie mínima (m²)
+            <input type="number" min="1" step="1" value={searchAreaMin} onChange={e=>setSearchAreaMin(e.target.value)} />
+          </label>
+          <label>Superficie máxima (m²)
+            <input type="number" min="1" step="1" value={searchAreaMax} onChange={e=>setSearchAreaMax(e.target.value)} />
+          </label>
+          <label>Tipo de vivienda / asignación
+            <select value={searchHousingType} onChange={e=>setSearchHousingType(e.target.value)}>
+              <option value="all">Cualquier tipo / por verificar</option>
+              <option value="VU">VU — Vivienda unifamiliar</option>
+              <option value="VB">VB — Vivienda bifamiliar</option>
+              <option value="VM">VM — Vivienda multifamiliar</option>
+            </select>
+          </label>
+          <label>Forma de ocupación
+            <select value={searchOccupation} onChange={e=>setSearchOccupation(e.target.value)}>
+              <option value="all">Todas / por verificar</option>
+              <option value="A">A — Aislada</option>
+              <option value="B">B — Pareada</option>
+              <option value="C">C — Continua</option>
+              <option value="D">D — Sobre línea de fábrica</option>
+            </select>
+          </label>
+        </div>
+        {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
+          ? <p className="error" role="alert">Indique un rango de superficies válido, con mínimo menor o igual al máximo.</p>
+          : <p className="note">Perfil seleccionado: {searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'} · {Number(searchAreaMin).toLocaleString('es-EC')}–{Number(searchAreaMax).toLocaleString('es-EC')} m² · {searchHousingType==='all'?'Cualquier asignación de vivienda':searchHousingType} · Ocupación {searchOccupation==='all'?'sin restricción seleccionada':searchOccupation}. Para analizar un predio concreto, utilice la consulta catastral y su IRM.</p>}
+      </section>}
       {/* MAIN LAYOUT */}
 
       <nav className="workflow-nav" aria-label="Etapas del proyecto">
