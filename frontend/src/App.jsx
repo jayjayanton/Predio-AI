@@ -44,8 +44,13 @@ export default function App() {
   const [step, setStep] = useState('property');
   const [audience, setAudience] = useState('remodeler');
   const [developerIrm, setDeveloperIrm] = useState(null);
+  const [irmExtraction, setIrmExtraction] = useState(null);
+  const [irmExtracting, setIrmExtracting] = useState(false);
+  const [irmExtractError, setIrmExtractError] = useState('');
+  const [irmConfirmed, setIrmConfirmed] = useState(false);
   const [developmentType, setDevelopmentType] = useState('single');
   const [irmValues, setIrmValues] = useState({ area: '', cosPb: '', cosTotal: '', floors: '' });
+  const [developerAreaSource, setDeveloperAreaSource] = useState('');
   const capacityReady = Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
   // Search state
   const [identifier, setIdentifier] = useState('');
@@ -93,6 +98,37 @@ export default function App() {
       // Clipboard permissions vary across Safari/iOS and embedded browsers.
       // Keep the value selectable rather than claiming it was copied.
       setIrmCopyStatus(`No se pudo copiar automáticamente. Mantenga pulsado el número ${number} para copiarlo.`);
+    }
+  }
+
+  async function uploadDeveloperIrm(file) {
+    setDeveloperIrm(file);
+    setIrmExtraction(null);
+    setIrmExtractError('');
+    setIrmConfirmed(false);
+    setIrmValues({ area: '', cosPb: '', cosTotal: '', floors: '' });
+    if (!file) return;
+    setIrmExtracting(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch(`${API}/api/irm/extract`, { method: 'POST', body: form });
+      const body = await response.json();
+      if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'No se pudo leer el IRM');
+      const fields = body.candidate_irm_fields || {};
+      const parsed = key => fields[key]?.raw?.replace(',', '.') || '';
+      const selectedPredio = String(properties?.n_predio || '').trim();
+      const extractedPredio = parsed('predio');
+      if (selectedPredio && extractedPredio && selectedPredio !== extractedPredio) {
+        throw new Error('El número de predio del IRM no coincide con el predio seleccionado. Revise el documento.');
+      }
+      setIrmExtraction(body);
+      setIrmValues({ area: '', cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos') });
+      setDeveloperAreaSource('El área del terreno no se extrajo del IRM. Ingrésela manualmente después de verificarla.');
+    } catch (err) {
+      setIrmExtractError(err.message);
+    } finally {
+      setIrmExtracting(false);
     }
   }
 
@@ -789,8 +825,17 @@ export default function App() {
               <a href="https://github.com/jayjayanton/Predio-AI/blob/main/automation/README.md" target="_blank" rel="noopener noreferrer">Instrucciones de Playwright ↗</a>
             </details>
             <label htmlFor="developer-irm-upload"><strong>Adjuntar IRM obtenido (PDF)</strong></label>
-            <input id="developer-irm-upload" type="file" accept=".pdf,application/pdf" onChange={event => setDeveloperIrm(event.target.files?.[0] || null)} />
-            {developerIrm && <p role="status">Seleccionado: {developerIrm.name}. La extracción normativa sigue en desarrollo; el archivo no se ha enviado ni analizado.</p>}
+            <input id="developer-irm-upload" type="file" accept=".pdf,application/pdf" onChange={event => uploadDeveloperIrm(event.target.files?.[0] || null)} />
+            {irmExtracting && <p role="status">Extrayendo parámetros del IRM…</p>}
+            {irmExtractError && <p role="alert" className="error">{irmExtractError}</p>}
+            {developerIrm && <p role="status">Archivo seleccionado: {developerIrm.name}</p>}
+            {irmExtraction && <div className="inspection">
+              <strong>Campos detectados automáticamente (sin verificar)</strong>
+              <p>Se procesaron {irmExtraction.pages} páginas. El PDF no se almacena en el servidor.</p>
+              <dl>{Object.entries(irmExtraction.candidate_irm_fields || {}).map(([key, value]) => <React.Fragment key={key}><dt>{key}</dt><dd>{value.raw}</dd></React.Fragment>)}</dl>
+              {!Object.keys(irmExtraction.candidate_irm_fields || {}).length && <p>No se encontraron parámetros reconocibles. Verifique si el PDF está escaneado.</p>}
+              {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
+            </div>}
           </section>
           <section className="property">
             <h2>Evaluación del potencial constructivo</h2>
@@ -801,20 +846,26 @@ export default function App() {
               <option value="multiple">Varias viviendas / conjunto</option>
               <option value="apartments">Edificio multifamiliar</option>
             </select>
-            <p className="note">Ingrese únicamente los valores que haya verificado en el IRM. El archivo seleccionado arriba todavía no se interpreta automáticamente.</p>
+            <p className="note">Los campos detectados se rellenan automáticamente como candidatos. Confirme cada dato con el IRM oficial antes de calcular. Los valores pueden editarse.</p>
+            {developerAreaSource && <p className="note">{developerAreaSource}</p>}
             <div className="capacity-inputs">
-              <label>Área de terreno del IRM (m²)<input type="number" min="0" step="0.01" value={irmValues.area} onChange={e => setIrmValues(v => ({...v,area:e.target.value}))} /></label>
-              <label>COS PB (%)<input type="number" min="0" max="100" step="0.01" value={irmValues.cosPb} onChange={e => setIrmValues(v => ({...v,cosPb:e.target.value}))} /></label>
-              <label>COS total (%)<input type="number" min="0" step="0.01" value={irmValues.cosTotal} onChange={e => setIrmValues(v => ({...v,cosTotal:e.target.value}))} /></label>
-              <label>Pisos permitidos<input type="number" min="1" step="1" value={irmValues.floors} onChange={e => setIrmValues(v => ({...v,floors:e.target.value}))} /></label>
+              <label>Área de terreno del IRM (m²)<input type="number" min="0" step="0.01" value={irmValues.area} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,area:e.target.value}));}} /></label>
+              <label>COS PB (%)<input type="number" min="0" max="100" step="0.01" value={irmValues.cosPb} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,cosPb:e.target.value}));}} /></label>
+              <label>COS total (%)<input type="number" min="0" step="0.01" value={irmValues.cosTotal} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,cosTotal:e.target.value}));}} /></label>
+              <label>Pisos permitidos<input type="number" min="1" step="1" value={irmValues.floors} onChange={e => {setIrmConfirmed(false);setIrmValues(v => ({...v,floors:e.target.value}));}} /></label>
             </div>
-            {capacityReady ? <div className="capacity-results" role="status">
+            <label className="irm-confirm"><input type="checkbox" checked={irmConfirmed} onChange={e => setIrmConfirmed(e.target.checked)} />
+              He revisado los valores, el uso de suelo y las restricciones en el IRM oficial.
+            </label>
+            {capacityReady && irmConfirmed ? <div className="capacity-results" role="status">
               <h3>Capacidad teórica según COS</h3>
               <p>Ocupación máxima de planta baja por COS: <strong>{formatArea(Number(irmValues.area) * Number(irmValues.cosPb) / 100)}</strong></p>
               <p>Superficie total computable por COS: <strong>{formatArea(Number(irmValues.area) * Number(irmValues.cosTotal) / 100)}</strong></p>
               <p>Pisos indicados en IRM: <strong>{irmValues.floors}</strong></p>
+              <p className="note">Proyecto seleccionado: {developmentType === 'single' ? 'Una vivienda' : developmentType === 'multiple' ? 'Varias viviendas' : 'Edificio multifamiliar'}.</p>
+              <p className="note">Compatibilidad de uso residencial: pendiente de validación. No es posible afirmar que se permitan o prohíban apartamentos únicamente con COS y pisos.</p>
               <p className="note">Estos límites no establecen cuántas viviendas pueden aprobarse ni su tamaño individual. Faltan uso de suelo, densidad, retiros, frente, afectaciones, acceso y otras condiciones.</p>
-            </div> : <p className="note">Complete los cuatro campos con valores verificados para calcular límites teóricos. No se inventan datos del IRM.</p>}
+            </div> : <p className="note">Complete los cuatro campos y confirme su revisión del IRM para calcular límites teóricos. No se inventan datos del IRM.</p>}
             <p className="note">El IRM no autoriza construir. El resultado es orientativo y no sustituye la revisión normativa ni profesional.</p>
           </section>
           <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
