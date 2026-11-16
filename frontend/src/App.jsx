@@ -968,8 +968,15 @@ export default function App() {
 
             {!irmExtraction ? <p className="note">Adjunte el IRM para activar el análisis de compatibilidad con el contexto PUGS.</p> : <div className="compatibility-overview">
               <p className="compatibility-status"><strong>{projectCompatibility}</strong></p>
-              <p className="note">Zonificación PUGS predominante en el polígono catastral: <strong>{pugsUse || 'No determinada'}</strong>{dominantZone?._overlap_percent != null ? ` (${dominantZone._overlap_percent}% del polígono)` : ''}.</p>
-              {pugsZones.length > 1 && <p className="note">El polígono intersecta {pugsZones.length} zonas; el uso permitido debe verificarse en la ubicación exacta de la obra.</p>}
+              <p className="note">Zonificación predominante del polígono catastral: <strong>{pugsUse || 'No determinada'}</strong>{dominantZone?._overlap_percent != null ? ` (${dominantZone._overlap_percent}% del polígono)` : ''}.</p>
+              {pugsZones.length > 1 && <div className="zoning-intersections">
+                <strong>Zonas PUGS intersectadas ({pugsZones.length})</strong>
+                <ul>{pugsZones.map((zone, i) => <li key={zone.OBJECTID || i}>
+                  <strong>{zone.tipo_des || zone.leyenda || zone.uso_prin || `Zona ${i + 1}`}</strong>
+                  {zone._overlap_percent != null && <span> — {zone._overlap_percent}% del polígono</span>}
+                </li>)}</ul>
+              </div>
+              {pugsZones.length > 1 && <p className="note">La zona predominante no reemplaza las otras zonas intersectadas; la norma aplicable depende de la ubicación exacta del proyecto.</p>}
               <div className="capacity-inputs">
                 {[
                   ['single', 'Casa / vivienda individual'],
@@ -984,46 +991,24 @@ export default function App() {
           </section>
           <section className="property">
             <h2>Factibilidad del predio</h2>
-            <p><strong>{!irmExtraction ? 'Pendiente de cargar el IRM' : isCadastralPH ? 'Revisión de propiedad horizontal requerida' : 'Evaluación preliminar con parámetros del IRM'}</strong></p>
-            {irmExtraction ? <>
-              <dl>
-                <dt>Área individual de referencia</dt><dd>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No disponible'}</dd>
-                <dt>Lote mínimo (IRM)</dt><dd>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No extraído'}</dd>
-                <dt>Frente mínimo (IRM)</dt><dd>{irmValues.minFront ? `${irmValues.minFront} m` : 'No extraído'}</dd>
-                <dt>COS PB (IRM)</dt><dd>{irmValues.cosPb !== '' ? `${irmValues.cosPb}%` : 'No extraído'}</dd>
-                <dt>COS total (IRM)</dt><dd>{irmValues.cosTotal !== '' ? `${irmValues.cosTotal}%` : 'No extraído'}</dd>
-                <dt>Pisos indicados (IRM)</dt><dd>{irmValues.floors || 'No extraído'}</dd>
-              </dl>
-              {isCadastralPH && <p className="note">El IRM y la geometría del lote matriz no confieren por sí solos derechos constructivos independientes a esta unidad de propiedad horizontal.</p>}
-              <p className="note">Los valores proceden de extracción automática del IRM y deben revisarse en el documento original. El cumplimiento de retiros, accesos, restricciones y permisos no está verificado.</p>
-            </> : <p className="note">Adjunte el IRM para visualizar los parámetros específicos del predio. La zonificación PUGS se usa únicamente como contexto de usos permitidos en el área.</p>}
-            <p className="source-note">Fuentes: IRM aportado y catastro municipal. La zonificación PUGS se analiza en Compatibilidad del proyecto.</p>
+            {!irmExtraction ? <p className="note">Cargue el IRM para revisar las condiciones del predio y calcular su potencial constructivo.</p> : <>
+              <p><strong>{parcelFeasibility}</strong></p>
+              {developerAreaSource && <p className="note">{developerAreaSource}</p>}
+              <div className="capacity-inputs">
+                <div><strong>Área del predio</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No extraída'}</p></div>
+                <div><strong>Lote mínimo (IRM)</strong><p>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No extraído'}</p></div>
+                <div><strong>Frente mínimo (IRM)</strong><p>{irmValues.minFront ? `${irmValues.minFront} m` : 'No extraído'}</p></div>
+                <div><strong>COS PB / total</strong><p>{irmValues.cosPb !== '' ? `${irmValues.cosPb}%` : '—'} / {irmValues.cosTotal !== '' ? `${irmValues.cosTotal}%` : '—'}</p></div>
+                <div><strong>Pisos (IRM)</strong><p>{irmValues.floors || 'No extraído'}</p></div>
+                {!isCadastralPH && Number(irmValues.area) > 0 && Number(irmValues.minLot) > 0 && <div><strong>Máximo teórico de lotes por área</strong><p>{Math.floor(Number(irmValues.area) / Number(irmValues.minLot))} (sin descontar vías ni cesiones)</p></div>}
+              </div>
+              {isCadastralPH && <p className="note">Propiedad horizontal: el área del lote matriz no representa derechos constructivos independientes de esta unidad.</p>}
+              <p className="note">Parámetros extraídos del IRM, pendientes de comprobación. La capacidad es teórica y no constituye autorización municipal.</p>
+            </>}
           </section>
           {irmExtraction && <section className="property">
-            <h2>Resumen de parámetros del terreno</h2>
-            <div className="capacity-inputs">
-              <div><strong>Área del predio</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No disponible'}</p></div>
-              <div><strong>Lote mínimo</strong><p>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No disponible'}</p></div>
-              <div><strong>Frente mínimo</strong><p>{irmValues.minFront ? `${irmValues.minFront} m` : 'No disponible'}</p></div>
-              <div><strong>COS PB / COS total</strong><p>{irmValues.cosPb || '—'}% / {irmValues.cosTotal || '—'}%</p></div>
-              <div><strong>Pisos permitidos</strong><p>{irmValues.floors || 'No disponible'}</p></div>
-              <div><strong>Subdivisión teórica por superficie</strong><p>{!isCadastralPH && Number(irmValues.area) > 0 && Number(irmValues.minLot) > 0 ? `${Math.floor(Number(irmValues.area) / Number(irmValues.minLot))} lotes como máximo por área` : 'No calculable'}</p></div>
-            </div>
-            <p className="note">Valores extraídos del IRM o catastro sin verificación normativa. El número de lotes es solo un límite aritmético, no una autorización de subdivisión.</p>
-          </section>}
-          {irmExtraction && <section className="property">
             <h2>Evaluación del potencial constructivo</h2>
-            {developerAreaSource && <p className="note">{developerAreaSource}</p>}
-            <div className="capacity-inputs">
-              <div><strong>Área específica del predio (m²)</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No disponible'}</p></div>
-              <div><strong>COS PB (%)</strong><p>{irmValues.cosPb !== '' ? `${irmValues.cosPb}%` : 'No disponible'}</p></div>
-              <div><strong>COS total (%)</strong><p>{irmValues.cosTotal !== '' ? `${irmValues.cosTotal}%` : 'No disponible'}</p></div>
-              {showSubdivision && <div><strong>Lote mínimo (m²)</strong><p>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No disponible'}</p></div>}
-              {showSubdivision && <div><strong>Frente mínimo (m)</strong><p>{irmValues.minFront ? `${irmValues.minFront} m` : 'No disponible'}</p></div>}
-              {showHousingCode && <div><strong>Designación de vivienda</strong><p>{irmValues.dwellingCode || 'No identificada'}</p></div>}
-              <div><strong>Pisos permitidos</strong><p>{irmValues.floors || 'No disponible'}</p></div>
-            </div>
-            {isCadastralPH && <p className="note">Propiedad horizontal: el lote matriz mide {Number.isFinite(parentLotArea) && parentLotArea > 0 ? formatArea(parentLotArea) : 'un área no disponible'}. Esa superficie NO se utiliza para evaluar el predio individual ni para estimar subdivisiones.</p>}
+            <p className="note">Cálculos derivados de los parámetros del IRM presentados en Factibilidad del predio.</p>
             <label className="irm-confirm"><input type="checkbox" checked={irmConfirmed} onChange={e => setIrmConfirmed(e.target.checked)} />
               He revisado los valores, el uso de suelo y las restricciones en el IRM oficial.
             </label>
