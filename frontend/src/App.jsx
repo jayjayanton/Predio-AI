@@ -955,8 +955,8 @@ export default function App() {
               {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
             </details>}
           </section>
-          <section className="property">
-            <h2>Verificación normativa PUGS 2024</h2>
+          <details className="property irm-document-details">
+            <summary><strong>Verificación normativa PUGS 2024</strong> · Consultar fuentes y zonificación</summary>
             <p>Consulte la zonificación vigente del predio en el geovisor oficial de Quito. El PUGS permite contrastar el uso del suelo, la edificabilidad básica y máxima, el lote mínimo y otras condiciones con el IRM.</p>
             <p>Clasificación catastral: <strong>{landClassification}</strong>. Este dato no sustituye la zonificación PUGS.</p>
             <p><a href="https://habitat.quito.gob.ec/geovisore" target="_blank" rel="noopener noreferrer">Abrir geovisor PUGS oficial ↗</a></p>
@@ -977,7 +977,7 @@ export default function App() {
             </div>}
             <p className="note">Los resultados PUGS son datos de referencia. La compatibilidad del proyecto y cualquier discrepancia con el IRM requieren validación municipal.</p>
             {irmExtraction && <p className="note">Compare los parámetros extraídos del IRM con el PUGS vigente. Si existen discrepancias, solicite aclaración municipal antes de evaluar el proyecto.</p>}
-          </section>
+          </details>
           {irmExtraction && <section className="property">
             <h2>Resumen de parámetros del terreno</h2>
             <div className="capacity-inputs">
