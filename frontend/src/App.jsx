@@ -955,6 +955,11 @@ export default function App() {
               <dt>Estado del lote (catastro)</dt><dd>{lotProfile.status}</dd>
               <dt>Uso de construcción registrado</dt><dd>{lotProfile.use}</dd>
               <dt>Destino económico registrado</dt><dd>{lotProfile.landUse}</dd>
+              <dt>Área del predio (catastro)</dt><dd>{cadastralAreaValue ? formatArea(Number(cadastralAreaValue)) : 'No disponible'}</dd>
+              {irmExtraction?.candidate_irm_fields?.area_terreno?.raw && <>
+                <dt>{isCadastralPH ? 'Área según IRM (lote matriz)' : 'Área según IRM'}</dt>
+                <dd>{formatArea(Number(irmExtraction.candidate_irm_fields.area_terreno.raw.replace(',', '.')))}</dd>
+              </>}
               <dt>Superficie del lote matriz</dt><dd>{formatArea(lotProfile.landArea)}</dd>
               <dt>Frente registrado</dt><dd>{typeof lotProfile.frontage === 'number' ? `${lotProfile.frontage} m` : 'No disponible'}</dd>
               <dt>Construcción registrada</dt><dd>{formatArea(lotProfile.constructionArea)}</dd>
