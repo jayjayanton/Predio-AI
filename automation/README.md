@@ -2,6 +2,18 @@
 
 Este módulo es **opcional** y funciona **localmente en Windows/macOS/Linux**. No se ejecuta automáticamente desde GitHub Pages ni desde Render. El usuario debe iniciar el script en su propio computador; el navegador Chromium que se abre pertenece a esa sesión local.
 
+## Instalación rápida en Windows
+
+Desde la carpeta del repositorio, haga doble clic en `automation/setup_windows.bat`. El instalador configura las dependencias Python, descarga Chromium y **arranca el puente local**. Mantenga abierta la ventana de comandos mientras utiliza PredioAI.
+
+También puede ejecutarlo desde PowerShell:
+
+```powershell
+.\\automation\\setup_windows.bat
+```
+
+Requiere tener Python y su lanzador `py` instalados. No instala Python ni configura automáticamente otros equipos. El navegador Chromium es una descarga independiente, por lo que **no puede declararse como paquete dentro de requirements.txt**.
+
 ## Instalar (PowerShell, desde la raíz del repositorio)
 
 ```powershell
