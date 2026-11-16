@@ -676,14 +676,18 @@ export default function App() {
                 <dl>
                   <dt>Avalúo del terreno</dt>
                   <dd>{formatUSD(properties.avaluo_ter)}</dd>
-                  <dt>Avalúo de construcción</dt>
+                  <dt>Avalúo de construcciones cubiertas</dt>
                   <dd>{formatUSD(properties.avaluo_con)}</dd>
-                  <dt>Otros componentes del avalúo</dt>
-                  <dd>{typeof properties.avaluo_tot === 'number' &&
-                    typeof properties.avaluo_ter === 'number' &&
-                    typeof properties.avaluo_con === 'number'
-                    ? formatUSD(properties.avaluo_tot - properties.avaluo_ter - properties.avaluo_con)
-                    : 'No disponible'}</dd>
+                  {[
+                    ['avaluo_c_1', 'Avalúo de construcciones abiertas'],
+                    ['avaluo_c_2', 'Avalúo de instalaciones especiales'],
+                    ['avaluo_c_3', 'Avalúo de construcciones comunales cubiertas proporcional a la alícuota'],
+                    ['avaluo_c_4', 'Avalúo de construcciones comunales abiertas proporcional a la alícuota'],
+                    ['avaluo_c_5', 'Avalúo de adicionales constructivos proporcional a la alícuota'],
+                    ['avaluo_c_6', 'Avalúo comunal especial']
+                  ].map(([key,label]) => <React.Fragment key={key}>
+                    <dt>{label}</dt><dd>{formatUSD(properties[key])}</dd>
+                  </React.Fragment>)}
                   <dt>Avalúo total</dt>
                   <dd><strong>{formatUSD(properties.avaluo_tot)}</strong></dd>
                   <dt>Avalúo terreno por m² atribuido</dt>
@@ -728,7 +732,7 @@ export default function App() {
                     return <p className="note">{allPresent ? (Math.abs(sum-total)<0.02 ? 'Desglose verificado aritméticamente contra el total del PDF.' : 'Advertencia: los componentes extraídos no coinciden con el total del PDF; revisar manualmente.') : 'Desglose parcial: no se puede validar la suma hasta extraer todos los componentes.'}</p>;
                   })()}
                 </div>}
-                <p className="note">Fuente: avalúo catastral municipal 2024.</p>
+                <p className="note">Fuente: campos de avalúo del GIS municipal predios_a_2024. Los campos AVALUO_C_1 a AVALUO_C_6 se interpretan según su correspondencia con la cédula catastral; la fuente GIS no publica descripciones detalladas de esos códigos.</p>
                 <p className="note">
                   Avalúos catastrales históricos. El valor por m² de terreno
                   se calcula sobre el área atribuida en propiedad horizontal.
