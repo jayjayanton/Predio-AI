@@ -17,10 +17,10 @@ PredioAI aims to connect those two sources: **where a property is** and **what i
 
 ## Two user workflows
 
-The homepage now distinguishes **Propietarios y remodeladores** from **Promotores inmobiliarios**. Both reuse the same Quito cadastral search and map.
+The homepage now distinguishes **Propietarios y remodeladores** from **Nueva construcción y terrenos**. Both reuse the same Quito cadastral search and map.
 
 - **Owners/remodelers:** the existing repair, maintenance, plan upload, selectable geometry and document-inspection workflow remains available.
-- **Developers:** search a predio, copy its predio number, open the official municipal IRM consultation, complete the CAPTCHA manually, and select the downloaded IRM PDF. Regulatory extraction, parcel scoring, and development feasibility are explicitly future capabilities, not operational outputs.
+- **New construction:** search a predio, copy its predio number, consult the official IRM with manual CAPTCHA, and select the downloaded PDF. Users may manually enter verified IRM land area, COS PB, COS Total, and permitted floors to calculate theoretical COS limits. This is not a legal buildability determination; residential compatibility, setbacks, density, and parcel scoring remain future work. IRM PDF parsing is not yet connected.
 
 The developer IRM upload currently selects a local file only; it does not send or parse it. The standalone Playwright desktop assistant is documented in [automation/README.md](automation/README.md) and is not launched by the website.
 
