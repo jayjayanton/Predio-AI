@@ -85,7 +85,7 @@ La integración de escritorio está implementada de forma **experimental**: el b
 | Navegador Chromium | Instalado por Playwright | `py -m playwright install chromium` (descarga separada, no es paquete pip) |
 | Instalador Windows | [`automation/setup_windows.bat`](automation/setup_windows.bat) | Instala Playwright y Chromium, luego inicia el puente local |
 
-En Windows, después de `git pull origin main`, ejecute **`automation/setup_windows.bat`** para instalar lo necesario e iniciar el puente. Se necesita Python con el lanzador `py`. También puede instalar manualmente:
+En Windows, después de `git pull origin main`, ejecute **`automation/setup_windows.bat`** una vez para instalar Playwright/Chromium y registrar el puente para iniciarse automáticamente en segundo plano al entrar en Windows. No hace falta mantener una terminal abierta. Si Playwright ya está instalado, puede ejecutar únicamente `powershell -NoProfile -ExecutionPolicy Bypass -File automation/install_background_bridge.ps1`. Se necesita Python con el lanzador `py`. También puede instalar manualmente:
 
 ```powershell
 py -m pip install -r automation/requirements.txt
