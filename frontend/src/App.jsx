@@ -172,13 +172,6 @@ export default function App() {
       }
       setIrmExtraction(body);
       setIrmValues({ area: parsed('area_terreno') || cadastralAreaValue, cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos'), minLot: parsed('lote_minimo'), minFront: parsed('frente_minimo'), dwellingCode: parsed('vivienda_tipo') });
-      try {
-        const predio = String(properties?.n_predio || '').trim();
-        if (predio) sessionStorage.setItem('predioai-irm-v2-' + predio, JSON.stringify({
-          values: { area: parsed('area_terreno') || cadastralAreaValue, cosPb: parsed('cos_pb'), cosTotal: parsed('cos_total'), floors: parsed('pisos'), minLot: parsed('lote_minimo'), minFront: parsed('frente_minimo'), dwellingCode: parsed('vivienda_tipo') },
-          extraction: body
-        }));
-      } catch { /* browser storage may be disabled */ }
       setDeveloperAreaSource(fields.area_terreno ? 'Fuente: IRM aportado (extracción automática, sin verificar).' : cadastralAreaValue ? `Fuente: Catastro municipal (${cadastralAreaLabel}); el IRM no contenía un área reconocible.` : 'Área del predio no disponible en las fuentes. No se utiliza el lote matriz como sustituto.');
     } catch (err) {
       setIrmExtractError(err.message);
@@ -187,24 +180,17 @@ export default function App() {
     }
   }
 
-  // Keep extracted metadata (never the PDF itself) for this browser tab only.
-  // Scoped to the selected predio to avoid mixing different properties.
+  // IRM files and extracted values are intentionally ephemeral.
+  // Reloading the page starts with no uploaded PDF or restored IRM extraction.
   useEffect(() => {
-    const predio = String(properties?.n_predio || '').trim();
     setDeveloperIrm(null);
     setIrmConfirmed(false);
     setIrmExtraction(null);
     setIrmValues({ area: cadastralAreaValue, cosPb: '', cosTotal: '', floors: '', minLot: '', minFront: '', dwellingCode: '' });
     setDeveloperAreaSource(cadastralAreaValue ? `Fuente: Catastro municipal (${cadastralAreaLabel}); pendiente de contraste con el IRM.` : 'Área específica no disponible; no se utiliza el lote matriz.');
-    if (!predio) return;
     try {
-      const saved = JSON.parse(sessionStorage.getItem('predioai-irm-v2-' + predio) || 'null');
-      if (saved?.values && saved?.extraction) {
-        setIrmValues(saved.values);
-        setIrmExtraction(saved.extraction);
-        setDeveloperAreaSource('Datos recuperados de esta pestaña; vuelva a verificar el IRM antes de calcular.');
-      }
-    } catch { /* storage may be disabled */ }
+      Object.keys(sessionStorage).filter(key => key.startsWith('predioai-irm-')).forEach(key => sessionStorage.removeItem(key));
+    } catch { /* browser storage may be unavailable */ }
   }, [data]);
 
   useEffect(() => {
