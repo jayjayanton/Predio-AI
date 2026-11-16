@@ -983,7 +983,7 @@ export default function App() {
               {zoningClassifications.length > 0 && <div className="zoning-classification">
                 <strong>{singleZoningClassification ? 'Clasificación PUGS:' : 'Clasificaciones PUGS:'}</strong>
                 {zoningClassifications.map((zone, i) => <p key={zone.OBJECTID || i}>
-                  {pugsDescription(zone)}{!singleZoningClassification && zone._overlap_percent != null ? ` — ${zone._overlap_percent}% del polígono` : ''}
+                  {[zone.uso_prin, zone.leyenda].filter(value => value != null && String(value).trim() !== '').join(' - ') || 'Clasificación no disponible'}{!singleZoningClassification && zone._overlap_percent != null ? ` — ${zone._overlap_percent}% del polígono` : ''}
                 </p>)}
                 {!singleZoningClassification && <p className="note">Ninguna zona supera el 90% de cobertura verificada; se muestran todas las zonas intersectadas.</p>}
               </div>}
