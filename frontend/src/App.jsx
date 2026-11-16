@@ -991,12 +991,23 @@ export default function App() {
                   {[zone.uso_prin, zone.leyenda].filter(value => value != null && String(value).trim() !== '').join(' - ') || 'Clasificación no disponible'}
                 </p>)}
               </div>}
-              {basicBuildability.length > 0 && <div className="zoning-buildability">
-                <h3>Código de edificabilidad básica (PUGS)</h3>
-                {basicBuildability.map((zone, i) => <p key={i}>
-                  <strong>{zone.code || 'No disponible'}</strong>
-                  {zone.designation?.startsWith('A') ? ' — Edificabilidad básica, ocupación aislada' : ' — Identificador municipal de edificabilidad básica'}
-                </p>)}
+              {(basicBuildability.length > 0 || irmExtraction?.candidate_irm_fields?.codigo_municipal_edificabilidad) && <div className="zoning-buildability">
+                <h3>Edificabilidad básica (PUGS)</h3>
+                {(() => {
+                  const fields = irmExtraction?.candidate_irm_fields || {};
+                  const municipalCode = fields.codigo_municipal_edificabilidad?.raw || basicBuildability[0]?.designation || basicBuildability[0]?.code || null;
+                  const descriptiveCode = fields.codigo_edificabilidad_basica?.raw || null;
+                  const match = descriptiveCode?.match(/^([A-Z])(\\d+)(\\d)(?:-(\\d+))$/);
+                  const description = match && match[2].length >= 3
+                    ? `${match[1] === 'A' ? 'Ocupación aislada' : 'Forma de ocupación por verificar'} · Lote mínimo ${Number(match[2]).toLocaleString('es-EC')} m² · ${match[3]} pisos · COS PB ${match[4]}%`
+                    : null;
+                  return <>
+                    <p><strong>Código municipal:</strong> {municipalCode || 'No disponible'}</p>
+                    <p><strong>Código de edificabilidad básica:</strong> {descriptiveCode || 'No identificado en el IRM'}</p>
+                    {description && <p className="note">{description}</p>}
+                    {!descriptiveCode && <p className="note">El código descriptivo debe confirmarse en el IRM; no se deduce a partir del identificador municipal.</p>}
+                  </>;
+                })()}
               </div>}
               {(protectedZones.length > 0 || ravineRestriction || forestRestriction) && <div className="inspection">
                 <strong>Restricciones territoriales identificadas</strong>
