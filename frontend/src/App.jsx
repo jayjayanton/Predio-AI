@@ -19,6 +19,23 @@ const API =
   import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Optional valuation display helpers. Values remain cadastral, not market prices.
+// Explanations of cadastral concepts. The AVALUO_C_1..6 labels are inferred
+// by matching their amounts to the municipal certificate; not official API aliases.
+const valuationHelp = {
+  avaluo_ter: 'Valor catastral del suelo atribuido al predio. En propiedad horizontal corresponde a la participación de la unidad, no al valor íntegro del lote matriz.',
+  avaluo_con: 'Valor de las construcciones cubiertas de la unidad según el catastro. No equivale necesariamente al costo de reposición ni al precio comercial.',
+  avaluo_c_1: 'Valor de construcciones registradas como abiertas, como ciertas terrazas, patios construidos u otras áreas sin cerramiento completo. La categoría específica depende de la ficha municipal.',
+  avaluo_c_2: 'Valor de instalaciones especiales que el municipio registra y valora por separado de las construcciones ordinarias.',
+  avaluo_c_3: 'Parte del valor de las construcciones comunales cubiertas atribuida a esta unidad según su alícuota de propiedad horizontal.',
+  avaluo_c_4: 'Parte del valor de las construcciones comunales abiertas atribuida a esta unidad según su alícuota.',
+  avaluo_c_5: 'Parte proporcional de elementos o mejoras constructivas comunales adicionales que el catastro valora por separado.',
+  avaluo_c_6: 'Componente de valoración comunal registrado bajo una categoría especial. Su alcance técnico exacto requiere confirmación municipal.',
+  avaluo_tot: 'Avalúo catastral total registrado para el inmueble, no una estimación de su precio de venta.',
+  land_rate: 'Indicador calculado: avalúo del terreno dividido para el área de terreno atribuida a la unidad. No es el valor oficial AIVA por m².',
+  construction_rate: 'Indicador calculado: avalúo de construcciones cubiertas dividido para el área bruta total registrada. No es una tarifa municipal oficial por m².'
+};
+const ValuationTerm = ({label, helpKey}) => <span title={valuationHelp[helpKey]}>{label} <span aria-label="Explicación" style={{cursor:'help',textDecoration:'underline dotted',textUnderlineOffset:'3px'}}>ⓘ</span></span>;
+
 const formatUSD = (value) =>
   typeof value === 'number' && Number.isFinite(value)
     ? value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
@@ -673,10 +690,11 @@ export default function App() {
                 <div className="section-heading">
                   AVALÚO CATASTRAL <span>2024</span>
                 </div>
+                <p className="note">Pase el cursor sobre ⓘ para ver qué significa cada componente. Los conceptos comunales son valores asignados a la unidad por su alícuota, no áreas privadas adicionales.</p>
                 <dl>
-                  <dt>Avalúo del terreno</dt>
+                  <dt><ValuationTerm label="Avalúo del terreno" helpKey="avaluo_ter" /></dt>
                   <dd>{formatUSD(properties.avaluo_ter)}</dd>
-                  <dt>Avalúo de construcciones cubiertas</dt>
+                  <dt><ValuationTerm label="Avalúo de construcciones cubiertas" helpKey="avaluo_con" /></dt>
                   <dd>{formatUSD(properties.avaluo_con)}</dd>
                   {[
                     ['avaluo_c_1', 'Avalúo de construcciones abiertas'],
@@ -686,16 +704,16 @@ export default function App() {
                     ['avaluo_c_5', 'Avalúo de adicionales constructivos proporcional a la alícuota'],
                     ['avaluo_c_6', 'Avalúo comunal especial']
                   ].map(([key,label]) => <React.Fragment key={key}>
-                    <dt>{label}</dt><dd>{formatUSD(properties[key])}</dd>
+                    <dt><ValuationTerm label={label} helpKey={key} /></dt><dd>{formatUSD(properties[key])}</dd>
                   </React.Fragment>)}
-                  <dt>Avalúo total</dt>
+                  <dt><ValuationTerm label="Avalúo total" helpKey="avaluo_tot" /></dt>
                   <dd><strong>{formatUSD(properties.avaluo_tot)}</strong></dd>
-                  <dt>Avalúo terreno por m² atribuido</dt>
+                  <dt><ValuationTerm label="Avalúo terreno por m² atribuido" helpKey="land_rate" /></dt>
                   <dd>{typeof properties.avaluo_ter === 'number' &&
                     typeof displayedLandArea === 'number' && displayedLandArea > 0
                     ? formatRate(properties.avaluo_ter / displayedLandArea)
                     : 'No disponible'}</dd>
-                  <dt>Avalúo construcción por m²</dt>
+                  <dt><ValuationTerm label="Avalúo construcción por m²" helpKey="construction_rate" /></dt>
                   <dd>{typeof properties.avaluo_con === 'number' &&
                     typeof properties.area_const === 'number' && properties.area_const > 0
                     ? formatRate(properties.avaluo_con / properties.area_const)
