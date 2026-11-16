@@ -74,8 +74,8 @@ const PARCEL_SERVICE='https://geoquito.quito.gob.ec/server/rest/services/Hosted/
 const MIN_PARCEL_ZOOM=16;
 const MAX_BATCH=250;
 const MAX_RENDERED=2400;
-const MAX_DEPTH=3;
-const MAX_QUERIES=32;
+const MAX_DEPTH=5;
+const MAX_QUERIES=64;
 
 function VisibleParcels({enabled}) {
   const map=useMap();
@@ -100,6 +100,7 @@ function VisibleParcels({enabled}) {
         const queue=[{west:bounds.getWest(),south:bounds.getSouth(),east:bounds.getEast(),north:bounds.getNorth(),depth:0}];
         const unique=new Map();
         let queries=0,limited=false;
+        setFeatures(null);
         setStatus('Consultando predios visibles…');
         try{
           while(queue.length && queries<MAX_QUERIES && unique.size<MAX_RENDERED){
@@ -133,6 +134,8 @@ function VisibleParcels({enabled}) {
             }
             for(const feature of payload.features){
               if(!feature.geometry)continue;
+              // Geometry-based fallback avoids collapsing distinct PH records
+              // without a stable identifier, while preventing tile overlaps.
               const key=String(feature.properties?.predio??feature.id??'')||JSON.stringify(feature.geometry);
               if(!unique.has(key))unique.set(key,feature);
               if(unique.size>=MAX_RENDERED){limited=true;break;}
@@ -161,8 +164,13 @@ function VisibleParcels({enabled}) {
   },[map,enabled]);
   return <>
     {features?.features?.length>0&&<GeoJSON key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
-      style={{color:'#ff9d00',weight:2.5,fillColor:'#ffb347',fillOpacity:0.09}}
-      onEachFeature={(feature,layer)=>layer.bindPopup('Predio: '+String(feature.properties?.predio||'No identificado'))}/>}
+      style={{color:'#8bd6a5',weight:1.3,opacity:0.9,fillOpacity:0}}
+      onEachFeature={(feature,layer)=>{
+        layer.bindPopup('Predio: '+String(feature.properties?.predio||'No identificado'));
+        layer.on('mouseover',()=>layer.setStyle({color:'#2eae75',weight:3,fillColor:'#5bc992',fillOpacity:0.18}));
+        layer.on('mouseout',()=>layer.setStyle({color:'#8bd6a5',weight:1.3,opacity:0.9,fillOpacity:0}));
+        layer.on('click',()=>layer.setStyle({color:'#139e68',weight:3,fillColor:'#5bc992',fillOpacity:0.22}));
+      }}/>}
     {status&&<div className="leaflet-top leaflet-right" style={{pointerEvents:'none',marginTop:62}}><div className="leaflet-control" style={{background:'rgba(255,255,255,.94)',color:'#263238',padding:'5px 8px',margin:'0 8px',fontSize:11,maxWidth:180,borderRadius:6}}>{status}</div></div>}
   </>;
 }
@@ -224,7 +232,7 @@ export default function ParcelMap({ data }) {
 
       <MapContainer
         center={[-0.200, -78.430]}
-        zoom={16}
+        zoom={17}
         minZoom={2}
         maxZoom={19}
         zoomSnap={1}
