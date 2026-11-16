@@ -83,94 +83,105 @@ const normalizeHeading = value => String(value || '').normalize('NFD').replace(/
 // Layout-based computer vision: locate the map heading in the PDF text layer,
 // then crop the square cartographic panel rather than screenshotting the full page.
 // Handles maps continued at the beginning of the following printed page.
-async function extractMapRegion(pdf, heading) {
-  const target = normalizeHeading(heading);
-  for (let pageNo=1;pageNo<=pdf.numPages;pageNo++) {
-    const page=await pdf.getPage(pageNo);
-    const content=await page.getTextContent();
-    // Headings are often split across multiple PDF text spans.
-    const items=content.items.filter(item=>String(item.str || '').trim());
-    // Start at the heading itself, never a preceding item whose look-ahead
-    // includes the heading (that previously cropped the *previous* map).
-    const words=target.split(' ');
-    let match=null;
-    for (let index=0;index<items.length;index++) {
-      const first=normalizeHeading(items[index].str);
-      if (!first.startsWith(words[0])) continue;
-      const combined=normalizeHeading(items.slice(index,index+words.length+2).map(x=>x.str).join(' '));
-      if (combined.startsWith(target)) { match=items[index]; break; }
-    }
-    if (!match) continue;
-    const headingY=page.view[3] - match.transform[5];
-    let mapPage=page;
-    let mapPageNo=pageNo;
-    let mapTop=headingY + 12;
-    if (mapTop + 205 > page.view[3] - 45) {
-      if (pageNo === pdf.numPages) return null;
-      mapPage=await pdf.getPage(pageNo+1);
-      mapPageNo=pageNo+1;
-      mapTop=40;
-    }
-    const scale=2;
-    const viewport=mapPage.getViewport({scale});
-    const rendered=document.createElement('canvas');
-    rendered.width=Math.round(viewport.width);
-    rendered.height=Math.round(viewport.height);
-    await mapPage.render({canvasContext:rendered.getContext('2d'),viewport}).promise;
-    const size=Math.min(205,mapPage.view[2]-30);
-    const x=(mapPage.view[2]-size)/2;
-    const crop=document.createElement('canvas');
-    crop.width=Math.round(size*scale);
-    crop.height=Math.round(size*scale);
-    crop.getContext('2d').drawImage(rendered,
-      Math.round(x*scale),Math.round(mapTop*scale),crop.width,crop.height,
-      0,0,crop.width,crop.height);
-    return {image:crop.toDataURL('image/png'),imagePage:mapPageNo};
+// Municipal PDF uses two map columns. Crop the correct column, not the
+// page center (which previously produced two half-maps and a white strip).
+async function cropPdfRegion(page, x, top, width, height) {
+  const scale=2;
+  const viewport=page.getViewport({scale});
+  const rendered=document.createElement('canvas');
+  rendered.width=Math.round(viewport.width);
+  rendered.height=Math.round(viewport.height);
+  await page.render({canvasContext:rendered.getContext('2d'),viewport}).promise;
+  const crop=document.createElement('canvas');
+  crop.width=Math.round(width*scale);
+  crop.height=Math.round(height*scale);
+  crop.getContext('2d').drawImage(rendered,
+    Math.round(x*scale),Math.round(top*scale),crop.width,crop.height,
+    0,0,crop.width,crop.height);
+  return crop;
+}
+
+function findHeadingPosition(items, heading) {
+  const target=normalizeHeading(heading);
+  const first=target.split(' ')[0];
+  for(let i=0;i<items.length;i++){
+    const current=normalizeHeading(items[i].str);
+    if(!current.startsWith(first)) continue;
+    const y=items[i].transform[5];
+    const x=items[i].transform[4];
+    const sameLine=items.slice(i,i+7)
+      .filter(item=>Math.abs(item.transform[5]-y)<4 &&
+        Math.abs(item.transform[4]-x)<260)
+      .map(item=>item.str).join(' ');
+    if(normalizeHeading(sameLine).startsWith(target)) return items[i];
   }
   return null;
 }
 
-// Extract the building occupation diagram printed in the right column of
-// the PUGS table. This is visual evidence, not an additional zoning entitlement.
-// Anchor to the heading and keep the crop inside its right-hand column.
-async function extractOccupationDiagram(pdf) {
-  const heading = 'EDIFICABILIDAD GENERAL MAXIMA';
-  for (let pageNo=1;pageNo<=pdf.numPages;pageNo++) {
+async function extractMapRegion(pdf, heading) {
+  for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
     const page=await pdf.getPage(pageNo);
-    const content=await page.getTextContent();
-    const items=content.items.filter(item=>String(item.str||'').trim());
-    const match=items.find(item=>normalizeHeading(item.str).includes(heading));
-    if (!match) continue;
-    const width=page.view[2], height=page.view[3];
-    const headingY=height-match.transform[5];
-    // The municipality's IRM template places this diagram under the
-    // general-maxima fields in the right-hand column, not on the last page.
-    const x=width*0.572;
-    const top=headingY+128;
-    const size=width*0.315;
-    if (top+size>height-25) continue;
-    const scale=2;
-    const viewport=page.getViewport({scale});
-    const rendered=document.createElement('canvas');
-    rendered.width=Math.round(viewport.width);
-    rendered.height=Math.round(viewport.height);
-    await page.render({canvasContext:rendered.getContext('2d'),viewport}).promise;
-    const crop=document.createElement('canvas');
-    crop.width=Math.round(size*scale);
-    crop.height=Math.round(size*scale);
-    const ctx=crop.getContext('2d',{willReadFrequently:true});
-    ctx.drawImage(rendered,Math.round(x*scale),Math.round(top*scale),
-      crop.width,crop.height,0,0,crop.width,crop.height);
-    // Do not show a blank rectangle if this IRM variant has no diagram.
-    const data=ctx.getImageData(0,0,crop.width,crop.height).data;
-    let colored=0;
-    for(let i=0;i<data.length;i+=32) {
-      if (Math.min(data[i],data[i+1],data[i+2])<180) colored++;
+    const items=(await page.getTextContent()).items.filter(item=>String(item.str||'').trim());
+    const match=findHeadingPosition(items,heading);
+    if(!match) continue;
+    const pageWidth=page.view[2],pageHeight=page.view[3];
+    const left=match.transform[4]<pageWidth/2;
+    // Map panels are square, each inside its own column.
+    const size=pageWidth*0.315;
+    const x=pageWidth*(left?0.103:0.583);
+    const headingBaseline=pageHeight-match.transform[5];
+    let mapPage=page,mapPageNo=pageNo,top=headingBaseline+4;
+    if(top+size>pageHeight-18){
+      if(pageNo===pdf.numPages)return null;
+      mapPage=await pdf.getPage(pageNo+1);
+      mapPageNo=pageNo+1;
+      top=18;
     }
-    if (colored<80) continue;
-    return {image:crop.toDataURL('image/png'),imagePage:pageNo,
-      title:'Esquema de implantación y retiros',
-      note:'Recorte del esquema de ocupación mostrado en el IRM. Ilustra la ubicación de la edificación, los retiros y el frente mínimo; no constituye un plano de implantación aprobado ni autoriza edificabilidad adicional.'};
+    const canvas=await cropPdfRegion(mapPage,x,top,size,size);
+    return {image:canvas.toDataURL('image/png'),imagePage:mapPageNo};
+  }
+  return null;
+}
+
+// Detect the orange building footprint within the right-column diagram.
+// This avoids confusing the colored PUGS table or a blank field with a diagram.
+function hasOccupationDiagram(canvas){
+  const {data}=canvas.getContext('2d',{willReadFrequently:true})
+    .getImageData(0,0,canvas.width,canvas.height);
+  let orange=0;
+  for(let i=0;i<data.length;i+=16){
+    const red=data[i],green=data[i+1],blue=data[i+2];
+    if(red>155 && green>65 && green<190 && blue<125 && red>green+30) orange++;
+  }
+  return orange>120;
+}
+
+async function extractOccupationDiagram(pdf){
+  for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
+    const page=await pdf.getPage(pageNo);
+    const items=(await page.getTextContent()).items.filter(item=>String(item.str||'').trim());
+    const match=findHeadingPosition(items,'EDIFICABILIDAD GENERAL MÁXIMA');
+    if(!match)continue;
+    const w=page.view[2],h=page.view[3],size=w*0.315,x=w*0.573;
+    const baseline=h-match.transform[5];
+    // In this IRM template, the diagram sits after the right-column
+    // maximum-buildability fields, frequently on the following PDF page.
+    const candidates=[
+      {page,number:pageNo,top:baseline+120},
+      {page,number:pageNo,top:baseline+155}
+    ];
+    if(pageNo<pdf.numPages){
+      const next=await pdf.getPage(pageNo+1);
+      candidates.push({page:next,number:pageNo+1,top:18});
+    }
+    for(const candidate of candidates){
+      if(candidate.top<0 || candidate.top+size>candidate.page.view[3]-10)continue;
+      const canvas=await cropPdfRegion(candidate.page,x,candidate.top,size,size);
+      if(!hasOccupationDiagram(canvas))continue;
+      return {image:canvas.toDataURL('image/png'),imagePage:candidate.number,
+        title:'Esquema de implantación y retiros',
+        note:'Esquema municipal de ocupación y retiros. No representa un plano aprobado ni concede derechos constructivos adicionales.'};
+    }
   }
   return null;
 }
