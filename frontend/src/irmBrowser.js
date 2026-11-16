@@ -116,19 +116,39 @@ const normalizeHeading = value => String(value || '').normalize('NFD').replace(/
 // Handles maps continued at the beginning of the following printed page.
 // Municipal PDF uses two map columns. Crop the correct column, not the
 // page center (which previously produced two half-maps and a white strip).
-async function cropPdfRegion(page, x, top, width, height) {
-  const scale=2;
-  const viewport=page.getViewport({scale});
-  const rendered=document.createElement('canvas');
-  rendered.width=Math.round(viewport.width);
-  rendered.height=Math.round(viewport.height);
-  await page.render({canvasContext:rendered.getContext('2d'),viewport}).promise;
+// Canonical PDF-space rendering independent of devicePixelRatio, CSS width,
+// viewport size and browser zoom. Cache one raster per page per upload so
+// mobile devices do not repeatedly allocate large full-page canvases.
+const PDF_RENDER_SCALE = 1.5;
+const PAGE_CACHE = new WeakMap();
+async function renderedPdfPage(page) {
+  if (!PAGE_CACHE.has(page)) {
+    PAGE_CACHE.set(page,(async()=>{
+      const viewport=page.getViewport({scale:PDF_RENDER_SCALE});
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.ceil(viewport.width);
+      canvas.height=Math.ceil(viewport.height);
+      const context=canvas.getContext('2d',{alpha:false});
+      if(!context) throw new Error('No se pudo iniciar el renderizador PDF.');
+      await page.render({canvasContext:context,viewport}).promise;
+      return canvas;
+    })());
+  }
+  return PAGE_CACHE.get(page);
+}
+async function cropPdfRegion(page,x,top,width,height) {
+  const rendered=await renderedPdfPage(page);
+  const scale=PDF_RENDER_SCALE;
+  // Clamp to actual raster bounds; never stretch an out-of-bounds crop.
+  const sx=Math.max(0,Math.round(x*scale));
+  const sy=Math.max(0,Math.round(top*scale));
+  const sw=Math.min(Math.round(width*scale),rendered.width-sx);
+  const sh=Math.min(Math.round(height*scale),rendered.height-sy);
+  if(sw<=0||sh<=0)return null;
   const crop=document.createElement('canvas');
-  crop.width=Math.round(width*scale);
-  crop.height=Math.round(height*scale);
-  crop.getContext('2d').drawImage(rendered,
-    Math.round(x*scale),Math.round(top*scale),crop.width,crop.height,
-    0,0,crop.width,crop.height);
+  crop.width=sw;
+  crop.height=sh;
+  crop.getContext('2d').drawImage(rendered,sx,sy,sw,sh,0,0,sw,sh);
   return crop;
 }
 
@@ -169,6 +189,7 @@ async function extractMapRegion(pdf, heading) {
       top=18;
     }
     const canvas=await cropPdfRegion(mapPage,x,top,size,size);
+    if(!canvas)return null;
     return {image:canvas.toDataURL('image/png'),imagePage:mapPageNo,
       // The map heading defines the document reading order even when the
       // graphic itself continues onto the following PDF page.
@@ -211,7 +232,7 @@ async function extractOccupationDiagram(pdf){
     for(const candidate of candidates){
       if(candidate.top<0 || candidate.top+size>candidate.page.view[3]-10)continue;
       const canvas=await cropPdfRegion(candidate.page,x,candidate.top,size,size);
-      if(!hasOccupationDiagram(canvas))continue;
+      if(!canvas || !hasOccupationDiagram(canvas))continue;
       return {image:canvas.toDataURL('image/png'),imagePage:candidate.number,
         imageOrder:candidate.number*1000000 + candidate.top*1000 + x,
         title:'Esquema de implantación y retiros',
