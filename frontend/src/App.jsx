@@ -1027,7 +1027,8 @@ export default function App() {
               </div>}
               {developerAreaSource && <p className="note">{developerAreaSource}</p>}
               <div className="capacity-inputs">
-                <div><strong>Área del predio</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No extraída'}</p></div>
+                <div><strong>Área real del predio (catastro)</strong><p>{cadastralAreaValue ? formatArea(Number(cadastralAreaValue)) : 'No disponible'}</p></div>
+                <div><strong>{isCadastralPH ? 'Área según IRM (lote matriz)' : 'Área según IRM'}</strong><p>{irmExtraction?.candidate_irm_fields?.area_terreno?.raw ? formatArea(Number(irmExtraction.candidate_irm_fields.area_terreno.raw.replace(',', '.'))) : 'No extraída'}</p></div>
                 <div><strong>Lote mínimo (IRM)</strong><p>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No extraído'}</p></div>
                 <div><strong>Frente mínimo (IRM)</strong><p>{irmValues.minFront ? `${irmValues.minFront} m` : 'No extraído'}</p></div>
                 <div><strong>COS PB / total</strong><p>{irmValues.cosPb !== '' ? `${irmValues.cosPb}%` : '—'} / {irmValues.cosTotal !== '' ? `${irmValues.cosTotal}%` : '—'}</p></div>
