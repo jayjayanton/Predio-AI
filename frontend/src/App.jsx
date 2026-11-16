@@ -969,6 +969,7 @@ export default function App() {
               <p className="note">Imágenes del PDF aportado; se muestran únicamente cuando se detectan referencias textuales a afectaciones o protección. No sustituyen un levantamiento georreferenciado.</p>
               {irmExtraction.evidence.map(item => <details key={item.key} className="irm-document-details">
                 <summary>{item.title} · texto en página(s) {item.sourcePages.join(', ')}</summary>
+                <p className="note">{item.finding}</p>
                 {item.image && <figure><img src={item.image} alt={`Mapa de referencia del IRM, página ${item.imagePage}: ${item.title}`} loading="lazy" style={{width:'100%',maxWidth:'520px',height:'auto'}} /><figcaption>Mapa ilustrativo, página {item.imagePage} del PDF original.</figcaption></figure>}
                 <p className="note">{item.note}</p>
               </details>)}
