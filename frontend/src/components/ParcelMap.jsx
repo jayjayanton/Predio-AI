@@ -5,7 +5,8 @@ import {
   TileLayer,
   GeoJSON,
   ScaleControl,
-  useMap
+  useMap,
+  useMapEvents
 } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -60,7 +61,7 @@ function ZoomToParcel({ data }) {
     if (bounds.isValid()) {
       map.fitBounds(bounds, {
         padding: [48, 48],
-        maxZoom: 19
+        maxZoom: 17
       });
     }
   }, [data, map]);
@@ -68,10 +69,77 @@ function ZoomToParcel({ data }) {
   return null;
 }
 
+// Only request features visible in the current map viewport. Never download
+// the full Quito cadastre into the browser.
+const PARCEL_SERVICE='https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_2026_feb/FeatureServer/5/query';
+const MIN_PARCEL_ZOOM=16;
+const MAX_VISIBLE_PARCELS=350;
+
+function VisibleParcels({enabled}) {
+  const map=useMap();
+  const [features,setFeatures]=useState(null);
+  const [status,setStatus]=useState('');
+  useEffect(()=>{
+    if(!enabled){setFeatures(null);setStatus('');return;}
+    let timer=null,controller=null,seq=0;
+    const update=()=>{
+      if(timer)clearTimeout(timer);
+      if(controller)controller.abort();
+      const request=++seq;
+      if(map.getZoom()<MIN_PARCEL_ZOOM){
+        setFeatures(null);
+        setStatus('Acérquese al zoom 16 para ver los predios cercanos.');
+        return;
+      }
+      timer=setTimeout(async()=>{
+        const b=map.getBounds();
+        const params=new URLSearchParams({
+          where:'1=1',
+          geometry:JSON.stringify({xmin:b.getWest(),ymin:b.getSouth(),xmax:b.getEast(),ymax:b.getNorth(),spatialReference:{wkid:4326}}),
+          geometryType:'esriGeometryEnvelope',
+          inSR:'4326',spatialRel:'esriSpatialRelIntersects',
+          outFields:'predio',returnGeometry:'true',outSR:'4326',
+          resultRecordCount:String(MAX_VISIBLE_PARCELS+1),f:'geojson'
+        });
+        controller=new AbortController();
+        setStatus('Consultando predios visibles…');
+        try {
+          const response=await fetch(PARCEL_SERVICE+'?'+params,{signal:controller.signal});
+          if(!response.ok)throw new Error('Servicio catastral no disponible');
+          const payload=await response.json();
+          if(payload.type!=='FeatureCollection'||!Array.isArray(payload.features))throw new Error('Respuesta catastral inválida');
+          if(request!==seq)return;
+          if(payload.features.length>MAX_VISIBLE_PARCELS||payload.exceededTransferLimit){
+            setFeatures(null);
+            setStatus('Demasiados predios en pantalla; acerque el mapa para ver los límites.');
+            return;
+          }
+          setFeatures(payload);
+          setStatus(payload.features.length+' predios visibles (catastro 2026).');
+        }catch(error){
+          if(error.name==='AbortError'||request!==seq)return;
+          setFeatures(null);
+          setStatus('No se pudo cargar la capa catastral. Intente acercar o mover el mapa.');
+        }
+      },350);
+    };
+    map.on('moveend',update);
+    update();
+    return ()=>{seq++;if(timer)clearTimeout(timer);if(controller)controller.abort();map.off('moveend',update);};
+  },[map,enabled]);
+  return <>
+    {features?.features?.length>0&&<GeoJSON key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
+      style={{color:'#e9ab3e',weight:1.3,fillOpacity:0.03}}
+      onEachFeature={(feature,layer)=>layer.bindPopup('Predio: '+String(feature.properties?.predio||'No identificado'))}/>}
+    {status&&<div className="leaflet-bottom leaflet-right" style={{pointerEvents:'none'}}><div className="leaflet-control" style={{background:'white',padding:'5px 8px',margin:'0 10px 28px 0',fontSize:11,maxWidth:230}}>{status}</div></div>}
+  </>;
+}
+
 // Main cadastral map component.
 
 export default function ParcelMap({ data }) {
   const [basemap, setBasemap] = useState('streets');
+  const [showNearbyParcels,setShowNearbyParcels]=useState(true);
 
   const selectedBasemap = BASEMAPS[basemap];
 
@@ -115,6 +183,10 @@ export default function ParcelMap({ data }) {
         </button>
       </div>
 
+      <label style={{display:'inline-flex',alignItems:'center',gap:6,margin:'8px 0',fontSize:13}}>
+        <input type="checkbox" checked={showNearbyParcels} onChange={e=>setShowNearbyParcels(e.target.checked)}/>
+        Predios catastrales cercanos (zoom 16+)
+      </label>
       {/* Leaflet map */}
 
       <MapContainer
@@ -138,6 +210,8 @@ export default function ParcelMap({ data }) {
           maxNativeZoom={selectedBasemap.nativeZoom}
           maxZoom={19}
         />
+
+        <VisibleParcels enabled={showNearbyParcels}/>
 
         {/* Municipal cadastral polygons */}
 
