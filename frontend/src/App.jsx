@@ -1227,6 +1227,52 @@ export default function App() {
                 <p className="note">{item.note}</p>
               </div>)}
             </div>}
+              <section className="zoning-buildability" aria-label="Simbología PUGS">
+                <h3>Simbología y códigos PUGS</h3>
+                <p className="note">Glosario de referencia del PUGS de Quito. Los códigos siguientes no significan que todos estos usos estén asignados al predio. La asignación efectiva consta arriba en «Uso de suelo general y específico (IRM)».</p>
+                <h4>Usos de suelo generales</h4>
+                <dl>
+                  {[
+                    ['R','Residencial'],['M','Múltiple'],['PC','Patrimonio Cultural'],
+                    ['E','Equipamiento'],['I','Industrial'],['PE','Protección Ecológica'],
+                    ['CSE','Comercios y Servicios Especializados'],['SE','Suelo de Expansión'],
+                    ['RNR','Recurso Natural Renovable'],['RNNR','Recurso Natural No Renovable']
+                  ].map(([code,label])=><React.Fragment key={code}><dt>{code}</dt><dd>{label}</dd></React.Fragment>)}
+                </dl>
+                <h4>Usos de suelo específicos y tipologías</h4>
+                <dl>
+                  {[
+                    ['RUB','Residencial urbano de baja densidad (tipos 1–3)'],
+                    ['RUM','Residencial urbano de media densidad (tipos 2–4)'],
+                    ['RUA','Residencial urbano de alta densidad (tipos 3–4)'],
+                    ['RR','Residencial Rural'],['RRR','Residencial Rural Restringido'],
+                    ['PE','Protección Ecológica'],['PA','Protección Arqueológica'],
+                    ['PUP','Protección Urbana Patrimonial'],['E','Equipamiento'],
+                    ['M','Múltiple'],['CSE','Comercios y Servicios Especializados'],
+                    ['IAI','Industrial Alto Impacto'],['IMI','Industrial Medio Impacto'],
+                    ['IAR','Industrial Alto Riesgo'],['RNR','Recurso Natural Renovable'],
+                    ['RNNR','Recurso Natural No Renovable'],['SR','Suelo de Reserva']
+                  ].map(([code,label])=><React.Fragment key={code}><dt>{code}</dt><dd>{label}</dd></React.Fragment>)}
+                </dl>
+                <p className="note">Fuente: <a href="https://habitat.quito.gob.ec/wp-content/uploads/2025/07/MANUAL-PUGS.pdf" target="_blank" rel="noopener noreferrer">Manual PUGS — Secretaría de Hábitat de Quito</a>. Los tipos y compatibilidades concretas deben verificarse en la ordenanza y sus anexos vigentes.</p>
+              </section>
+              <section className="zoning-buildability" aria-label="Sufijos de edificabilidad">
+                <h3>Sufijos de edificabilidad y vivienda</h3>
+                <p className="note">Los sufijos entre paréntesis del código de edificabilidad no son equivalentes al uso de suelo general o específico.</p>
+                <dl>
+                  <dt>VU</dt><dd>Vivienda unifamiliar</dd>
+                  <dt>VB</dt><dd>Vivienda bifamiliar</dd>
+                  <dt>VM</dt><dd>Vivienda multifamiliar</dd>
+                </dl>
+                {(() => {
+                  const code=irmExtraction?.candidate_irm_fields?.codigo_edificabilidad_basica?.raw || '';
+                  const suffix=code.match(/\(([A-Z]{2,5})\)\s*$/)?.[1];
+                  const meanings={VU:'Vivienda unifamiliar',VB:'Vivienda bifamiliar',VM:'Vivienda multifamiliar'};
+                  return <p><strong>Sufijo del IRM:</strong> {suffix ? `${suffix} — ${meanings[suffix] || 'Significado pendiente de verificación normativa'}` : 'No se identificó un sufijo residencial en el código extraído.'}</p>;
+                })()}
+                <p className="note">Estas denominaciones no autorizan por sí solas un número de viviendas. Deben contrastarse con el área mínima, la asignación territorial y los requisitos municipales. No se presume que VU, VB y VM sean todos los sufijos posibles.</p>
+                <p className="note">Referencia normativa: <a href="https://habitat.quito.gob.ec/wp-content/uploads/2025/07/ORD-003-2024-PMDOT-PUGS.pdf" target="_blank" rel="noopener noreferrer">Ordenanza PMDOT-PUGS 003-2024</a>.</p>
+              </section>
               <div className="potential-results">
                 <h3>Potencial constructivo estimado</h3>
             <label className="irm-confirm"><input type="checkbox" checked={irmConfirmed} onChange={e => setIrmConfirmed(e.target.checked)} />
