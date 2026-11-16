@@ -970,31 +970,7 @@ export default function App() {
               {!Object.keys(irmExtraction.candidate_irm_fields || {}).length && <p>No se encontraron parámetros reconocibles. Verifique si el PDF está escaneado.</p>}
               {irmExtraction.warnings?.map(w => <p className="note" key={w}>{w}</p>)}
             </details>}
-          <details className="irm-document-details pugs-disclosure">
-              <summary><strong>Verificación normativa PUGS 2024</strong> <span aria-hidden="true">▾</span></summary>
-            <p>Consulte la zonificación vigente del predio en el geovisor oficial de Quito. El PUGS permite contrastar el uso del suelo, la edificabilidad básica y máxima, el lote mínimo y otras condiciones con el IRM.</p>
-            <p>Clasificación catastral: <strong>{landClassification}</strong>. Este dato no sustituye la zonificación PUGS.</p>
-            <p><a href="https://habitat.quito.gob.ec/geovisore" target="_blank" rel="noopener noreferrer">Abrir geovisor PUGS oficial ↗</a></p>
-            <p><a href="https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmot/plan_de_uso_y_gestion_del_suelo_2024/MapServer" target="_blank" rel="noopener noreferrer">Servicio cartográfico municipal PUGS 2024 ↗</a></p>
-            <p><a href="https://habitat.quito.gob.ec/wp-content/uploads/2025/07/ORD-003-2024-PMDOT-PUGS.pdf" target="_blank" rel="noopener noreferrer">Ordenanza PMDOT-PUGS 003-2024 ↗</a></p>
-            {pugsLoading && <p role="status">Consultando intersección espacial PUGS 2024…</p>}
-            {pugsError && <p role="alert">No se pudo consultar el PUGS: {pugsError}. Consulte el geovisor oficial.</p>}
-            {pugsData && <div className="inspection">
-              <strong>Resultado del cruce espacial: {pugsData.status === 'single_zone' ? 'Una zona intersectada' : pugsData.status === 'multiple_zones' ? 'Varias zonas intersectadas — revisión requerida' : 'Sin resultado concluyente'}</strong>
-              {pugsData.reason && <p>{pugsData.reason}</p>}
-              {pugsData.zones?.map((zone, i) => <div key={i}>
-                <h3>Zona {i + 1}: {zone.leyenda || zone.tipo_des || 'Sin descripción'}</h3>
-                <dl>
-                  {Object.entries(zone).filter(([key, value]) => value != null && String(value).trim() !== '' && !['no aplica','n/a','n/d','null'].includes(String(value).toLowerCase().trim())).map(([key, value]) => <React.Fragment key={key}><dt>{key}</dt><dd>{String(value)}</dd></React.Fragment>)}
-                </dl>
-              </div>)}
-              <p className="note">Fuente: capa municipal PUGS 2024, ID 60. La intersección no calcula proporciones de superficie por zona ni acredita derechos constructivos. Compare siempre con el IRM.</p>
-            </div>}
-            {pugsData?.cadastral && <p className="note">Cruce API: predio {pugsData.predio} · área individual {pugsData.cadastral.individual_area_m2 ?? 'No disponible'} m²{pugsData.cadastral.parent_lot_area_m2 ? ` · lote matriz ${pugsData.cadastral.parent_lot_area_m2} m²` : ''}.</p>}
-            {pugsData?.scope_warning && <p className="note">{pugsData.scope_warning}</p>}
-            <p className="note">Los resultados PUGS son datos de referencia. La compatibilidad del proyecto y cualquier discrepancia con el IRM requieren validación municipal.</p>
-            {irmExtraction && <p className="note">Compare los parámetros extraídos del IRM con el PUGS vigente. Si existen discrepancias, solicite aclaración municipal antes de evaluar el proyecto.</p>}
-          </details>
+          <p className="note">El IRM se contrasta con la zonificación PUGS para contextualizar qué tipos de construcción pueden permitirse en el área. La compatibilidad normativa y la factibilidad del predio se evalúan por separado.</p>
           </section>
           <section className="property">
             <h2>Compatibilidad del proyecto</h2>
@@ -1018,17 +994,20 @@ export default function App() {
           </section>
           <section className="property">
             <h2>Factibilidad del predio</h2>
-            <p><strong>{parcelFeasibility}</strong></p>
-            <dl>
-              <dt>Área individual de referencia</dt><dd>{cadastralAreaValue ? formatArea(Number(cadastralAreaValue)) : 'No disponible'}</dd>
-              <dt>Lote mínimo del IRM</dt><dd>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No disponible'}</dd>
-              <dt>Lote mínimo PUGS, edificabilidad básica</dt><dd>{pugsBasicMinLot || 'No disponible'}</dd>
-              <dt>COS PB PUGS, básico</dt><dd>{pugsBasicCos || 'No disponible'}</dd>
-              <dt>Pisos PUGS, básicos</dt><dd>{pugsBasicFloors || 'No disponible'}</dd>
-              <dt>Pisos PUGS, máximo general</dt><dd>{pugsGeneralMaxFloors || 'No disponible'}</dd>
-            </dl>
-            <p className="note">El máximo general puede depender de condiciones o contraprestaciones; no equivale automáticamente al derecho edificatorio básico. Las restricciones, el frente, la forma del lote y los permisos siguen pendientes de revisión.</p>
-            <p className="source-note">Fuentes: catastro municipal, IRM aportado y PUGS 2024. Los valores ausentes no se suponen.</p>
+            <p><strong>{!irmExtraction ? 'Pendiente de cargar el IRM' : isCadastralPH ? 'Revisión de propiedad horizontal requerida' : 'Evaluación preliminar con parámetros del IRM'}</strong></p>
+            {irmExtraction ? <>
+              <dl>
+                <dt>Área individual de referencia</dt><dd>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No disponible'}</dd>
+                <dt>Lote mínimo (IRM)</dt><dd>{irmValues.minLot ? formatArea(Number(irmValues.minLot)) : 'No extraído'}</dd>
+                <dt>Frente mínimo (IRM)</dt><dd>{irmValues.minFront ? `${irmValues.minFront} m` : 'No extraído'}</dd>
+                <dt>COS PB (IRM)</dt><dd>{irmValues.cosPb !== '' ? `${irmValues.cosPb}%` : 'No extraído'}</dd>
+                <dt>COS total (IRM)</dt><dd>{irmValues.cosTotal !== '' ? `${irmValues.cosTotal}%` : 'No extraído'}</dd>
+                <dt>Pisos indicados (IRM)</dt><dd>{irmValues.floors || 'No extraído'}</dd>
+              </dl>
+              {isCadastralPH && <p className="note">El IRM y la geometría del lote matriz no confieren por sí solos derechos constructivos independientes a esta unidad de propiedad horizontal.</p>}
+              <p className="note">Los valores proceden de extracción automática del IRM y deben revisarse en el documento original. El cumplimiento de retiros, accesos, restricciones y permisos no está verificado.</p>
+            </> : <p className="note">Adjunte el IRM para visualizar los parámetros específicos del predio. La zonificación PUGS se usa únicamente como contexto de usos permitidos en el área.</p>}
+            <p className="source-note">Fuentes: IRM aportado y catastro municipal. La zonificación PUGS se analiza en Compatibilidad del proyecto.</p>
           </section>
           {irmExtraction && <section className="property">
             <h2>Resumen de parámetros del terreno</h2>
