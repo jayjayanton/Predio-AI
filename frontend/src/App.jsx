@@ -49,6 +49,7 @@ export default function App() {
   const [irmExtractError, setIrmExtractError] = useState('');
   const [irmConfirmed, setIrmConfirmed] = useState(false);
   const [developmentType, setDevelopmentType] = useState('single');
+  const [landGoal, setLandGoal] = useState('individual');
   const [irmValues, setIrmValues] = useState({ area: '', cosPb: '', cosTotal: '', floors: '', minLot: '', minFront: '', dwellingCode: '' });
   const [developerAreaSource, setDeveloperAreaSource] = useState('');
   const capacityReady = Number(irmValues.area) > 0 && irmValues.cosPb !== '' && Number(irmValues.cosPb) >= 0 && Number(irmValues.cosPb) <= 100 && irmValues.cosTotal !== '' && Number(irmValues.cosTotal) >= 0 && Number.isInteger(Number(irmValues.floors)) && Number(irmValues.floors) > 0;
@@ -160,6 +161,17 @@ export default function App() {
 
   // Municipal property attributes
   const properties = data?.features?.[0]?.properties;
+
+  // Cadastral facts are descriptive, not permission to subdivide or construct.
+  const lotProfile = properties ? {
+    ownership: String(properties.tipo_propi || 'No disponible'),
+    status: String(properties.estado_lot || 'No disponible'),
+    use: String(properties.uso_constr || 'No disponible'),
+    landUse: String(properties.destino_ec || 'No disponible'),
+    landArea: properties.area_terre,
+    frontage: properties.frente,
+    constructionArea: properties.area_const,
+  } : null;
 
   // Determine whether this is Propiedad Horizontal
   const isPH =
@@ -834,8 +846,29 @@ export default function App() {
           <div className="workspace-heading"><div>
             <span className="eyebrow">NUEVA CONSTRUCCIÓN · PASO 2</span>
             <h1>Potencial de construcción del predio {properties.n_predio || identifier}</h1>
-            <p>Consulte el IRM oficial y revise el potencial para construir una vivienda o un conjunto residencial.</p>
+            <p>Seleccione si desea construir en un predio individual o evaluar un terreno para desarrollar varios lotes.</p>
           </div></div>
+          <section className="property">
+            <h2>¿Qué tipo de terreno desea evaluar?</h2>
+            <div className="audience-options" role="group" aria-label="Objetivo del terreno">
+              <button type="button" className={landGoal === 'individual' ? 'active' : ''} aria-pressed={landGoal === 'individual'}
+                onClick={() => {setLandGoal('individual');setDevelopmentType('single');}}>Predio individual / vivienda propia</button>
+              <button type="button" className={landGoal === 'develop' ? 'active' : ''} aria-pressed={landGoal === 'develop'}
+                onClick={() => {setLandGoal('develop');setDevelopmentType('multiple');}}>Desarrollar terreno / varios lotes</button>
+            </div>
+            <h3>Datos catastrales obtenidos del API municipal</h3>
+            <dl>
+              <dt>Régimen de propiedad</dt><dd>{lotProfile.ownership}</dd>
+              <dt>Estado del lote (catastro)</dt><dd>{lotProfile.status}</dd>
+              <dt>Uso de construcción registrado</dt><dd>{lotProfile.use}</dd>
+              <dt>Destino económico registrado</dt><dd>{lotProfile.landUse}</dd>
+              <dt>Superficie del lote matriz</dt><dd>{formatArea(lotProfile.landArea)}</dd>
+              <dt>Frente registrado</dt><dd>{typeof lotProfile.frontage === 'number' ? `${lotProfile.frontage} m` : 'No disponible'}</dd>
+              <dt>Construcción registrada</dt><dd>{formatArea(lotProfile.constructionArea)}</dd>
+            </dl>
+            <p className="note">{isPH ? 'El predio corresponde a propiedad horizontal: el área del lote matriz no representa un terreno independiente disponible para subdivisión.' : 'El registro catastral no confirma por sí solo si el lote es independiente, está vacío o admite subdivisión.'}</p>
+            <p className="note">Estos datos describen el predio existente. La posibilidad de construir viviendas, edificios o fraccionar el terreno depende del IRM y de la normativa aplicable.</p>
+          </section>
           <section className="property developer-irm-panel">
             <h2>Consulta del IRM</h2>
             <p>Número de predio: <strong>{properties.n_predio || 'No disponible'}</strong></p>
