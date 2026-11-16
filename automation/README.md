@@ -2,17 +2,21 @@
 
 Este módulo es **opcional** y funciona **localmente en Windows/macOS/Linux**. No se ejecuta automáticamente desde GitHub Pages ni desde Render. El usuario debe iniciar el script en su propio computador; el navegador Chromium que se abre pertenece a esa sesión local.
 
-## Instalación rápida en Windows
+## Instalación rápida en Windows (sin terminal permanente)
 
-Desde la carpeta del repositorio, haga doble clic en `automation/setup_windows.bat`. El instalador configura las dependencias Python, descarga Chromium y **arranca el puente local**. Mantenga abierta la ventana de comandos mientras utiliza PredioAI.
+Desde la carpeta del repositorio, ejecute una vez `automation/setup_windows.bat`. Instala las dependencias, descarga Chromium y crea un acceso directo **PredioAI IRM Bridge** en la carpeta **Inicio** de Windows. El puente se inicia en segundo plano inmediatamente y automáticamente al iniciar sesión. **No hace falta mantener PowerShell abierto** para usar el botón «Consultar IRM con Playwright».
 
-También puede ejecutarlo desde PowerShell:
+Si ya instaló Playwright, ejecute solo el siguiente comando una vez desde la raíz del repositorio (sin reinstalar Chromium):
 
 ```powershell
-.\\automation\\setup_windows.bat
+powershell -NoProfile -ExecutionPolicy Bypass -File automation/install_background_bridge.ps1
 ```
 
-Requiere tener Python y su lanzador `py` instalados. No instala Python ni configura automáticamente otros equipos. El navegador Chromium es una descarga independiente, por lo que **no puede declararse como paquete dentro de requirements.txt**.
+La automatización abre Chromium **visible** para completar el CAPTCHA manualmente. Solo el puente permanece oculto. La instalación de inicio automático es por usuario y depende de la ubicación actual del repositorio; si mueve la carpeta, ejecute nuevamente el instalador.
+
+**Desinstalar el inicio automático:** abra `Win+R`, escriba `shell:startup` y elimine el acceso directo **PredioAI IRM Bridge**. Para detener la instancia que ya se está ejecutando, cierre sesión en Windows o detenga específicamente el proceso Python del puente; eliminar el acceso directo no termina un proceso en ejecución.
+
+Requiere tener Python y su lanzador `py` instalados. Chromium es una descarga separada, no un paquete de `requirements.txt`.
 
 ## Instalar (PowerShell, desde la raíz del repositorio)
 
@@ -24,13 +28,13 @@ py -m playwright install chromium
 ## Integración con PredioAI (puente local experimental)
 
 1. Instale las dependencias indicadas arriba y descargue/actualice el repositorio en su PC.
-2. En PowerShell, desde la raíz del repositorio, ejecute:
+2. Si no instaló el inicio automático, en PowerShell desde la raíz del repositorio ejecute:
 
 ```powershell
 py automation/irm_bridge.py
 ```
 
-3. Mantenga abierta esa ventana de PowerShell. Abra **https://jayjayanton.github.io/Predio-AI/** en Chrome o Edge, busque el predio y pulse **«Consultar IRM con Playwright (escritorio)»**.
+3. Si utilizó el comando manual, mantenga abierta esa ventana de PowerShell. Si instaló el puente en segundo plano, no hace falta terminal. Abra **https://jayjayanton.github.io/Predio-AI/** en Chrome o Edge, busque el predio y pulse **«Consultar IRM con Playwright (escritorio)»**.
 4. El navegador Chromium de Playwright se abrirá con el número del predio rellenado. Complete el CAPTCHA **manualmente**, pulse CONSULTAR y espere a que el script valide el informe y genere `~/Downloads/IRM_<predio>.pdf`.
 5. Revise el PDF y adjúntelo a PredioAI. **La importación automática del PDF no está implementada.**
 
