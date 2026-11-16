@@ -993,6 +993,8 @@ export default function App() {
             <h2>Factibilidad del predio</h2>
             {!irmExtraction ? <p className="note">Cargue el IRM para revisar las condiciones del predio y calcular su potencial constructivo.</p> : <>
               <p><strong>{parcelFeasibility}</strong></p>
+              {dominantZone && <p className="zoning-classification"><strong>Clasificación PUGS:</strong> {dominantZone.tipologia || dominantZone.uso_prin || dominantZone.fcode || 'Sin código'} — {pugsUse || 'Descripción no disponible'}{dominantZone._overlap_percent != null ? ` (${dominantZone._overlap_percent}% del polígono catastral)` : ''}.</p>}
+              {pugsZones.length > 1 && <p className="note">Existen {pugsZones.length} zonas PUGS intersectadas; la clasificación anterior es la predominante, no necesariamente la única aplicable.</p>}
               {developerAreaSource && <p className="note">{developerAreaSource}</p>}
               <div className="capacity-inputs">
                 <div><strong>Área del predio</strong><p>{irmValues.area ? formatArea(Number(irmValues.area)) : 'No extraída'}</p></div>
