@@ -204,3 +204,8 @@ The original `predios_a_2024` ArcGIS layer publishes `fecha_escr` (deed date) an
 ### IRM document disclosure and concise development summary
 
 Once an IRM is processed, its extracted raw fields are available under a collapsed, keyboard-accessible **Detalles del IRM cargado** disclosure. A separate **Resumen de parámetros del terreno** remains visible, emphasizing the individual predio area, minimum lot and frontage, COS, floors and theoretical subdivision count where computable. The latter is strictly area-based and is not an approved subdivision or housing-unit count.
+
+
+### PUGS schema validation and project assessment (2026-11)
+
+The official PUGS 2024 MapServer layer 60 metadata confirms a polygon feature layer with `uso_prin`, `tipo_des`, `unidad_viv`, `lot_min_ba`, `cos_pb_ba`, `pisos_ba`, `lot_min_gm`, and `pisos_gm`. Basic (`_ba`) and general maximum (`_gm`) buildability are distinct. The new-construction UI displays separate **Compatibilidad del proyecto** and **Factibilidad del predio** sections, labeling unknown compatibility instead of assuming multifamily permission. The PUGS service metadata has been inspected, but **no successful live parcel-specific response for predio 627739 has been independently verified**. Spatial matches against PH parent geometry must not be treated as zoning authorization for a specific PH unit. A definitive use-permission matrix and current amendment/exception review are still required before returning permitted/prohibited results.
