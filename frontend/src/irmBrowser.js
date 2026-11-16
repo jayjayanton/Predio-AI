@@ -75,7 +75,7 @@ const evidenceTypes = [
    finding:'Afectación potencial: falla geológica mencionada en el IRM. El mapa de accidentes geográficos no demuestra por sí solo la ubicación de una falla; debe verificarse con información geológica específica.'},
   {key:'proteccion', rx:/protecci[oó]n\s*ecol[oó]gica/i,
    title:'Protección ecológica', mapHeading:'USO DE SUELO ESPECÍFICO',
-   finding:'Afectación identificada: sector clasificado como Protección Ecológica (PE). La zona PE no debe evaluarse aplicando automáticamente los parámetros de edificabilidad residencial; se debe delimitar su intersección con el lote y verificar la normativa aplicable.'},
+   finding:'Afectación identificada en el texto del IRM: una segunda asignación PUGS de Protección Ecológica (PE), código A120 (PQ), sin parámetros de edificabilidad residencial. Este recorte de USO DE SUELO ESPECÍFICO muestra principalmente RUB-2; no demuestra por sí solo la ubicación ni extensión de PE. Se requiere contrastar el mapa y los polígonos oficiales antes de atribuir superficies afectadas.'},
 ];
 
 const normalizeHeading = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
