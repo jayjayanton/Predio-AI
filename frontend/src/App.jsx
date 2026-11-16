@@ -28,6 +28,13 @@ const formatRate = (value) =>
     ? `${formatUSD(value)}/m²`
     : 'No disponible';
 
+const formatMunicipalDate = (value) => {
+  if (value == null || value === '') return 'No disponible';
+  const timestamp = typeof value === 'number' ? value : Number(value);
+  const date = Number.isFinite(timestamp) ? new Date(timestamp) : new Date(value);
+  return Number.isNaN(date.getTime()) ? 'No disponible' : date.toLocaleDateString('es-EC', {timeZone:'UTC', year:'numeric', month:'2-digit', day:'2-digit'});
+};
+
 const formatArea = (value) =>
   typeof value === 'number'
     ? `${value.toLocaleString('es-EC', {
@@ -907,13 +914,15 @@ export default function App() {
               <dt>Superficie del lote matriz</dt><dd>{formatArea(lotProfile.landArea)}</dd>
               <dt>Frente registrado</dt><dd>{typeof lotProfile.frontage === 'number' ? `${lotProfile.frontage} m` : 'No disponible'}</dd>
               <dt>Construcción registrada</dt><dd>{formatArea(lotProfile.constructionArea)}</dd>
+              <dt>Fecha de escritura (catastro)</dt><dd>{formatMunicipalDate(properties.fecha_escr)}</dd>
+              <dt>Fecha de inscripción (catastro)</dt><dd>{formatMunicipalDate(properties.fecha_insc)}</dd>
               <dt>Año de construcción</dt><dd>{constructionYear ?? 'No disponible en la fuente verificada'}</dd>
             </dl>
             {existingConstruction && <p className="note">Existe superficie de construcción registrada en el catastro. Esto no confirma la fecha de construcción ni la existencia de una licencia municipal.</p>}
             {smallerThanMinimum && <div className="inspection" role="status">
               <strong>Advertencia: predio menor al lote mínimo indicado</strong>
               <p>El área individual registrada ({formatArea(relevantArea)}) es inferior al lote mínimo extraído del IRM ({formatArea(minimumLot)}). Esto no demuestra que la edificación existente sea ilegal.</p>
-              {existingConstruction && <p>El catastro registra construcción existente, pero no se dispone de un año de construcción verificado. La edificación podría haber sido aprobada bajo normas anteriores o pertenecer a un régimen de propiedad horizontal.</p>}
+              {existingConstruction && <p>El catastro registra construcción existente, pero las fechas de escritura e inscripción no confirman el año de construcción. La edificación podría haber sido aprobada bajo normas anteriores o pertenecer a un régimen de propiedad horizontal.</p>}
               <p>Antes de evaluar ampliaciones, subdivisiones o nuevas construcciones, revise el año de aprobación, la licencia y la declaratoria de propiedad horizontal cuando corresponda.</p>
             </div>}
             <p className="note">{isPH ? 'El predio corresponde a propiedad horizontal: el área del lote matriz no representa un terreno independiente disponible para subdivisión.' : 'El registro catastral no confirma por sí solo si el lote es independiente, está vacío o admite subdivisión.'}</p>
