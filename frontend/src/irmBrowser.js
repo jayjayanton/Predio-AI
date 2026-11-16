@@ -66,16 +66,16 @@ function extractPugsSection(pageTexts) {
 const evidenceTypes = [
   {key:'quebrada', rx:/quebrada\s*abierta|protecci[oó]n\s*de\s*quebrada|zona\s*de\s*protecci[oó]n\s*de\s*quebrada/i,
    title:'Quebrada y protección geográfica', mapHeading:'ACCIDENTES GEOGRÁFICOS',
-   finding:'El IRM identifica una quebrada y una franja de protección. El mapa muestra la ubicación referencial de los accidentes geográficos respecto del lote resaltado; el borde y retiro definitivo requieren definición municipal.'},
+   finding:'Afectación identificada: QUEBRADA ABIERTA y protección de accidente geográfico. El IRM prohíbe edificar dentro de la quebrada abierta y señala que el retiro mostrado es referencial. Para edificar se requiere definición municipal del borde superior y del retiro definitivo.'},
   {key:'forestal', rx:/bosque\s*protector|protecci[oó]n\s*forestal|cobertura\s*forestal/i,
    title:'Protección forestal', mapHeading:'SISTEMA NACIONAL DE ÁREAS PROTEGIDAS',
-   finding:'El documento menciona protección forestal. El mapa representa áreas protegidas en el entorno, pero no acredita por sí solo cobertura forestal dentro del predio.'},
+   finding:'Afectación potencial: protección forestal mencionada en el IRM. El mapa del Sistema Nacional de Áreas Protegidas aporta contexto; por sí solo no prueba que el predio esté dentro de un bosque protector.'},
   {key:'fallas', rx:/falla\s*geol[oó]gica|falla\s*tect[oó]nica/i,
    title:'Falla geológica', mapHeading:'ACCIDENTES GEOGRÁFICOS',
-   finding:'El documento menciona una falla. El mapa de accidentes geográficos es contextual y no delimita necesariamente una falla tectónica; requiere estudio técnico.'},
+   finding:'Afectación potencial: falla geológica mencionada en el IRM. El mapa de accidentes geográficos no demuestra por sí solo la ubicación de una falla; debe verificarse con información geológica específica.'},
   {key:'proteccion', rx:/protecci[oó]n\s*ecol[oó]gica/i,
    title:'Protección ecológica', mapHeading:'USO DE SUELO ESPECÍFICO',
-   finding:'El IRM identifica una designación de protección ecológica. El mapa de uso de suelo específico muestra las zonas de uso en torno al lote; debe contrastarse con los polígonos oficiales para determinar la superficie afectada.'},
+   finding:'Afectación identificada: sector clasificado como Protección Ecológica (PE). La zona PE no debe evaluarse aplicando automáticamente los parámetros de edificabilidad residencial; se debe delimitar su intersección con el lote y verificar la normativa aplicable.'},
 ];
 
 const normalizeHeading = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
