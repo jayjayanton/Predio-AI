@@ -1119,16 +1119,27 @@ export default function App() {
                   const fields = irmExtraction?.candidate_irm_fields || {};
                   const municipalCode = fields.codigo_municipal_edificabilidad?.raw || basicBuildability[0]?.designation || basicBuildability[0]?.code || null;
                   const descriptiveCode = fields.codigo_edificabilidad_basica?.raw || null;
-                  const match = descriptiveCode?.match(/^([A-Z])(\d+)(\d)(?:-(\d+))$/);
-                  const description = match && match[2].length >= 3
-                    ? `${match[1] === 'A' ? 'Ocupación aislada' : 'Forma de ocupación por verificar'} · Lote mínimo ${Number(match[2]).toLocaleString('es-EC')} m² · ${match[3]} pisos · COS PB ${match[4]}%`
-                    : null;
+                  // The municipal code may have a parenthetical suffix (e.g. VU).
+                  // Use a non-conditional explanation for every extracted code;
+                  // explicit IRM values take priority over inferred code segments.
+                  const cleanCode = String(descriptiveCode || '').trim().toUpperCase();
+                  const match = cleanCode.match(/^([A-Z])(\d{3,5})(\d)-([\d.,]+)(?:\s*\([^)]*\))?$/);
+                  const occupation = fields.forma_ocupacion?.raw || (match?.[1] === 'A' ? 'Aislada' : null);
+                  const lot = fields.lote_minimo?.raw || (match ? String(Number(match[2])) : null);
+                  const floors = fields.pisos?.raw || match?.[3] || null;
+                  const cos = fields.cos_pb?.raw || match?.[4] || null;
+                  const description = [
+                    occupation ? `Forma de ocupación: ${occupation}` : null,
+                    lot ? `Lote mínimo: ${Number(String(lot).replace(/,/g, '')).toLocaleString('es-EC')} m²` : null,
+                    floors ? `Número de pisos: ${floors}` : null,
+                    cos ? `COS PB: ${cos}%` : null
+                  ].filter(Boolean).join(' · ');
                   return <>
                     <p><strong>Código municipal</strong></p>
                     <p>{municipalCode || 'No disponible'}</p>
                     <p><strong>CÓDIGO DE EDIFICABILIDAD BÁSICA</strong></p>
                     <p>{descriptiveCode || 'No identificado en el IRM'}</p>
-                    {description && <p className="note"><strong>Interpretación del código:</strong> {description}. Estos parámetros se contrastan con el IRM y las restricciones territoriales.</p>}
+                    {descriptiveCode && <p className="note"><strong>Descripción de edificabilidad básica:</strong> {description || 'Código municipal identificado; sus parámetros detallados no pudieron interpretarse automáticamente. Consulte la tabla del IRM.'} Los valores documentados en el IRM prevalecen sobre la interpretación del código.</p>}
                     {!descriptiveCode && <p className="note">El código descriptivo debe confirmarse en el IRM; no se deduce a partir del identificador municipal.</p>}
                   </>;
                 })()}
