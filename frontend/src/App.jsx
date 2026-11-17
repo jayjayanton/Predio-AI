@@ -79,9 +79,7 @@ export default function App() {
   const [searchLandClass,setSearchLandClass]=useState('all');
   const [searchAreaMin,setSearchAreaMin]=useState('500');
   const [searchAreaMax,setSearchAreaMax]=useState('6000');
-  const [constructionRatioEnabled,setConstructionRatioEnabled]=useState(false);
-  const [constructionRatioMin,setConstructionRatioMin]=useState('0');
-  const [constructionRatioMax,setConstructionRatioMax]=useState('100');
+  const [constructionRatioMax,setConstructionRatioMax]=useState('');
   const [minimumFrontage,setMinimumFrontage]=useState('');
   const [administrativeZone,setAdministrativeZone]=useState('all');
   const [administrativeZoneOptions,setAdministrativeZoneOptions]=useState([]);
@@ -93,6 +91,8 @@ export default function App() {
   const [exploreResults,setExploreResults]=useState([]);
   const [exploreSort,setExploreSort]=useState('id');
   const [reelColumns,setReelColumns]=useState(1);
+  const [listPageSize,setListPageSize]=useState(50);
+  const [iconPageSize,setIconPageSize]=useState(100);
   const [detailsCollapsed,setDetailsCollapsed]=useState(false);
   const [resultsCollapsed,setResultsCollapsed]=useState(false);
   const [detailsWidth,setDetailsWidth]=useState(420);
@@ -615,7 +615,7 @@ export default function App() {
   const explorationFilterKey=[
     searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),
     searchLandClass,exploreSort,
-    constructionRatioEnabled?'ratio:'+constructionRatioMin+':'+constructionRatioMax:'ratio:off',
+    constructionRatioMax.trim()!==''?'ratio-max:'+constructionRatioMax:'ratio:off',
     minimumFrontage,administrativeZone,ownershipRegime
   ].join('|');
 
@@ -671,7 +671,7 @@ export default function App() {
     return ()=>{cancelled=true;};
   },[audience]);
 
-  const explorePageSize=reelColumns===1?20:50;
+  const explorePageSize=reelColumns===1?listPageSize:iconPageSize;
   async function exploreParcels(offset=0, sort=exploreSort, pageSize=explorePageSize, preserveSelection=false) {
     advancedRunId.current++;
     setAdvancedBusy(false);
@@ -683,21 +683,20 @@ export default function App() {
     if(!searchAreaMin||!searchAreaMax||!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min){
       setExploreError('Ingrese un rango de superficie válido.'); return;
     }
-    const ratioMin=Number(constructionRatioMin),ratioMax=Number(constructionRatioMax);
-    if(constructionRatioEnabled&&(!constructionRatioMin||!constructionRatioMax||
-      !Number.isFinite(ratioMin)||!Number.isFinite(ratioMax)||ratioMin<0||ratioMax<ratioMin)){
-      setExploreError('Ingrese un rango válido de relación construcción/terreno (%).');return;
+    const ratioActive=constructionRatioMax.trim()!=='';
+    const ratioMax=Number(constructionRatioMax);
+    if(ratioActive&&(!Number.isFinite(ratioMax)||ratioMax<0||ratioMax>100)){
+      setExploreError('Ingrese un porcentaje máximo entre 0 y 100.');return;
     }
     const frontage=minimumFrontage.trim()===''?null:Number(minimumFrontage);
     if(frontage!==null&&(!Number.isFinite(frontage)||frontage<0)){
       setExploreError('Ingrese un frente mínimo válido (m).');return;
     }
     const clauses=['area_terre >= '+min,'area_terre <= '+max];
-    // Arithmetic is executed by the cadastral service before count/pagination.
-    // No denominator division: excludes missing values and keeps >100% ratios.
-    if(constructionRatioEnabled){
+    // Optional maximum registered construction/land ratio, applied before
+    // counting and pagination. Blank input disables this filter.
+    if(ratioActive){
       clauses.push('area_const IS NOT NULL','area_terre > 0',
-        '(area_const * 100) >= (area_terre * '+ratioMin+')',
         '(area_const * 100) <= (area_terre * '+ratioMax+')');
     }
     if(frontage!==null)clauses.push('frente >= '+frontage);
@@ -784,7 +783,7 @@ export default function App() {
         if(allGeo.length<totalToMap)setExploreMapNotice(`Mapa parcial: ${allGeo.length} de ${count} predios con geometría recuperada.`);
       }
       setExploreOffset(offset);
-      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioEnabled?'ratio:'+constructionRatioMin+':'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone,ownershipRegime].join('|'));
+      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioMax.trim()!==''?'ratio-max:'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone,ownershipRegime].join('|'));
     }catch(error){
       setExploreError('No se pudo completar la consulta GIS municipal: '+error.message);
       setExploreResults([]);setExploreGeometries(null);setExploreCount(null);
@@ -916,23 +915,11 @@ export default function App() {
           <fieldset className="gis-optional-filters">
             <legend>Filtros catastrales opcionales</legend>
             <div className="gis-optional-grid">
-              <div className="gis-ratio-field">
-                <label className="gis-option-toggle">
-                  <input type="checkbox" checked={constructionRatioEnabled} onChange={e=>setConstructionRatioEnabled(e.target.checked)}/>
-                  Relación construcción / terreno (%)
-                </label>
-                <div className="gis-ratio-inputs">
-                  <label>Mínimo (%)
-                    <input type="number" min="0" step="0.1" disabled={!constructionRatioEnabled}
-                      value={constructionRatioMin} onChange={e=>setConstructionRatioMin(e.target.value)}/>
-                  </label>
-                  <label>Máximo (%)
-                    <input type="number" min="0" step="0.1" disabled={!constructionRatioEnabled}
-                      value={constructionRatioMax} onChange={e=>setConstructionRatioMax(e.target.value)}/>
-                  </label>
-                </div>
-                <p className="note">Área construida total ÷ terreno registrado. Puede superar 100%; no equivale a COS ni a huella edificada. Los registros sin ambas áreas se excluyen solamente al activar este filtro.</p>
-              </div>
+              <label className="gis-ratio-field">Relación construcción / terreno (%) · máximo
+                <input type="number" min="0" max="100" step="1" placeholder="Sin límite (0–100)"
+                  value={constructionRatioMax} onChange={e=>setConstructionRatioMax(e.target.value)}/>
+                <span className="note">Opcional. Muestre predios con relación construida igual o inferior al porcentaje indicado. Vacío = sin filtro; no equivale a COS.</span>
+              </label>
               <label>Frente mínimo del terreno (m)
                 <input type="number" min="0" step="0.1" placeholder="Sin mínimo"
                   value={minimumFrontage} onChange={e=>setMinimumFrontage(e.target.value)}/>
@@ -988,7 +975,7 @@ export default function App() {
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
          {exploreCount!==null&&exploreQueryKey===explorationFilterKey&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
-          <p className="note">Se muestran hasta {explorePageSize} resultados por página según la vista elegida. La consulta utiliza superficie, parroquia y los filtros catastrales opcionales activos; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
+          <p className="note">Se muestran hasta {explorePageSize} resultados por página, configurables desde la vista de resultados. La consulta utiliza superficie, parroquia y los filtros catastrales opcionales activos; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
 
         </div>}
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
@@ -1619,10 +1606,20 @@ export default function App() {
                 <option value="smallest">Menor a mayor superficie</option>
               </select>
             </label>
+            <label className="predio-page-size">Predios por página
+              <select value={explorePageSize} disabled={exploreBusy}
+                onChange={e=>{
+                  const size=Number(e.target.value);
+                  if(reelColumns===1)setListPageSize(size);else setIconPageSize(size);
+                  if(exploreCount!==null)exploreParcels(0,exploreSort,size);
+                }}>
+                {(reelColumns===1?[50,100]:[100,200]).map(size=><option key={size} value={size}>{size}</option>)}
+              </select>
+            </label>
             <div className="predio-card-view" role="group" aria-label="Distribución de tarjetas">
               <span>Vista</span>
-              <button type="button" className={reelColumns===1?'active':''} aria-pressed={reelColumns===1} onClick={()=>{if(reelColumns!==1){setReelColumns(1);if(exploreCount!==null)exploreParcels(0,exploreSort,20);}}}><span aria-hidden="true">☰ </span>Lista</button>
-              <button type="button" className={reelColumns===2?'active':''} aria-pressed={reelColumns===2} onClick={()=>{if(reelColumns!==2){setReelColumns(2);if(exploreCount!==null)exploreParcels(0,exploreSort,50);}}}><span aria-hidden="true">▦ </span>Iconos</button>
+              <button type="button" className={reelColumns===1?'active':''} aria-pressed={reelColumns===1} onClick={()=>{if(reelColumns!==1){setReelColumns(1);if(exploreCount!==null)exploreParcels(0,exploreSort,listPageSize);}}}><span aria-hidden="true">☰ </span>Lista</button>
+              <button type="button" className={reelColumns===2?'active':''} aria-pressed={reelColumns===2} onClick={()=>{if(reelColumns!==2){setReelColumns(2);if(exploreCount!==null)exploreParcels(0,exploreSort,iconPageSize);}}}><span aria-hidden="true">▦ </span>Iconos</button>
             </div>
           </div>
           <nav className="predio-reel-pagination" aria-label="Navegar páginas de predios">
