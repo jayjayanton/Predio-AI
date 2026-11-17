@@ -425,6 +425,7 @@ export default function App() {
   const VALLEY_PARISHES=['CUMBAYA','TUMBACO','PUEMBO','PIFO','TABABELA','YARUQUI','CHECA','EL QUINCHE','GUAYLLABAMBA','NAYON','ZAMBIZA'];
   async function exploreParcels(offset=0) {
     setExploreError('');
+    setExplorePugsStatus('');
     const min=Number(searchAreaMin),max=Number(searchAreaMax);
     if(!searchAreaMin||!searchAreaMax||min<=0||max<min){setExploreError('Ingrese un rango de superficie válido.');return;}
     const areaWhere='area_terre >= '+min+' AND area_terre <= '+max;
@@ -447,6 +448,9 @@ export default function App() {
       const candidates=(results.features||[]).map(x=>x.attributes||{});
       const needsPugs=searchLandClass!=='all'||searchHousingType!=='all'||searchOccupation!=='all';
       if(needsPugs){
+        if (API.includes('localhost') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          throw new Error('El filtro PUGS necesita un servidor público. La web publicada intenta conectarse a localhost:8000, que no está disponible desde este teléfono. Configure VITE_API_URL y despliegue el backend.');
+        }
         const batch=candidates.filter(x=>x.n_predio!=null).slice(0,20);
         setExplorePugsStatus('Verificando hasta 20 predios de esta página contra PUGS…');
         const response=await fetch(`${API}/api/pugs/screen`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({predios:batch.map(x=>String(x.n_predio))})});
@@ -473,7 +477,7 @@ export default function App() {
       }
       setExploreOffset(offset);
       setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchHousingType,searchOccupation].join('|'));
-    }catch(e){setExploreError('No se pudo completar la consulta municipal: '+e.message);setExploreResults([]);setExploreCount(null);}
+    }catch(e){setExploreError('No se pudo completar la búsqueda: '+e.message);setExplorePugsStatus('');setExploreResults([]);setExploreCount(null);}
     finally{setExploreBusy(false);}
   }
   async function openExplorePredio(predio) {
@@ -607,15 +611,15 @@ export default function App() {
           <fieldset style={{border:'1px solid #607d83',borderRadius:10,padding:12,gridColumn:'1 / -1'}}>
             <legend>Parroquias / sectores ({searchParishes.length || 'todas'})</legend>
             <details><summary style={{cursor:'pointer'}}>Seleccionar múltiples parroquias</summary>
-              <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'12px 0'}}>
-                <button type="button" onClick={()=>setSearchParishes([])}>Todo el DMQ</button>
-                <button type="button" onClick={()=>setSearchParishes([...new Set([...searchParishes,...VALLEY_PARISHES])])}>Agregar valles</button>
-                <button type="button" onClick={()=>setSearchParishes([...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].map(x=>x[0]))}>Seleccionar 65</button>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',margin:'12px 0'}}>
+                <button type="button" onClick={()=>setSearchParishes([])} style={{width:'auto',minHeight:32,padding:'5px 9px',fontSize:13,flex:'0 0 auto',borderRadius:7}}>Todo el DMQ</button>
+                <button type="button" onClick={()=>setSearchParishes([...new Set([...searchParishes,...VALLEY_PARISHES])])} style={{width:'auto',minHeight:32,padding:'5px 9px',fontSize:13,flex:'0 0 auto',borderRadius:7}}>Agregar valles</button>
+                <button type="button" onClick={()=>setSearchParishes([...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].map(x=>x[0]))} style={{width:'auto',minHeight:32,padding:'5px 9px',fontSize:13,flex:'0 0 auto',borderRadius:7}}>Seleccionar 65</button>
               </div>
               <div style={{maxHeight:240,overflowY:'auto'}}>
                 {['urban','rural'].map(type=><div key={type}><strong>{type==='urban'?'Urbanas (32)':'Rurales (33)'}</strong>
-                  {DMQ_PARISHES[type].map(([value,label])=><label key={value} style={{display:'flex',alignItems:'center',gap:8,padding:5}}>
-                    <input type="checkbox" checked={searchParishes.includes(value)} onChange={e=>setSearchParishes(old=>e.target.checked?[...old,value]:old.filter(x=>x!==value))}/>{label}
+                  {DMQ_PARISHES[type].map(([value,label])=><label key={value} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 2px',fontSize:14,fontWeight:400}}>
+                    <input type="checkbox" style={{width:18,height:18,minWidth:18,flex:"0 0 18px",margin:0}} checked={searchParishes.includes(value)} onChange={e=>setSearchParishes(old=>e.target.checked?[...old,value]:old.filter(x=>x!==value))}/>{label}
                   </label>)}
                 </div>)}
               </div>
