@@ -613,3 +613,167 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
   .predio-reel-pagination button { padding:8px 5px; font-size:11px; }
   .predio-reel-pagination .predio-reel-page { font-size:10px; }
 }
+
+/* Adjustable workspace: details panel | map | exploration panel.
+   The map workspace stretches down toward the methodology section. */
+.dashboard-layout {
+  grid-template-columns:var(--details-width,420px) minmax(0,1fr);
+  align-items:stretch;
+  min-height:calc(100vh - 110px);
+}
+.dashboard-layout .details-sidebar {
+  position:relative;
+  max-height:none;
+  height:100%;
+  min-width:0;
+  overflow:auto;
+}
+.dashboard-layout .sidebar-panel-tools {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:-10px 0 15px;
+  color:#a6cac5;
+  font-size:12px;
+  font-weight:700;
+}
+.panel-collapse-button {
+  flex:0 0 auto;
+  width:35px;
+  height:35px;
+  min-width:35px;
+  border:1px solid #47696c;
+  border-radius:9px;
+  background:#1a383d;
+  color:#e8f6f3;
+  padding:0;
+  font-size:24px;
+  line-height:1;
+  cursor:pointer;
+}
+.panel-collapse-button:hover { border-color:#20b7aa; background:#295057; }
+.dashboard-layout.details-collapsed .details-sidebar { padding:15px 9px; overflow:hidden; }
+.dashboard-layout.details-collapsed .sidebar-panel-tools { margin:0; }
+.dashboard-layout.details-collapsed .sidebar-panel-content { display:none; }
+.dashboard-layout .map-section:has(.predio-map-reel) {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) var(--results-width,350px);
+  grid-template-rows:minmax(650px,1fr);
+  align-items:stretch;
+  min-height:100%;
+  overflow:hidden;
+}
+.dashboard-layout .map-section .predio-map-pane { min-height:650px; height:100%; }
+.dashboard-layout .map-section .predio-map-pane .parcel-map-wrapper { height:calc(100% - 44px); min-height:540px; }
+.dashboard-layout .map-section .predio-map-reel {
+  max-height:none;
+  min-height:650px;
+  height:100%;
+  overflow:hidden;
+}
+.dashboard-layout .predio-map-reel .results-panel-tools {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  margin-bottom:10px;
+}
+.dashboard-layout .predio-map-reel .results-panel-content {
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  flex:1 1 auto;
+  overflow:hidden;
+}
+.dashboard-layout .predio-map-reel .predio-results-reel { min-height:0; flex:1; }
+.dashboard-layout .map-section.results-collapsed .predio-map-reel {
+  padding:14px 8px;
+  align-items:center;
+}
+.dashboard-layout .map-section.results-collapsed .results-panel-tools {
+  flex-direction:column;
+  gap:14px;
+}
+.dashboard-layout .map-section.results-collapsed .results-panel-content { display:none; }
+.collapsed-panel-caption { writing-mode:vertical-rl; color:#b5d0ca; font-size:12px; letter-spacing:1px; }
+.panel-resize-handle {
+  position:absolute;
+  z-index:720;
+  width:10px;
+  cursor:col-resize;
+  touch-action:none;
+}
+.dashboard-layout { position:relative; }
+.dashboard-layout > .details-resize-handle {
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:calc(var(--details-width,420px) - 5px);
+}
+.dashboard-layout .results-resize-handle {
+  top:0;
+  bottom:0;
+  right:calc(var(--results-width,350px) - 5px);
+}
+.dashboard-layout .panel-resize-handle::after {
+  content:'';
+  position:absolute;
+  top:42%;
+  bottom:42%;
+  left:4px;
+  width:2px;
+  border-radius:3px;
+  background:#2c746e;
+}
+.dashboard-layout .panel-resize-handle:hover::after { background:#32c8b6; }
+.dashboard-layout.details-collapsed > .details-resize-handle,
+.dashboard-layout .map-section.results-collapsed .results-resize-handle { display:none; }
+.predio-card-view { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:10px; font-size:12px; }
+.predio-card-view span { color:#b8d0cd; margin-right:5px; }
+.predio-card-view button {
+  border:1px solid #42676a;
+  border-radius:7px;
+  color:#d7e9e6;
+  background:#1a383d;
+  padding:7px 9px;
+  font-size:11px;
+}
+.predio-card-view button.active { background:#205d55; border-color:#2bd2bc; color:#fff; }
+.dashboard-layout .predio-map-reel .predio-results-reel.two-columns {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-content:start;
+  gap:8px;
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+.dashboard-layout .predio-map-reel .predio-results-reel.two-columns .predio-reel-card {
+  width:100%;
+  min-width:0;
+  min-height:152px;
+  padding:10px;
+}
+.dashboard-layout .predio-map-reel .predio-results-reel.two-columns .predio-reel-card.selected { padding:9px; }
+.dashboard-layout .predio-map-reel .predio-results-reel.two-columns .predio-reel-area { font-size:19px; }
+.dashboard-layout .predio-map-reel .predio-results-reel.two-columns .predio-reel-card-top { font-size:11px; overflow-wrap:anywhere; }
+.dashboard-layout .predio-map-reel .predio-results-reel.two-columns .predio-reel-parish { font-size:11px; }
+.dashboard-layout .predio-map-reel .predio-results-reel.two-columns .predio-reel-metadata { font-size:10px; }
+@media(max-width:1100px) {
+  .dashboard-layout .map-section:has(.predio-map-reel) { grid-template-columns:minmax(0,1fr) var(--results-width,350px); }
+  .dashboard-layout .predio-map-reel .predio-results-reel.two-columns { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:900px) {
+  .dashboard-layout { display:flex; flex-direction:column; }
+  .dashboard-layout .details-sidebar { max-height:none; height:auto; overflow:visible; }
+  .dashboard-layout .map-section:has(.predio-map-reel) { display:flex; flex-direction:column; min-height:0; }
+  .dashboard-layout .map-section .predio-map-pane { height:440px; min-height:440px; }
+  .dashboard-layout .map-section .predio-map-pane .parcel-map-wrapper { height:calc(100% - 40px); min-height:0; }
+  .dashboard-layout .map-section .predio-map-reel { min-height:0; height:auto; max-height:none; }
+  .dashboard-layout .predio-map-reel .predio-results-reel.one-column { display:flex; flex-direction:column; overflow-y:auto; max-height:520px; }
+  .dashboard-layout .predio-map-reel .predio-results-reel.one-column .predio-reel-card { width:100%; flex:0 0 auto; max-width:none; }
+  .dashboard-layout .predio-map-reel .predio-results-reel.two-columns { max-height:520px; }
+  .dashboard-layout .map-section.results-collapsed .predio-map-reel { padding:10px; align-items:stretch; }
+  .dashboard-layout .map-section.results-collapsed .results-panel-tools { flex-direction:row; }
+  .collapsed-panel-caption { writing-mode:initial; }
+  .dashboard-layout > .details-resize-handle,.dashboard-layout .results-resize-handle { display:none; }
+  .dashboard-layout.details-collapsed .details-sidebar { padding:10px 14px; }
+}
