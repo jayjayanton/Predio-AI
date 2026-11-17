@@ -264,7 +264,10 @@ function SearchResultsLayer({results,selected,onSelect}) {
     const feature=results.features.find(f=>String(f.properties?.n_predio)===String(selected));
     if(!feature)return;
     const bounds=L.geoJSON(feature).getBounds();
-    if(bounds.isValid())map.fitBounds(bounds,{padding:[50,50],maxZoom:18});
+    if(bounds.isValid()){
+      map.invalidateSize({pan:false,animate:false});
+      map.fitBounds(bounds,{padding:[50,50],maxZoom:18});
+    }
   },[selected,results,map]);
   if(!results?.features?.length)return null;
   return <>
@@ -371,7 +374,7 @@ export default function ParcelMap({ data, criteria, searchResults, selectedSearc
           maxZoom={19}
         />
 
-        <VisibleParcels enabled={showNearbyParcels && !searchResults?.features?.length} criteria={criteria} highlightMatches={highlightMatches}/>
+        <VisibleParcels enabled={showNearbyParcels} criteria={criteria} highlightMatches={highlightMatches}/>
         <SearchResultsLayer results={searchResults} selected={selectedSearchPredio} onSelect={onSelectSearchPredio}/>
 
         {/* Municipal cadastral polygons */}
