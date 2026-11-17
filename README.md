@@ -35,7 +35,7 @@ The interface is in Spanish and the initial municipal-data scope is Quito's Dist
 | Section | Purpose |
 | --- | --- |
 | **Inicio** | One clear proposition, two choices (plans or property), what's implemented, what's not, and everyday use cases |
-| **Analizar planos** | Choose an activity, inspect an authorized PDF/DXF and explore geometry; link cadastral context optionally |
+| **Analizar planos** | Choose an activity, inspect an authorized PDF/DXF/DWG and explore geometry; link cadastral context optionally |
 | **Mi predio** | Look up a predio, inspect its cadastral information and continue to IRM review or the document workflow |
 | **Explorar mapa** | Find cadastral records, browse the map and open a property sheet |
 | **Selección** | Manage up to 100 predios, import labelled IDs from PDF/CSV/DOCX/XLSX or pasted list, open each for IRM, compare four at a time, export CSV |
@@ -62,9 +62,9 @@ For a wall affected by an earthquake, a possible workflow would link the documen
 
 ### Architectural document workspace
 
-The existing project workflow accepts PDF/DXF drawings, a building type and repair/maintenance/remodeling/structural/expansion activities. It exposes extracted document evidence and a vector-geometry viewer with page selection, zoom, layer visibility and multiple-element selection. A selected polyline is not automatically a recognized wall, a measured room or an editable construction design.
+The project workflow accepts PDF, DXF and DWG drawings, a building type and repair/maintenance/remodeling/structural/expansion activities. DWG files are converted locally on the API server to DXF before extraction; deployment must install the pinned converter described in [DEPLOYMENT.md](DEPLOYMENT.md). The workspace exposes document evidence and a vector-geometry viewer with page selection, zoom, layer visibility and multiple-element selection. CAD block placement is preserved for the supported straight-geometry subset. Partial conversion and extraction limits are reported beside the drawing. A selected polyline is not automatically a recognized wall, a measured room or an editable construction design.
 
-Project documents are submitted to the FastAPI `/api/documents/analyze` endpoint and processed in memory. This is separate from the browser-only developer IRM parser described below. Repair, maintenance and a remodeling request containing **only `replace_floor`** can be inspected without an IRM. Other remodeling activities, mixed flooring/remodeling requests, structural modification and expansion retain the pilot's IRM prerequisite. This software rule applies to preliminary document inspection; it does not establish permit requirements or verify that a proposed intervention is nonstructural.
+Project documents are submitted to the FastAPI `/api/documents/analyze` endpoint. PDF/DXF parsing uses memory; DWG conversion uses a private temporary directory cleaned up after processing. Files are not saved as permanent projects. This is separate from the browser-only developer IRM parser described below. Repair, maintenance and a remodeling request containing **only `replace_floor`** can be inspected without an IRM. Other remodeling activities, mixed flooring/remodeling requests, structural modification and expansion retain the pilot's IRM prerequisite. This software rule applies to preliminary document inspection; it does not establish permit requirements or verify that a proposed intervention is nonstructural.
 
 The on-screen **document summary** describes inspection evidence and unresolved measurements. It identifies when no predio is linked. Verified scale, wall heights, opening deductions, architectural classification, corrections/recalculation and traceable measurement exports remain future work. The system does not automatically estimate material requirements, construction costs, market prices or regulatory compliance. Validation against an authorized real architectural PDF/CAD and independently checked dimensions remains pending.
 
@@ -140,7 +140,7 @@ Validate before release. Passing CI does not verify municipal service availabili
 | Comparison selection | Browser-local snapshots and client-side CSV export |
 | API | Python / FastAPI / HTTPX |
 | Spatial zoning | Shapely, pyproj, bounded PUGS tile retrieval and memory cache |
-| Experimental PDF/DXF analysis | PyMuPDF and ezdxf on the backend |
+| Experimental PDF/DXF/DWG analysis | PyMuPDF, ezdxf and a bounded local LibreDWG conversion process |
 | Hosting | GitHub Pages frontend + Render FastAPI backend |
 | Optional desktop IRM assistant | Local Python bridge + Playwright / Chromium |
 
@@ -199,7 +199,7 @@ The explorer queries its municipal ArcGIS source directly. Changing backend `QUI
 | POST | `/api/pugs/spatial-screen` | Screen up to 100 supplied parcel polygons |
 | POST | `/api/pugs/screen` | Compatibility endpoint for up to 20 identifiers; not used by advanced explorer |
 | POST | `/api/blueprints/inspect` | Basic PDF metadata and drawing/text counts |
-| POST | `/api/documents/analyze` | Experimental PDF/DXF and conditional IRM extraction |
+| POST | `/api/documents/analyze` | Experimental PDF/DXF/DWG and conditional IRM extraction |
 | POST | `/api/irm/extract` | Backend IRM extraction; not used by browser developer IRM workflow |
 
 Document endpoints enforce a **15 MB per-file limit**. Basic PDF inspection also limits documents to **100 pages**. Extraction is evidence, not verified measurements, certification or completed technical reports.

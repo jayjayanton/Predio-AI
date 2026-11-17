@@ -14,7 +14,7 @@ function ProjectGuide() {
     <h2 id="po-guide-title">Tu vivienda.<br /><em>Un proyecto con contexto.</em></h2>
     <p className="po-guide-intro">Conectar lo que sabes del inmueble con lo que muestran sus planos.</p>
     <ol className="po-project-documents">
-      <li><span className="po-file-label" aria-hidden="true">01</span><div><strong>Tus planos PDF / DXF</strong><span>Elige una actividad y revisa el archivo</span></div></li>
+      <li><span className="po-file-label" aria-hidden="true">01</span><div><strong>Tus planos PDF / DXF / DWG</strong><span>Elige una actividad y revisa el archivo</span></div></li>
       <li><span className="po-file-label" aria-hidden="true">02</span><div><strong>El predio, cuando lo necesites</strong><span>Ubicación y datos catastrales como contexto</span></div></li>
       <li><span className="po-file-label" aria-hidden="true">03</span><div><strong>El IRM, cuando corresponda</strong><span>Información urbanística para contrastar</span></div></li>
     </ol>
@@ -34,7 +34,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
           <button type="button" className="po-button po-button-secondary" onClick={onConsult}>Consultar mi predio <Arrow diagonal/></button>
         </div>
         <p className="po-hero-footnote">Para propietarios, arquitectos independientes y pequeños equipos de remodelación o construcción.</p>
-        <p className="po-release-note"><strong>Prototipo actual:</strong> consulta catastral, IRM asistido e inspección interactiva de planos PDF/DXF. <strong>En desarrollo:</strong> medidas arquitectónicas verificadas y reportes exportables. La validación con planos reales sigue pendiente.</p>
+        <p className="po-release-note"><strong>Prototipo actual:</strong> consulta catastral, IRM asistido e inspección interactiva de planos PDF, DXF o DWG. <strong>En desarrollo:</strong> medidas arquitectónicas verificadas y reportes exportables. La validación de precisión con planos reales sigue pendiente.</p>
       </div>
       <ProjectGuide/>
     </section>
@@ -82,7 +82,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
     <section className="po-workflow" aria-labelledby="po-workflow-title">
       <div className="po-section-heading"><p className="po-eyebrow">CÓMO FUNCIONA EL PILOTO</p><h2 id="po-workflow-title">Del plano a una revisión con contexto.</h2></div>
       <ol className="po-steps po-home-steps">
-        <li><span className="po-step-number">01</span><h3>Elige la actividad y aporta tu plano</h3><p>PDF vectorial o DXF autorizado. Para pintura o cambio de acabado de piso puedes empezar sin consulta predial ni IRM.</p></li>
+        <li><span className="po-step-number">01</span><h3>Elige la actividad y aporta tu plano</h3><p>PDF, DXF o DWG autorizado. Para pintura o cambio de acabado de piso puedes empezar sin consulta predial ni IRM.</p></li>
         <li><span className="po-step-number">02</span><h3>Inspecciona la geometría</h3><p>Visualiza trazos, selecciona elementos y controla capas. Abre después el resumen documental para revisar qué se extrajo.</p></li>
         <li><span className="po-step-number">03</span><h3>Completa el contexto de tu vivienda</h3><p>Vincula el predio y aporta el IRM cuando corresponda a la revisión. La solicitud de documentos municipales la haces tú o tu representante.</p></li>
       </ol>
@@ -95,7 +95,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
         <div><p><strong>Copias municipales.</strong> Quito dispone de un trámite de copias de documentos conservados por Gestión Documental y Archivos. No implica que todos los planos estén allí ni que se entreguen automáticamente por número de predio.</p>
           <a className="po-request-link" href="https://pam.quito.gob.ec/MDMQ_Tramites/Operativas/FrmFichaTramite?codtt=240" target="_blank" rel="noopener noreferrer">Consultar requisitos oficiales de copias documentales ↗</a>
           <p><strong>Qué reunir.</strong> Plantas, cortes, elevaciones, cuadro de áreas y revisiones. Consulta los formatos disponibles: no se garantiza un CAD original ni que el plano esté actualizado.</p>
-          <p><strong>Para utilizar la herramienta.</strong> Usa únicamente archivos autorizados. Un PDF vectorial o DXF permite inspeccionar geometría; los escaneos pueden requerir otro procesamiento. No cargues aquí cédulas, contraseñas ni documentos ajenos al análisis.</p>
+          <p><strong>Para utilizar la herramienta.</strong> Usa únicamente archivos autorizados en PDF, DXF o DWG. El DWG se convierte en el servidor para inspeccionar la geometría compatible; la vista puede ser parcial. Los PDF escaneados pueden requerir otro procesamiento. No cargues aquí cédulas, contraseñas ni documentos ajenos al análisis.</p>
           <p className="po-request-note">Los planos no representan necesariamente el estado actual de la casa. Consulta siempre los requisitos vigentes con la entidad responsable.</p>
         </div>
       </details>

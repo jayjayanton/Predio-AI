@@ -4,7 +4,7 @@ Review date: **17 November 2026**.
 
 ## What the preliminary presentation can establish
 
-Present the current application as an experimental workspace for understanding a home's plans and municipal context. The useful current demonstration is **choose an activity → inspect an authorized PDF/DXF → select lines and layers → review the document summary**, with an optional predio/IRM workflow.
+Present the application as an experimental workspace for understanding a home's plans and municipal context. The useful demonstration is **choose an activity → inspect an authorized PDF/DXF/DWG → review conversion and partial-view notices → select lines and layers → review the document summary**, with an optional predio/IRM workflow. DWG support must be verified on the deployed API before demonstrating a direct upload.
 
 The current software exposes document geometry. It does not yet establish architectural accuracy, verified floor/wall measurements, reliable room recognition, a permit decision or a finished technical report. Automated tests and synthetic documents exercise software behavior; they do not substitute for a real-project validation.
 
@@ -21,7 +21,7 @@ The initial conversation should be with the homeowner and a small architecture/r
 
 ## What to request for the first real test
 
-Ask the owner/architect for an authorized vector PDF or DXF of one existing room or small dwelling. If the source is DWG, request an authorized DXF export. Remove unrelated personal information. Retain the original source and revision date.
+Ask the owner/architect for an authorized vector PDF, DXF or DWG of one existing room or small dwelling. DWG can be submitted directly once the server converter is deployed. Retain the original and any independently exported PDF/DXF for comparison. Remove unrelated personal information and retain the revision date. Confirm whether the drawing describes existing conditions or a proposal.
 
 Gather a small set of independently checked dimensions and a reference area from the responsible architect or a site measurement. Record whether the drawing reflects the current building. If possible, obtain both a PDF and a DXF export of the same drawing to compare how units and geometry survive conversion.
 
@@ -31,7 +31,7 @@ For the first case, prefer a **floor surface** with a clear boundary and at leas
 
 | Check | Evidence needed | Result to record |
 | --- | --- | --- |
-| Document ingestion | Real authorized PDF/DXF; source/revision | Opens, partial extraction or rejection, with reasons |
+| Document ingestion | Real authorized PDF/DXF/DWG; source/revision | Opens, conversion notices, partial extraction or rejection, with reasons |
 | Source fidelity | Original drawing beside extracted geometry | Missing/duplicated lines, transformed blocks, curves, hidden layers or page issues |
 | Scale and units | CAD units plus dimension annotations or another independent reference | Verified, conflicting or unknown; never infer metres from screen pixels |
 | Selected surface | Reviewer-confirmed closed room boundary | Which lines belong to the room; treatment of wall thickness and exclusions |
@@ -39,7 +39,7 @@ For the first case, prefer a **floor surface** with a clear boundary and at leas
 | Correction milestone | Deliberate correction to a boundary/dimension | Dependent quantities invalidated and recalculated from the corrected version |
 | Report milestone | Source, revision, selected elements, formula and review status | Traceable output that another person can reproduce and check |
 
-Only the first two checks can be investigated with today's viewer. The scale/calculation/correction/report pipeline still requires implementation and validation. Agree an acceptable error tolerance with the intended professional user **before** evaluating results; do not invent a universal construction tolerance.
+Only the first two checks can be investigated with today's viewer. One real DWG has now been used in a local conversion/ingestion trial; its block content exceeds the selectable-view limit and includes unsupported visual types. This is a partial inspection result, not a successful measurement validation. The scale/calculation/correction/report pipeline still requires implementation and validation. Agree an acceptable error tolerance with the intended professional user **before** evaluating results; do not invent a universal construction tolerance.
 
 Record the baseline manual workflow time, inspection/correction time and any additional visit required. One successful document establishes a case result, not performance across all Quito drawings. Test a second independent drawing before broadening claims.
 

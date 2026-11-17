@@ -4,7 +4,7 @@
 
 1. Open **Analizar planos**. A predio lookup is optional for document inspection; users can link municipal context when they have the identifier.
 2. Choose **Casa** or **Departamento**, an intervention category and the relevant activities.
-3. Upload an authorized architectural **PDF or DXF**, plus an IRM when required by this inspection workflow.
+3. Upload an authorized architectural **PDF, DXF or DWG**, plus an IRM when required by this inspection workflow. The server converts DWG before extraction and reports conversion limitations.
 4. Submit to **`POST /api/documents/analyze`**. The backend returns extraction evidence and supported geometry, with units and measurements unverified.
 5. Inspect the extracted drawing in the existing viewer: switch pages, select individual or multiple primitives, show/hide available layers, zoom and pan.
 6. Open the **documentary summary** to review the files, selected activities and unresolved measurement status. This is an on-screen inspection summary, not an exported technical report.
@@ -34,8 +34,8 @@ Apartment work may also involve common property or condominium rules.
 | Capability | Status |
 | --- | --- |
 | Predio lookup, cadastral context and map | Available; depends on municipal services |
-| Building/work/activity selection and PDF/DXF upload | Available in the connected document workspace |
-| PDF/DXF metadata, tentative IRM fields and bounded vector extraction | Available through PyMuPDF/ezdxf |
+| Building/work/activity selection and PDF/DXF/DWG upload | Available in the document workspace; DWG requires the server converter installed at deployment |
+| PDF/DXF/DWG metadata, tentative IRM fields and bounded vector extraction | PyMuPDF/ezdxf, with bounded local DWG conversion and partial-view notices |
 | Interactive primitive selection, pages, available layers, zoom and pan | Available; native coordinates remain uncalibrated |
 | On-screen inspection summary | Available; does not contain verified quantities or a compliance verdict |
 | Verified scale/units and physical lengths/surfaces | Planned |
@@ -45,7 +45,7 @@ Apartment work may also involve common property or condominium rules.
 
 ## Next validation milestone
 
-Use an authorized real PDF or DXF and a manually verified reference. Begin with
+Use an authorized real PDF, DXF or DWG and a manually verified reference. Begin with
 one floor-finish task: confirm that the required geometry is available, establish
 units/scale against reliable dimensions, then compare the eventual calculated
 surface with the reference. Record omissions and corrections before expanding

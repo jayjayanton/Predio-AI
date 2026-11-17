@@ -5,7 +5,7 @@ services:
     name: predioai-api
     runtime: python
     plan: free
-    buildCommand: pip install -r backend/requirements.txt
+    buildCommand: bash backend/scripts/render-build.sh
     startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
@@ -13,3 +13,5 @@ services:
         value: 3.11.11
       - key: CORS_ORIGINS
         value: https://jayjayanton.github.io
+      - key: DWG_CONVERTER_PATH
+        value: .cad/bin/dwg2dxf

@@ -29,6 +29,9 @@ from fastapi import (
 )
 
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
+
+from .dwg_conversion import DwgConversionError, converter_available
 
 from .municipal import (
     lookup_predio,
@@ -73,7 +76,8 @@ def health():
     return {
         "status": "ok",
         "application": "PredioAI",
-        "version": "0.2.0"
+        "version": "0.2.0",
+        "dwg_conversion_available": converter_available(),
     }
 
 
@@ -384,7 +388,7 @@ async def analyze_project_documents(
     predio_number: str | None = Form(default=None),
     activities: list[str] = Form(...),
 ):
-    """Extract evidence from PDF/DXF blueprint and conditionally required IRM PDF.
+    """Extract evidence from PDF/DXF/DWG blueprint and conditionally required IRM PDF.
 
     This does not calculate dimensions, check regulatory compliance,
     or certify that an intervention is permitted.
@@ -403,7 +407,9 @@ async def analyze_project_documents(
         if len(content) > MAX_UPLOAD:
             raise HTTPException(status_code=413, detail=f"{role} exceeds 15 MB")
         try:
-            return analyze_document(content, upload.filename or "", role)
+            return await run_in_threadpool(analyze_document, content, upload.filename or "", role)
+        except DwgConversionError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 

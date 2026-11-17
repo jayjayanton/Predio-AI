@@ -15,6 +15,7 @@ import SelectionPage from './components/SelectionPage.jsx';
 import AnalyticsRoadmap from './components/AnalyticsRoadmap.jsx';
 import { SELECTION_KEY, SELECTION_LIMIT, parseSelection, selectionRecord, mergeSelection } from './selection.js';
 import { workspaceForPage, requiresIrm, documentValidationError } from './documentWorkflow.js';
+import { hasPartialExtraction, dwgConversionNotice } from './drawingExtraction.js';
 
 const ROUTES = { inicio: 'home', explorar: 'explore', predio: 'property', planos: 'blueprints', seleccion: 'selection', analitica: 'analytics' };
 const pageFromHash = () => ROUTES[window.location.hash.slice(1)] || 'home';
@@ -356,6 +357,7 @@ export default function App() {
   const [irmCopyStatus, setIrmCopyStatus] = useState('');
   const [irmBridgeBusy, setIrmBridgeBusy] = useState(false);
   const [inspection, setInspection] = useState(null);
+  const blueprintConversion = dwgConversionNotice(inspection?.blueprint);
   const [inspecting, setInspecting] = useState(false);
   const [inspectionError, setInspectionError] = useState('');
   const [documentInputVersion, setDocumentInputVersion] = useState(0);
@@ -946,7 +948,7 @@ export default function App() {
   }
 
   // ==========================================================
-  // 4. INSPECT ARCHITECTURAL PDF
+  // 4. INSPECT ARCHITECTURAL DOCUMENT
   // ==========================================================
 
   // OPTIONAL DOCUMENT ANALYSIS V2 — BEGIN
@@ -959,7 +961,8 @@ export default function App() {
     inspectionController.current = controller;
     const runId = ++inspectionRunId.current;
     let timedOut = false;
-    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 90000);
+    const requestTimeout = /\.dwg$/i.test(pdf.name) ? 120000 : 90000;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, requestTimeout);
     setInspecting(true);
     setInspection(null);
     setInspectionError('');
@@ -1032,7 +1035,7 @@ export default function App() {
         <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''} onClick={() => { setAudience('developer'); setStep('property'); }}>Información urbanística</button>
         <button type="button" onClick={() => navigate('blueprints')}>Planos de mi vivienda →</button>
       </div>}
-      {page === 'blueprints' && <section className="blueprint-intro" aria-label="Análisis de planos"><p className="eyebrow">TU VIVIENDA · TUS PLANOS</p><h1>Revisa los planos de tu vivienda.</h1><p>Empieza con un PDF o DXF autorizado. Explora sus líneas, páginas y capas; puedes vincular la información del predio cuando la necesites.</p><p className="note"><strong>Disponible hoy:</strong> inspección de documentos y geometría. Las medidas arquitectónicas verificadas y los informes exportables siguen en desarrollo.</p></section>}
+      {page === 'blueprints' && <section className="blueprint-intro" aria-label="Análisis de planos"><p className="eyebrow">TU VIVIENDA · TUS PLANOS</p><h1>Revisa los planos de tu vivienda.</h1><p>Empieza con un PDF, DXF o DWG autorizado. Explora sus líneas, páginas y capas; puedes vincular la información del predio cuando la necesites.</p><p className="note"><strong>Disponible hoy:</strong> inspección de documentos y geometría. Las medidas arquitectónicas verificadas y los informes exportables siguen en desarrollo.</p></section>}
       {audience !== 'explorer' && <nav className="workflow-nav" aria-label="Etapas del proyecto">
         {audience === 'developer' ? <>
           <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
@@ -2119,7 +2122,7 @@ export default function App() {
                   <summary>Cómo obtener el IRM para esta revisión</summary>
                   <p>Para el tipo de intervención seleccionado, prepare los siguientes documentos:</p>
                   <ol>
-                    <li><strong>Planos arquitectónicos</strong> en PDF o DXF — necesarios para analizar la geometría disponible.</li>
+                    <li><strong>Planos arquitectónicos</strong> en PDF, DXF o DWG — necesarios para analizar la geometría disponible.</li>
                     <li><strong>Informe de Regulación Metropolitana (IRM)</strong> en PDF — este piloto lo solicita para otras remodelaciones, modificaciones estructurales y ampliaciones. El cambio de acabado de piso por sí solo permite inspeccionar el plano sin IRM.</li>
                   </ol>
                   <div className="irm-quick-access">
@@ -2160,13 +2163,13 @@ export default function App() {
                 )}
 
                 <div className="document-upload">
-                  <label htmlFor="blueprint-upload"><strong>1. Adjuntar planos arquitectónicos (PDF o DXF) · requerido</strong></label>
+                  <label htmlFor="blueprint-upload"><strong>1. Adjuntar planos arquitectónicos (PDF, DXF o DWG) · requerido</strong></label>
                   <input key={`blueprint-${documentInputVersion}`} id="blueprint-upload" className="file-input"
-                    type="file" accept="application/pdf,.pdf,.dxf,application/dxf"
+                    type="file" accept="application/pdf,.pdf,.dxf,application/dxf,.dwg,image/vnd.dwg,application/acad"
                     onChange={(event) => selectDocument(event, 'blueprint')}
                   />
                   {pdf && <p className="note">Plano seleccionado: {pdf.name}</p>}
-                  <p className="note">PDF vectorial o DXF · máximo 15 MB. Convierte los DWG a DXF con autorización. Los escaneos pueden carecer de texto y líneas seleccionables; el reconocimiento de imágenes está pendiente.</p>
+                  <p className="note">PDF, DXF o DWG · máximo 15 MB. El DWG se convierte en el servidor para inspeccionar la geometría compatible; la vista puede ser parcial. Los PDF escaneados pueden carecer de texto y líneas seleccionables; el reconocimiento de imágenes está pendiente.</p>
                 </div>
 
                 {irmRequired && (
@@ -2181,7 +2184,7 @@ export default function App() {
 
                 )}
 
-                <p className="note document-privacy">Al inspeccionar, el archivo se envía al servicio de análisis y se procesa en memoria. Usa copias autorizadas sin datos personales innecesarios. Los archivos y resultados no se guardan como un proyecto permanente.</p>
+                <p className="note document-privacy">Al inspeccionar, el archivo se envía al servicio de análisis. Para convertir un DWG se crean copias temporales que se eliminan al terminar. Usa copias autorizadas sin datos personales innecesarios. Los archivos y resultados no se guardan como un proyecto permanente.</p>
                 <button type="button" className="primary-action"
                   disabled={!pdf || !activities.length || (irmRequired && !irmPdf) || inspecting}
                   onClick={inspect}
@@ -2231,10 +2234,10 @@ export default function App() {
             </section>
             <section id="drawing-workspace" className="drawing-workspace" aria-label="Área de trabajo de planos">
               <div className="section-heading">ESPACIO DE PLANOS <span>GEOMETRÍA SIN VERIFICAR</span></div>
-              {inspection && <div className="inspection-result-header"><p role="status"><strong>Archivo inspeccionado.</strong> Revisa el dibujo y sus capas antes de abrir el resumen.</p><button type="button" className="secondary" onClick={() => setStep('report')}>Ver resumen documental →</button></div>}
+              {inspection && <div className="inspection-result-header"><p role="status"><strong>{blueprintConversion?.title || 'Archivo inspeccionado.'}</strong> {blueprintConversion?.detail || 'Revisa el dibujo y sus capas antes de abrir el resumen.'}</p><button type="button" className="secondary" onClick={() => setStep('report')}>Ver resumen documental →</button></div>}
               {inspection?.blueprint?.drawing_views?.length
                 ? <BlueprintViewer key={inspection.blueprint.filename} views={inspection.blueprint.drawing_views} />
-                : <div className="empty"><strong>{inspection ? 'No se encontró geometría vectorial seleccionable.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y prueba un PDF vectorial o DXF.' : 'Adjunta un PDF vectorial o DXF y pulsa «Inspeccionar mi plano». Podrás acercar el dibujo, seleccionar líneas y mostrar u ocultar capas.'}</p><p className="note">La precisión con planos reales está pendiente de validación. No se muestran medidas en m² ni cantidades de obra.</p></div>}
+                : <div className="empty"><strong>{inspection ? 'No se encontró geometría vectorial seleccionable.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y contrasta el contenido con el archivo original.' : 'Adjunta un PDF, DXF o DWG y pulsa «Inspeccionar mi plano». Podrás acercar el dibujo, seleccionar líneas y mostrar u ocultar capas compatibles.'}</p><p className="note">La precisión con planos reales está pendiente de validación. No se muestran medidas en m² ni cantidades de obra.</p></div>}
             </section>
           </div>
         </section>
@@ -2246,8 +2249,8 @@ export default function App() {
           {!properties && <p className="note">Sin vinculación catastral: este resumen corresponde únicamente a los archivos seleccionados.</p>}
           <p className="note">Este resumen no es un informe técnico certificado, un presupuesto ni una verificación de normativa.</p>
           <div className="report-grid">
-            <div className="property"><h2>Documentos revisados</h2><p>Plano: {inspection.blueprint?.filename || pdf?.name || 'Sin archivo'}</p><p>Formato: {inspection.blueprint?.format?.toUpperCase() || 'No disponible'}</p><p>IRM: {inspection.irm ? 'Adjuntado · campos candidatos sin verificar' : 'No adjuntado'}</p><p>Actividades: {inspection.activities?.map(a => a.label).join(', ') || 'No disponible'}</p></div>
-            <div className="property"><h2>Estado de mediciones</h2><p>Geometría: {inspection.blueprint?.drawing_views?.length || 0} vista(s) extraída(s)</p><p>Unidades y escala: sin verificar</p><p>Áreas, longitudes y costos: no disponibles</p><p>Conformidad municipal: no evaluada</p></div>
+            <div className="property"><h2>Documentos revisados</h2><p>Plano: {inspection.blueprint?.filename || pdf?.name || 'Sin archivo'}</p><p>Formato: {inspection.blueprint?.format?.toUpperCase() || 'No disponible'}</p>{blueprintConversion && <p><strong>{blueprintConversion.title}</strong> {blueprintConversion.detail}</p>}<p>IRM: {inspection.irm ? 'Adjuntado · campos candidatos sin verificar' : 'No adjuntado'}</p><p>Actividades: {inspection.activities?.map(a => a.label).join(', ') || 'No disponible'}</p></div>
+            <div className="property"><h2>Estado de mediciones</h2><p>Geometría: {inspection.blueprint?.drawing_views?.length || 0} vista(s) extraída(s)</p>{inspection.blueprint?.drawing_views?.some(view => hasPartialExtraction(view.extraction)) && <p><strong>Integridad de la vista: parcial.</strong> Consulta las omisiones indicadas en el visor.</p>}<p>Unidades y escala: sin verificar</p><p>Áreas, longitudes y costos: no disponibles</p><p>Conformidad municipal: no evaluada</p></div>
           </div>
           <p className="source-note">Fuentes: archivos proporcionados por el usuario; la información extraída es preliminar y requiere revisión profesional.</p>
           <div className="report-actions"><button type="button" className="secondary" onClick={() => setStep('project')}>← Revisar planos</button><button type="button" className="secondary" onClick={() => setStep('property')}>{properties ? 'Ver información catastral' : 'Vincular predio (opcional)'}</button></div>

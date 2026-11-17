@@ -19,9 +19,9 @@ export function documentValidationError(file, role = 'blueprint') {
   const label = role === 'irm' ? 'El IRM' : 'El plano';
   if (file.size === 0) return `${label} está vacío. Selecciona otro archivo.`;
   if (file.size > MAX_DOCUMENT_BYTES) return `${label} supera el límite de 15 MB. Selecciona un archivo más pequeño.`;
-  const supported = role === 'irm' ? /\.pdf$/i : /\.(pdf|dxf)$/i;
+  const supported = role === 'irm' ? /\.pdf$/i : /\.(pdf|dxf|dwg)$/i;
   if (!supported.test(file.name)) return role === 'irm'
     ? 'Selecciona el IRM en formato PDF.'
-    : 'Selecciona un plano PDF o DXF. Los archivos DWG requieren una conversión autorizada a DXF.';
+    : 'Selecciona un plano en formato PDF, DXF o DWG.';
   return '';
 }

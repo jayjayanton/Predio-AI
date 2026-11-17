@@ -10,6 +10,29 @@ from app.main import app
 client = TestClient(app)
 
 
+@pytest.mark.parametrize("code,status", [
+    ("dwg_converter_unavailable", 503),
+    ("dwg_converter_busy", 503),
+    ("dwg_conversion_timeout", 504),
+    ("dwg_conversion_failed", 422),
+])
+def test_dwg_conversion_errors_keep_their_actionable_status(monkeypatch, code, status):
+    from app import document_analysis
+    from app.dwg_conversion import DwgConversionError
+
+    def fail(data):
+        raise DwgConversionError(code, status)
+
+    monkeypatch.setattr(document_analysis, "convert_dwg_to_dxf", fail)
+    response = client.post(
+        "/api/documents/analyze",
+        data={"building_type": "house", "work_type": "remodel", "activities": "replace_floor"},
+        files={"blueprint": ("plan.dwg", b"AC1021" + b"\0" * 100, "application/acad")},
+    )
+    assert response.status_code == status
+    assert response.json()["detail"] == DwgConversionError(code, status).message
+
+
 def pdf(text):
     doc = fitz.open()
     page = doc.new_page()

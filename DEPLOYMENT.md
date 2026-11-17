@@ -13,6 +13,51 @@ Keep the existing Pages deployment for the preliminary project demonstration. Be
 
 Render's [Free web services](https://render.com/docs/free) sleep after 15 minutes without inbound traffic; a new request can take about a minute to start them again. Check the API shortly before a demonstration and allow startup time. Render recommends Free compute for experimentation rather than production; review a paid API instance and usage costs before reliable commercial operation. The static frontend itself does not have this idle-sleep behavior.
 
+### Enable direct DWG uploads on the API
+
+The frontend's DWG option requires the native converter on the API service.
+The repository's `render.yaml` now uses:
+
+| Setting | Value |
+| --- | --- |
+| API build command, from repository root | `bash backend/scripts/render-build.sh` |
+| `DWG_CONVERTER_PATH` | `.cad/bin/dwg2dxf` |
+| Start command | Existing `uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT` |
+
+For an existing service managed outside a Blueprint, update its build command
+and environment setting in Render before redeploying. Editing `render.yaml`
+alone does not configure an independently managed service. For a managed
+Blueprint, review and sync the intended existing service; do not create a
+second API to enable this feature.
+
+The build installs Python dependencies and compiles the **pinned upstream
+LibreDWG 0.14.9086 snapshot**, verifying the release archive's SHA-256 before
+compilation. This snapshot includes fixes after the 0.14 release; it is a
+deliberate pin, not an automatic "latest" download. The source URL, checksum
+and GPL license notice are retained beside the installed executable. Review
+upstream fixes and retest before updating the pin. No converter is downloaded
+or installed in response to a user's upload. Render's [native runtimes](https://render.com/docs/native-runtimes)
+include the C compiler and make tools used by the build. An initial converter
+build takes longer than a Python-only dependency installation.
+
+For local development on Linux, run `bash backend/scripts/install_dwg_converter.sh`.
+The backend discovers the resulting `.cad/bin/dwg2dxf`, or a trusted executable
+specified by `DWG_CONVERTER_PATH`. The generated `.cad/` directory is ignored
+by Git. The current conversion adapter requires POSIX process/resource APIs.
+
+After deployment, check `/api/health` for `dwg_conversion_available: true`.
+That flag confirms an executable is present; also submit an authorized DWG
+through `/api/documents/analyze` and verify the original filename, `format:
+"dwg"`, conversion status and partial-view notices. Confirm PDF/DXF inspection
+still works. A missing converter produces a visible 503 response rather than
+pretending the file has been analyzed.
+
+Conversion allows one active job per API process and bounds time, memory,
+output size and diagnostic capture. The asynchronous API runs it outside the
+event loop. Temporary conversion files are cleaned up after processing. These
+limits support a supervised pilot; they do not replace isolation, monitoring
+and workload validation for a public commercial document-processing service.
+
 ## 2. Preserve the existing GitHub Pages demo
 
 1. In repository **Settings → Pages**, use **GitHub Actions** as the source.
@@ -43,10 +88,10 @@ Use Render's assigned `onrender.com` URL for verification before connecting a pu
 ## 4. Verify before a domain purchase or DNS change
 
 1. Confirm CI passes for the intended commit. The existing Pages workflow and backend CI run separately; a frontend deployment is not evidence that backend tests passed.
-2. At the assigned frontend URL, verify desktop and mobile navigation, a direct `/#planos` reload, property lookup, visible upload failures and a small authorized PDF/DXF inspection. Confirm assets load with no missing `/Predio-AI/` prefix or CORS failures.
+2. At the assigned frontend URL, verify desktop and mobile navigation, a direct `/#planos` reload, property lookup, visible upload failures and small authorized PDF, DXF and direct-DWG inspections. Confirm conversion/partial-view notices and assets with no missing `/Predio-AI/` prefix or CORS failures.
 3. Keep synthetic files explicitly labelled as interaction tests. Validate a real drawing against manually checked dimensions before presenting the measurement workflow as proven.
 4. Check the chosen name for existing businesses and confirm the exact domain's current availability, initial term and renewal price with a registrar. An absent website or DNS response does not establish availability. Register only after the owner chooses the name and purchase terms.
 5. Once the domain is owned, add it to the Render frontend, apply the DNS records shown for that exact service, and verify DNS and TLS using the [custom-domain guide](https://render.com/docs/custom-domains). Avoid copying DNS values from another deployment.
 6. Add the actual HTTPS custom-domain origin to the API's `CORS_ORIGINS`, redeploy the API, and repeat lookup/upload checks on that domain. Preserve the working assigned URL while checking the new one.
 
-The website remains a pilot: document parsing and interactive geometry do not establish verified measurements, construction permission or a completed technical report. Existing document processing is in memory; publishing the frontend does not add secure accounts, durable projects or team access controls.
+The website remains a pilot: document parsing and interactive geometry do not establish verified measurements, construction permission or a completed technical report. PDF/DXF parsing uses memory; DWG conversion uses temporary files. Publishing the frontend does not add secure accounts, durable projects or team access controls.

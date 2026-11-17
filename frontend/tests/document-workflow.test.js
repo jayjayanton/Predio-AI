@@ -21,9 +21,12 @@ test('only an isolated floor-finish task bypasses the remodeling IRM prerequisit
 test('uploads reject empty, oversized and unsupported documents before sending', () => {
   assert.match(documentValidationError({name: 'plano.pdf', size: 0}), /vacío/);
   assert.match(documentValidationError({name: 'plano.pdf', size: MAX_DOCUMENT_BYTES + 1}), /15 MB/);
-  assert.match(documentValidationError({name: 'plano.dwg', size: 200}), /DWG/);
+  assert.match(documentValidationError({name: 'plano.skp', size: 200}), /PDF, DXF o DWG/);
   assert.match(documentValidationError({name: 'plano.dxf', size: 200}, 'irm'), /PDF/);
+  assert.match(documentValidationError({name: 'plano.dwg', size: 200}, 'irm'), /PDF/);
   assert.equal(documentValidationError({name: 'Plano.PDF', size: MAX_DOCUMENT_BYTES}), '');
   assert.equal(documentValidationError({name: 'Plano.DXF', size: 200}), '');
+  assert.equal(documentValidationError({name: 'Plano.DWG', size: MAX_DOCUMENT_BYTES}), '');
+  assert.match(documentValidationError({name: 'plano.dwg', size: MAX_DOCUMENT_BYTES + 1}), /15 MB/);
   assert.equal(documentValidationError(null), '');
 });
