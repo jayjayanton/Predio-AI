@@ -421,6 +421,20 @@ export default function App() {
     }
   }
 
+  function clearIndividualPredioSearch() {
+    setIdentifier('');
+    setData(null);
+    setError('');
+    setStep('property');
+    setPugsData(null);
+    setPugsError('');
+    setDeveloperIrm(null);
+    setIrmExtraction(null);
+    setIrmConfirmed(false);
+    setInspection(null);
+    setIrmCopyStatus('');
+  }
+
   // Cadastral discovery: query real municipal attributes, never infer PUGS
   // classifications from cadastral land-use labels. Results are paginated.
   const CADASTRE_SEARCH='https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_a_2024/FeatureServer/0/query';
@@ -780,7 +794,10 @@ export default function App() {
             </div>
           </form>
 
-          {properties && <button type="button" className="primary-action" onClick={() => setStep('project')}>{audience === 'developer' ? 'Consultar IRM y evaluar →' : 'Iniciar proyecto →'}</button>}
+          {properties && <div className="individual-search-actions">
+            <button type="button" className="primary-action" onClick={() => setStep('project')}>{audience === 'developer' ? 'Consultar IRM y evaluar →' : 'Iniciar proyecto →'}</button>
+            <button type="button" className="secondary" onClick={clearIndividualPredioSearch}>Limpiar búsqueda</button>
+          </div>}
 
           {/* ERROR MESSAGE */}
 
