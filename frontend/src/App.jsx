@@ -607,9 +607,11 @@ export default function App() {
               <p className="note">Se muestran parroquias administrativas {searchLandClass==='urban'?'urbanas':searchLandClass==='rural'?'rurales':'urbanas y rurales'}. La clasificación PUGS del suelo se verifica por predio: una parroquia rural puede contener suelo urbano y viceversa.</p>
               <div className="parish-selector-list">
                 {(searchLandClass==='all'?['urban','rural']:[searchLandClass]).map(type=><div key={type} className="parish-selector-group"><strong>{type==='urban'?'Urbanas (32)':'Rurales (33)'}</strong>
-                  {DMQ_PARISHES[type].map(([value,label])=><label key={value} className="parish-selector-option">
-                    <input type="checkbox" className="parish-selector-checkbox" checked={searchParishes.includes(value)} onChange={e=>setSearchParishes(old=>e.target.checked?[...old,value]:old.filter(x=>x!==value))}/>{label}
-                  </label>)}
+                  {DMQ_PARISHES[type].map(([value,label])=><button key={value} type="button"
+                    className={'parish-selector-option'+(searchParishes.includes(value)?' selected':'')}
+                    aria-pressed={searchParishes.includes(value)}
+                    onClick={()=>setSearchParishes(old=>old.includes(value)?old.filter(x=>x!==value):[...old,value])}>{label}
+                  </button>)}
                 </div>)}
               </div>
             </details>
