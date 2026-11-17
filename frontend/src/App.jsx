@@ -98,11 +98,20 @@ export default function App() {
   const [detailsWidth,setDetailsWidth]=useState(420);
   const [resultsWidth,setResultsWidth]=useState(410);
   const [exploreGeometries,setExploreGeometries]=useState(null);
+  const [exploreAllGeometries,setExploreAllGeometries]=useState(null);
+  const [exploreAllOrder,setExploreAllOrder]=useState([]);
+  const [exploreMapNotice,setExploreMapNotice]=useState('');
   const [exploreSelected,setExploreSelected]=useState(null);
   const toggleExplorePredio=id=>setExploreSelected(current=>current===String(id)?null:String(id));
   const selectExplorePredioFromMap=id=>{
+    const selectedId=String(id);
     setResultsCollapsed(false);
-    setExploreSelected(current=>current===String(id)?null:String(id));
+    setExploreSelected(selectedId);
+    const position=exploreAllOrder.indexOf(selectedId);
+    if(position>=0){
+      const targetOffset=Math.floor(position/explorePageSize)*explorePageSize;
+      if(targetOffset!==exploreOffset)exploreParcels(targetOffset,exploreSort,explorePageSize,true);
+    }
   };
   // Keep GIS map selection and the matching result card synchronized.
   useEffect(()=>{
@@ -593,6 +602,7 @@ export default function App() {
     setExploreSelected(null);
     setExploreResults([]);
     setExploreGeometries(null);
+    setExploreAllGeometries(null);setExploreAllOrder([]);setExploreMapNotice('');
     setExploreCount(null);
     setExploreOffset(0);
     setExploreQueryKey('');
@@ -662,13 +672,13 @@ export default function App() {
   },[audience]);
 
   const explorePageSize=reelColumns===1?20:50;
-  async function exploreParcels(offset=0, sort=exploreSort, pageSize=explorePageSize) {
+  async function exploreParcels(offset=0, sort=exploreSort, pageSize=explorePageSize, preserveSelection=false) {
     advancedRunId.current++;
     setAdvancedBusy(false);
     setExploreError('');
     setAdvancedRows({});setAdvancedProgress('');setAdvancedError('');setAdvancedFilter('all');
-    setExploreGeometries(null);
-    setExploreSelected(null);
+    if(!preserveSelection && offset===0){setExploreAllGeometries(null);setExploreAllOrder([]);setExploreMapNotice('');}
+    if(!preserveSelection)setExploreSelected(null);
     const min=Number(searchAreaMin), max=Number(searchAreaMax);
     if(!searchAreaMin||!searchAreaMax||!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min){
       setExploreError('Ingrese un rango de superficie válido.'); return;
@@ -711,11 +721,14 @@ export default function App() {
         if(payload.error)throw new Error(payload.error.message||'Error municipal');
         return payload;
       };
+      const ordering=sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC';
+      const outFields='n_predio,clave_cata,parroquia,area_terre,area_const,frente,administra,tipo_propi,zonificaci';
       const [counts,results]=await Promise.all([
         query({returnCountOnly:'true',returnGeometry:'false'}),
-        query({outFields:'n_predio,clave_cata,parroquia,area_terre,area_const,frente,administra,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC',resultOffset:String(offset),resultRecordCount:String(pageSize)})
+        query({outFields,returnGeometry:'true',outSR:'4326',orderByFields:ordering,resultOffset:String(offset),resultRecordCount:String(pageSize)})
       ]);
-      setExploreCount(Number(counts.count||0));
+      const count=Number(counts.count||0);
+      setExploreCount(count);
       setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
       if((results.features||[]).length)requestAnimationFrame(()=>document.getElementById('predio-map-reel')?.scrollIntoView({behavior:'smooth',block:'nearest'}));
       // Convert ArcGIS rings to GeoJSON. Ring orientation is not guaranteed
@@ -729,7 +742,7 @@ export default function App() {
         }
         return inside;
       };
-      const geometries=(results.features||[]).flatMap(f=>{
+      const convertArcGISFeature=f=>{
         const rings=(f.geometry?.rings||[]).filter(r=>Array.isArray(r)&&r.length>=4);
         if(!rings.length)return [];
         const signed=ring=>ring.reduce((acc,p,i)=>{
@@ -746,8 +759,30 @@ export default function App() {
         }
         return [{type:'Feature',properties:f.attributes||{},
           geometry:{type:'MultiPolygon',coordinates:polygons}}];
-      });
+      };
+      const geometries=(results.features||[]).flatMap(convertArcGISFeature);
       setExploreGeometries({type:'FeatureCollection',features:geometries});
+      // Keep the full query overlay independent from the current card page.
+      // Limit initial loading to a safe bounded scope; never claim that
+      // partial map coverage represents every matched municipal record.
+      if(!preserveSelection && offset===0){
+        const maxMapped=1000;
+        if(count>maxMapped){
+          setExploreMapNotice(`Mapa: primeros ${maxMapped.toLocaleString('es-EC')} de ${count.toLocaleString('es-EC')} predios; refine los filtros para visualizar todos.`);
+        }
+        const mapFeatures=[...(results.features||[])];
+        const totalToMap=Math.min(count,maxMapped);
+        for(let next=pageSize;next<totalToMap;next+=200){
+          const batch=await query({outFields,returnGeometry:'true',outSR:'4326',orderByFields:ordering,
+            resultOffset:String(next),resultRecordCount:String(Math.min(200,totalToMap-next))});
+          mapFeatures.push(...(batch.features||[]));
+          if(!(batch.features||[]).length)break;
+        }
+        const allGeo=mapFeatures.flatMap(f=>convertArcGISFeature(f));
+        setExploreAllGeometries({type:'FeatureCollection',features:allGeo});
+        setExploreAllOrder(mapFeatures.map(f=>String(f.attributes?.n_predio||'')));
+        if(allGeo.length<totalToMap)setExploreMapNotice(`Mapa parcial: ${allGeo.length} de ${count} predios con geometría recuperada.`);
+      }
       setExploreOffset(offset);
       setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioEnabled?'ratio:'+constructionRatioMin+':'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone,ownershipRegime].join('|'));
     }catch(error){
@@ -1537,7 +1572,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={data} searchResults={audience==='explorer'?visibleExploreGeometries:null} selectedSearchPredio={audience==='explorer'?exploreSelected:null} onSelectSearchPredio={selectExplorePredioFromMap} />
+          <ParcelMap data={data} searchResults={audience==='explorer'?(advancedFilter==='all'?(exploreAllGeometries||visibleExploreGeometries):visibleExploreGeometries):null} selectedSearchPredio={audience==='explorer'?exploreSelected:null} onSelectSearchPredio={selectExplorePredioFromMap} />
           <div className="map-bottom">
             <span>
               Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
@@ -1560,6 +1595,7 @@ export default function App() {
               {resultsCollapsed&&<span className="collapsed-panel-caption">Predios</span>}
             </div>
             <div className="results-panel-content">
+            {exploreMapNotice&&<p className="note" role="status">{exploreMapNotice}</p>}
             {exploreCount!==null&&<button type="button" className="predio-new-query" disabled={exploreBusy} onClick={clearGISExploration}>Limpiar búsqueda · Nueva consulta ↑</button>}
             {exploreResults.length>0 ? <>
           <div className="predio-reel-heading">
