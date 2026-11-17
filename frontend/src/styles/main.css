@@ -1074,3 +1074,32 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 @media(prefers-reduced-motion:reduce) {
   .predio-flip-inner { transition:none; }
 }
+
+/* Explicit cadastral selection: purple is distinct from teal default polygons. */
+.predio-selection-controls {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:7px;
+  margin-top:7px;
+}
+.predio-selection-indicator { color:#b4d0cc; font-size:11px; }
+.predio-selection-controls .predio-clear-selection {
+  appearance:none;
+  width:auto;
+  padding:5px 9px;
+  min-height:28px;
+  border:1px solid #aa72ea;
+  border-radius:7px;
+  background:#342347;
+  color:#f1ddff;
+  font-size:11px;
+}
+.predio-selection-controls .predio-clear-selection:hover { background:#4a3066; }
+.predio-reel-card.selected,
+.dashboard-layout .predio-map-reel .predio-results-reel.icon-grid .predio-reel-card.is-flipped {
+  border-color:#ba7cff;
+}
+.predio-reel-card.selected .predio-reel-status,
+.predio-reel-card.selected .predio-icon-area,
+.predio-flip-back .predio-flip-title { color:#d7afff; }
