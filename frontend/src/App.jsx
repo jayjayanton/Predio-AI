@@ -81,6 +81,8 @@ export default function App() {
   const [searchAreaMax,setSearchAreaMax]=useState('6000');
   const [searchParishes,setSearchParishes]=useState([]);
   const [exploreResults,setExploreResults]=useState([]);
+  const [exploreGeometries,setExploreGeometries]=useState(null);
+  const [exploreSelected,setExploreSelected]=useState(null);
   const [exploreCount,setExploreCount]=useState(null);
   const [exploreBusy,setExploreBusy]=useState(false);
   const [exploreError,setExploreError]=useState('');
@@ -423,6 +425,8 @@ export default function App() {
   // Phase 1: direct cadastral GIS search. PUGS and IRM are reviewed per predio later.
   async function exploreParcels(offset=0) {
     setExploreError('');
+    setExploreGeometries(null);
+    setExploreSelected(null);
     const min=Number(searchAreaMin), max=Number(searchAreaMax);
     if(!searchAreaMin||!searchAreaMax||!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min){
       setExploreError('Ingrese un rango de superficie válido.'); return;
@@ -446,15 +450,26 @@ export default function App() {
       };
       const [counts,results]=await Promise.all([
         query({returnCountOnly:'true',returnGeometry:'false'}),
-        query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi,zonificaci',returnGeometry:'false',orderByFields:'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
+        query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
       ]);
       setExploreCount(Number(counts.count||0));
       setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
+      // ArcGIS JSON rings are converted to GeoJSON for map preview only.
+      // Esri outer rings are clockwise; preserve holes when available.
+      const geometries=(results.features||[]).filter(f=>f.geometry?.rings?.length).map(f=>{
+        const rings=f.geometry.rings;
+        const outer=[],holes=[];
+        const signed=ring=>ring.reduce((sum,p,i)=>{const q=ring[(i+1)%ring.length];return sum+p[0]*q[1]-q[0]*p[1];},0);
+        for(const ring of rings){if(signed(ring)<0)outer.push([ring]);else holes.push(ring);}
+        if(outer.length===1)outer[0].push(...holes);
+        return {type:'Feature',properties:f.attributes||{},geometry:{type:'MultiPolygon',coordinates:outer}};
+      });
+      setExploreGeometries({type:'FeatureCollection',features:geometries});
       setExploreOffset(offset);
       setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass].join('|'));
     }catch(error){
       setExploreError('No se pudo completar la consulta GIS municipal: '+error.message);
-      setExploreResults([]);setExploreCount(null);
+      setExploreResults([]);setExploreGeometries(null);setExploreCount(null);
     }finally{setExploreBusy(false);}
   }
   async function openExplorePredio(predio) {
@@ -605,8 +620,8 @@ export default function App() {
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
           <details open><summary>Ver predios encontrados ({exploreResults.length} en esta página)</summary>
             <div className="explore-result-list">
-              {exploreResults.map((p,i)=><button type="button" className="secondary" key={String(p.n_predio)+'-'+i} onClick={()=>openExplorePredio(p.n_predio)}>
-                Predio {p.n_predio} · {p.parroquia||'Sin parroquia'} · {Number(p.area_terre).toLocaleString('es-EC')} m² · Ver en mapa
+              {exploreResults.map((p,i)=><button type="button" className="secondary" key={String(p.n_predio)+'-'+i} onClick={()=>setExploreSelected(String(p.n_predio))}>
+                Predio {p.n_predio} · {p.parroquia||'Sin parroquia'} · {Number(p.area_terre).toLocaleString('es-EC')} m² · Ubicar en mapa
               </button>)}
             </div>
           </details>
@@ -1157,7 +1172,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={data} />
+          <ParcelMap data={data} searchResults={exploreGeometries} selectedSearchPredio={exploreSelected} onSelectSearchPredio={setExploreSelected} />
 
           <div className="map-bottom">
             <span>
