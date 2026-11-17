@@ -1308,24 +1308,25 @@ export default function App() {
               const fmt=value=>Number(value).toLocaleString('es-EC',{maximumFractionDigits:2});
               const ratio=validLand&&validBuilt?100*builtArea/landArea:null;
               return <button type="button" key={id+'-'+i}
-                className={'predio-reel-card'+(active?' selected':'')+(reelColumns===2&&active?' icon-expanded':'')}
+                className={'predio-reel-card'+(active?' selected':'')+(reelColumns===2&&active?' is-flipped':'')}
                 aria-pressed={active}
                 aria-expanded={reelColumns===2?active:undefined}
                 aria-label={`Predio ${id}, ${p.parroquia||'sin parroquia'}, ${validLand?fmt(landArea):'superficie no disponible'} metros cuadrados de terreno. ${hasGeometry?'Ubicar polígono en mapa':'Sin geometría disponible'}`}
                 title={`Predio ${id} · ${p.parroquia||'Sin parroquia'}`}
                 onClick={()=>toggleExplorePredio(id)}>
-                {reelColumns===2 ? <>
-                  <span className="predio-icon-symbol" aria-hidden="true">▧</span>
-                  <span className="predio-icon-id">Predio {id}</span>
-                  <span className="predio-icon-area">{validLand?fmt(landArea):'—'} m²</span>
-                  {active&&<span className="predio-icon-expanded-details">
-                    <span>{p.parroquia||'Parroquia no indicada'}</span>
-                    <span>Construcción: {validBuilt?fmt(builtArea)+' m²':'No disponible'}</span>
-                    <span>Terreno: {validLand?fmt(landArea)+' m²':'No disponible'}</span>
-                    <span>{ratio!==null?`Construcción / terreno: ${ratio.toLocaleString('es-EC',{maximumFractionDigits:1})}%`:'Relación: sin datos'}</span>
-                    <span className="predio-icon-hint">Clic nuevamente para deseleccionar</span>
-                  </span>}
-                </> : <>
+                {reelColumns===2 ? <span className="predio-flip-inner">
+                  <span className="predio-flip-front" aria-hidden={active}>
+                    <span className="predio-icon-symbol" aria-hidden="true">▧</span>
+                    <span className="predio-icon-id">Predio {id}</span>
+                    <span className="predio-icon-area">{validLand?fmt(landArea):'—'} m²</span>
+                  </span>
+                  <span className="predio-flip-back" aria-hidden={!active}>
+                    <span className="predio-flip-title">{p.parroquia||'Sin parroquia'}</span>
+                    <span>Terreno: {validLand?fmt(landArea)+' m²':'—'}</span>
+                    <span>Construido: {validBuilt?fmt(builtArea)+' m²':'—'}</span>
+                    <span>Relación: {ratio!==null?ratio.toLocaleString('es-EC',{maximumFractionDigits:1})+'%':'—'}</span>
+                  </span>
+                </span> : <>
                   <span className="predio-reel-card-top"><span>Predio {id}</span><span className="predio-reel-index">{exploreOffset+i+1}</span></span>
                   <span className="predio-reel-parish">{p.parroquia||'Parroquia no indicada'}</span>
                   <span className="predio-reel-area">{validLand?fmt(landArea):'—'} <small>m² de terreno</small></span>
