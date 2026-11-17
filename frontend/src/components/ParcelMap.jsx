@@ -249,7 +249,7 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
   const highlight=Boolean(highlightMatches&&validRange&&!advanced);
   return <>
     {features?.features?.length>0&&<GeoJSON interactive={!queryActive} className="predio-nearby-interactive"
-      key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
+      key={JSON.stringify([features.features.map(f=>f.id||f.properties?.predio),queryActive])} data={features}
       style={feature=>{
         const id=String(feature.properties?.predio??feature.id??'');
         const isSelected=selectedNearby===id;
@@ -336,6 +336,12 @@ function suppressParcelFocus(layer) {
 
 function SearchResultsLayer({results,selected,onSelect}) {
   const map=useMap();
+  // Keep the layers (and their open popup) alive when selection changes.
+  // GeoJSON data is immutable in react-leaflet, but its style prop is reactive.
+  // Only replace the layer when the actual result data changes.
+  const resultLayerKey=React.useMemo(()=>JSON.stringify(results),[results]);
+  const onSelectRef=React.useRef(onSelect);
+  useEffect(()=>{onSelectRef.current=onSelect;},[onSelect]);
   useEffect(()=>{
     if(!results?.features?.length)return;
     // The first 50 GIS results may span the whole DMQ. fitBounds(all) zooms
@@ -368,7 +374,7 @@ function SearchResultsLayer({results,selected,onSelect}) {
   },[selected,results,map]);
   if(!results?.features?.length)return null;
   return <>
-    <GeoJSON key={JSON.stringify([results.features.map(f=>f.properties?.n_predio),selected])} data={results}
+    <GeoJSON key={resultLayerKey} data={results}
       style={feature=>{
         const id=String(feature.properties?.n_predio||'');
         // An automatically detected nearest parcel is NOT a user selection.
@@ -386,7 +392,7 @@ function SearchResultsLayer({results,selected,onSelect}) {
           // A blue GIS result always becomes the active card immediately.
           // Stop the same click reaching nearby cadastral layers below it.
           if(event.originalEvent)L.DomEvent.stopPropagation(event.originalEvent);
-          onSelect?.(id);
+          onSelectRef.current?.(id);
         });
       }}/>
     <div className="leaflet-bottom leaflet-right" style={{pointerEvents:'none',marginBottom:42}}>

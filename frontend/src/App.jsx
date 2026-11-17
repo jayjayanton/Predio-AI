@@ -9,8 +9,16 @@ const WORK_ACTIVITIES = {
 import React, { useEffect, useState } from 'react';
 import ParcelMap from './components/ParcelMap.jsx';
 import BlueprintViewer from './components/BlueprintViewer.jsx';
-import { inspectIrmInBrowser } from './irmBrowser.js';
 import ResidentialSimulator from './ResidentialSimulator.jsx';
+import ProductOverview from './components/ProductOverview.jsx';
+import SelectionPage from './components/SelectionPage.jsx';
+import AnalyticsRoadmap from './components/AnalyticsRoadmap.jsx';
+import { SELECTION_KEY, SELECTION_LIMIT, parseSelection, selectionRecord } from './selection.js';
+
+const ROUTES = { inicio: 'home', explorar: 'explore', predio: 'property', seleccion: 'selection', analitica: 'analytics' };
+const pageFromHash = () => ROUTES[window.location.hash.slice(1)] || 'home';
+const routeForPage = page => Object.keys(ROUTES).find(key => ROUTES[key] === page) || 'inicio';
+const scrollBehavior = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 
 // ============================================================
 // 1. CONFIGURATION
@@ -35,7 +43,7 @@ const valuationHelp = {
   land_rate: 'Indicador calculado: avalúo del terreno dividido para el área de terreno atribuida a la unidad. No es el valor oficial AIVA por m².',
   construction_rate: 'Indicador calculado: avalúo de construcciones cubiertas dividido para el área bruta total registrada. No es una tarifa municipal oficial por m².'
 };
-const ValuationTerm = ({label, helpKey}) => <span title={valuationHelp[helpKey]}>{label} <span aria-label="Explicación" style={{cursor:'help',textDecoration:'underline dotted',textUnderlineOffset:'3px'}}>ⓘ</span></span>;
+const ValuationTerm = ({label, helpKey}) => <details className="valuation-help"><summary>{label} <span aria-hidden="true">ⓘ</span></summary><p>{valuationHelp[helpKey]}</p></details>;
 
 const formatUSD = (value) =>
   typeof value === 'number' && Number.isFinite(value)
@@ -67,8 +75,69 @@ const formatArea = (value) =>
 
 export default function App() {
 
+  const [page, setPage] = useState(pageFromHash);
   const [step, setStep] = useState('property');
-  const [audience, setAudience] = useState('remodeler');
+  const [audience, setAudience] = useState(() => pageFromHash() === 'explore' ? 'explorer' : 'developer');
+  const [savedParcels, setSavedParcels] = useState(() => {
+    try { return parseSelection(localStorage.getItem(SELECTION_KEY)); } catch { return []; }
+  });
+  const [selectionNotice, setSelectionNotice] = useState('');
+  const [storageAvailable, setStorageAvailable] = useState(true);
+  const [slowLookup, setSlowLookup] = useState(false);
+  const individualController = React.useRef(null);
+  const individualRunId = React.useRef(0);
+  const exploreRunId = React.useRef(0);
+  const irmRunId = React.useRef(0);
+  const isWorkspace = page === 'explore' || page === 'property';
+
+  function navigate(next) {
+    if (next === page) return;
+    individualController.current?.abort();
+    individualRunId.current++;
+    setLoading(false);
+    setError('');
+    setPage(next);
+    if (next === 'explore') { setAudience('explorer'); setStep('property'); }
+    if (next === 'property' && audience === 'explorer') { setAudience('developer'); setStep('property'); }
+    window.location.hash = routeForPage(next);
+  }
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const next = pageFromHash();
+      individualController.current?.abort(); individualRunId.current++; setLoading(false); setSlowLookup(false);
+      setPage(next);
+      if (next === 'explore') { setAudience('explorer'); setStep('property'); }
+      if (next === 'property') setAudience(current => current === 'explorer' ? 'developer' : current);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  useEffect(() => {
+    const titles = { home: 'Inteligencia territorial para decidir', explore: 'Explorar predios', property: 'Ficha predial', selection: 'Mi selección', analytics: 'Próxima etapa: analítica' };
+    document.title = `PredioAI | ${titles[page]}`;
+    window.scrollTo({top: 0, behavior: 'auto'});
+    document.getElementById('main-content')?.focus({preventScroll: true});
+  }, [page]);
+
+  useEffect(() => {
+    try { localStorage.setItem(SELECTION_KEY, JSON.stringify(savedParcels)); setStorageAvailable(true); }
+    catch { setStorageAvailable(false); }
+  }, [savedParcels]);
+
+  function saveParcel(parcel) {
+    const record = selectionRecord(parcel);
+    if (!record) return;
+    if (savedParcels.some(item => item.n_predio === record.n_predio)) {
+      setSelectionNotice(`El predio ${record.n_predio} ya está en tu selección.`); return;
+    }
+    if (savedParcels.length >= SELECTION_LIMIT) {
+      setSelectionNotice('Tu selección tiene 4 predios. Quita uno desde Selección para agregar otro.'); return;
+    }
+    setSavedParcels(current => [...current, record]);
+    setSelectionNotice(`Predio ${record.n_predio} guardado. Revísalo en Selección.`);
+  }
   const [developerIrm, setDeveloperIrm] = useState(null);
   const [irmExtraction, setIrmExtraction] = useState(null);
   const [irmExtracting, setIrmExtracting] = useState(false);
@@ -108,7 +177,7 @@ export default function App() {
     setResultsCollapsed(false);
     setExploreSelected(selectedId);
     const position=exploreAllOrder.indexOf(selectedId);
-    if(position>=0){
+    if(position>=0 && !exploreBusy && exploreQueryKey===explorationFilterKey){
       const targetOffset=Math.floor(position/explorePageSize)*explorePageSize;
       if(targetOffset!==exploreOffset)exploreParcels(targetOffset,exploreSort,explorePageSize,true);
     }
@@ -123,7 +192,7 @@ export default function App() {
     if(!card)return;
     // Scroll only the sidebar's card list, never the entire page/map.
     const top=card.getBoundingClientRect().top-reel.getBoundingClientRect().top+reel.scrollTop;
-    reel.scrollTo({top:Math.max(0,top-reel.clientHeight/3),behavior:'smooth'});
+    reel.scrollTo({top:Math.max(0,top-reel.clientHeight/3),behavior:scrollBehavior()});
   },[exploreSelected,exploreResults,reelColumns]);
 
   const [exploreCount,setExploreCount]=useState(null);
@@ -150,7 +219,7 @@ export default function App() {
   // Search state
   const [identifier, setIdentifier] = useState('');
   const [identifierType, setIdentifierType] =
-    useState('clave_cata');
+    useState('n_predio');
 
   // Property data
   const [data, setData] = useState(null);
@@ -235,12 +304,6 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // OPTIONAL APPRAISAL CONTACT DEMO — BEGIN
-  // Set to false or comment out the button/modal blocks to disable.
-  const [showAppraisalContact, setShowAppraisalContact] = useState(false);
-  const [appraisalMessage, setAppraisalMessage] = useState('');
-  // OPTIONAL APPRAISAL CONTACT DEMO — END
-
   // PDF inspection
   const [pdf, setPdf] = useState(null);
   const [irmPdf, setIrmPdf] = useState(null);
@@ -304,6 +367,7 @@ export default function App() {
   }
 
   async function uploadDeveloperIrm(file) {
+    const runId = ++irmRunId.current;
     setDeveloperIrm(file);
     setIrmExtraction(null);
     setIrmExtractError('');
@@ -315,7 +379,9 @@ export default function App() {
     try {
       // GitHub Pages is static: parse locally instead of calling localhost:8000.
       // The PDF never leaves the user's browser.
+      const { inspectIrmInBrowser } = await import('./irmBrowser.js');
       const body = await inspectIrmInBrowser(file);
+      if (runId !== irmRunId.current) return;
       const fields = body.candidate_irm_fields || {};
       const parsed = key => fields[key]?.raw?.replace(',', '.') || '';
       const selectedPredio = String(properties?.n_predio || '').trim();
@@ -335,15 +401,16 @@ export default function App() {
           : 'No se dispone de superficie individual verificada para este predio PH. No se sustituye por el área del lote matriz.')
         : fields.area_terreno ? 'Fuente: IRM aportado (extracción automática, sin verificar).' : cadastralAreaValue ? `Fuente: Catastro municipal (${cadastralAreaLabel}); el IRM no contenía un área reconocible.` : 'Área del predio no disponible en las fuentes.');
     } catch (err) {
-      setIrmExtractError(err?.message || "No se pudo procesar el PDF. Compruebe el formato e inténtelo de nuevo.");
+      if (runId === irmRunId.current) setIrmExtractError(err?.message || "No se pudo procesar el PDF. Compruebe el formato e inténtelo de nuevo.");
     } finally {
-      setIrmExtracting(false);
+      if (runId === irmRunId.current) setIrmExtracting(false);
     }
   }
 
   // IRM files and extracted values are intentionally ephemeral.
   // Reloading the page starts with no uploaded PDF or restored IRM extraction.
   useEffect(() => {
+    irmRunId.current++; setIrmExtracting(false);
     setDeveloperIrm(null);
     setIrmConfirmed(false);
     setIrmExtraction(null);
@@ -358,6 +425,7 @@ export default function App() {
     const predio = String(data?.features?.[0]?.properties?.n_predio || '').trim();
     setPugsData(null);
     setPugsError('');
+    setPugsLoading(false);
     if (!predio || audience !== 'developer') return;
     const controller = new AbortController();
     setPugsLoading(true);
@@ -419,54 +487,48 @@ export default function App() {
   // 3. SEARCH MUNICIPAL PROPERTY
   // ==========================================================
 
-  async function search(event) {
-    event.preventDefault();
-
-    setError('');
-    setData(null);
-    setInspection(null);
-    setStep('property');
-
-    if (!/^\d{1,25}$/.test(identifier)) {
-      setError('Ingrese un identificador numérico válido.');
-      return;
-    }
-
-    if (
-      identifierType === 'clave_cata' &&
-      identifier.length > 10
-    ) {
-      setError('La clave catastral no puede superar los 10 dígitos.');
-      return;
-    }
-
-    setLoading(true);
-
+  async function lookupPredio(type, value, openFicha = false) {
+    individualController.current?.abort();
+    const controller = new AbortController();
+    individualController.current = controller;
+    const requestId = ++individualRunId.current;
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 75000);
+    const slowTimer = setTimeout(() => setSlowLookup(true), 7000);
+    setLoading(true); setSlowLookup(false); setError('');
     try {
-      const url =
-        `${API}/api/predios/` +
-        `${identifierType}/` +
-        `${encodeURIComponent(identifier)}`;
-
-      const response = await fetch(url);
+      const response = await fetch(`${API}/api/predios/${type}/${encodeURIComponent(value)}`, {signal: controller.signal});
       const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          body.detail || 'No se pudo consultar el predio'
-        );
+      if (requestId !== individualRunId.current) return;
+      if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'No se pudo consultar el predio. Inténtalo de nuevo.');
+      if (!body.features?.length) throw new Error('No se encontró un predio con ese identificador. Revisa el número e inténtalo de nuevo.');
+      setData(body); setInspection(null); setDetailsCollapsed(false); setStep('property');
+      if (openFicha) {
+        setIdentifierType('n_predio'); setIdentifier(value);
+        setAudience('developer'); setPage('property');
+        window.location.hash = routeForPage('property');
       }
-
-      setData(body);
-
     } catch (err) {
-      setError(err.message);
+      if (requestId !== individualRunId.current || (controller.signal.aborted && !timedOut)) return;
+      setError(timedOut ? 'La consulta está tardando más de lo previsto. Inténtalo de nuevo; el servicio puede estar iniciándose.' : err.message === 'Failed to fetch' ? 'No se pudo conectar al servicio de consulta. Comprueba tu conexión e inténtalo de nuevo.' : err.message);
     } finally {
-      setLoading(false);
+      clearTimeout(timeout); clearTimeout(slowTimer);
+      if (requestId === individualRunId.current) { setLoading(false); setSlowLookup(false); }
     }
   }
 
+  async function search(event) {
+    event.preventDefault();
+    const value = identifier.trim();
+    if (!/^\d{1,25}$/.test(value)) { setError('Ingresa un identificador numérico válido.'); return; }
+    if (identifierType === 'clave_cata' && value.length > 10) { setError('La clave catastral no puede superar los 10 dígitos.'); return; }
+    setData(null); setInspection(null); setStep('property');
+    await lookupPredio(identifierType, value);
+  }
+
   function clearIndividualPredioSearch() {
+    individualController.current?.abort(); individualRunId.current++;
+    setLoading(false); setSlowLookup(false);
     setIdentifier('');
     setData(null);
     setError('');
@@ -555,35 +617,33 @@ export default function App() {
     setAdvancedError('');
     setAdvancedRows({});
     setAdvancedFilter('all');
-    setAdvancedProgress(`Preparando índice espacial para ${features.length} polígonos de esta página…`);
+    setAdvancedProgress(`Consultando la zonificación de ${features.length} predios de esta página…`);
     try{
-      // One request sends cadastral polygons already downloaded from ArcGIS.
-      // Backend downloads each PUGS geographic tile once (with cache), then
-      // uses an STRtree; no repeated lookup_predio() for each candidate.
-      const response=await fetch(`${API}/api/pugs/spatial-screen`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({features})
-      });
-      const payload=await response.json();
-      if(!response.ok)throw new Error(payload.detail||'No se pudo completar el cruce espacial PUGS (HTTP '+response.status+').');
-      if(runId!==advancedRunId.current)return;
-      const rows={};
-      for(const item of payload.results||[]){
-        rows[String(item.predio)]={...item,...getPugsHousingEvidence(item)};
+      // Respect the API's 100-feature cap even in the 200-card icon view.
+      // Keep partial batches explicitly labeled if a later batch is unavailable.
+      const rows = {};
+      let screened = 0;
+      let unavailable = 0;
+      for (let offset = 0; offset < features.length; offset += 100) {
+        if (runId !== advancedRunId.current) return;
+        const batch = features.slice(offset, offset + 100);
+        const response = await fetch(`${API}/api/pugs/spatial-screen`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({features: batch})
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : 'No se pudo completar la revisión de zonificación.');
+        if (runId !== advancedRunId.current) return;
+        for (const item of payload.results || []) rows[String(item.predio)] = {...item, ...getPugsHousingEvidence(item)};
+        screened += payload.screened || 0;
+        unavailable += (payload.results || []).filter(item => item.status === 'unavailable' || item.status === 'ambiguous').length;
+        setAdvancedRows({...rows});
+        setAdvancedProgress(`${screened} de ${features.length} predios revisados${unavailable ? ` · ${unavailable} sin resultado verificable` : ''}. ${offset + 100 < features.length ? 'Continuando con el siguiente grupo…' : 'Contrasta la evidencia con el IRM.'}`);
       }
-      setAdvancedRows(rows);
-      const unavailable=(payload.results||[]).filter(item=>item.status==='unavailable'||item.status==='ambiguous').length;
-      setAdvancedProgress(
-        `Cruce espacial: ${payload.screened||0} predios, ${payload.zone_features_indexed||0} polígonos PUGS indexados, `+
-        `${payload.spatial_tiles||0} mosaicos, ${payload.tile_requests||0} consultas municipales, `+
-        `${payload.cache_hits||0} mosaicos reutilizados`+
-        (unavailable?`; ${unavailable} predios sin resultado fiable`:'')+'.'
-      );
     }catch(error){
       if(runId===advancedRunId.current){
         setAdvancedError(error.message||'El análisis espacial PUGS no está disponible.');
-        setAdvancedProgress('Los predios catastrales siguen visibles y no se han reclasificado.');
+        setAdvancedProgress('La revisión no se completó. Los resultados disponibles son parciales; los demás predios quedan pendientes.');
       }
     }finally{
       if(runId===advancedRunId.current)setAdvancedBusy(false);
@@ -599,6 +659,7 @@ export default function App() {
     : {...exploreGeometries,features:exploreGeometries.features.filter(f=>visibleExploreIds.has(String(f.properties?.n_predio)))};
 
   function clearGISExploration() {
+    exploreRunId.current++; setExploreBusy(false);
     advancedRunId.current++;
     setAdvancedBusy(false);
     setExploreSelected(null);
@@ -612,8 +673,11 @@ export default function App() {
     setExploreError('');
     setAdvancedRows({});setAdvancedProgress('');setAdvancedError('');setAdvancedFilter('all');
     // Keep chosen filters so the user can refine rather than re-enter them.
-    requestAnimationFrame(()=>document.getElementById('predio-query-selector')?.scrollIntoView({behavior:'smooth',block:'start'}));
+    requestAnimationFrame(()=>document.getElementById('predio-query-selector')?.scrollIntoView({behavior:scrollBehavior(),block:'start'}));
   }
+
+  const selectedExploreParcel = exploreResults.find(p => String(p.n_predio) === exploreSelected)
+    || exploreAllGeometries?.features?.find(f => String(f.properties?.n_predio) === exploreSelected)?.properties;
 
   const explorationFilterKey=[
     searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),
@@ -676,12 +740,7 @@ export default function App() {
 
   const explorePageSize=reelColumns===1?listPageSize:iconPageSize;
   async function exploreParcels(offset=0, sort=exploreSort, pageSize=explorePageSize, preserveSelection=false) {
-    advancedRunId.current++;
-    setAdvancedBusy(false);
     setExploreError('');
-    setAdvancedRows({});setAdvancedProgress('');setAdvancedError('');setAdvancedFilter('all');
-    if(!preserveSelection && offset===0){setExploreAllGeometries(null);setExploreAllOrder([]);setExploreMapNotice('');}
-    if(!preserveSelection)setExploreSelected(null);
     const min=Number(searchAreaMin), max=Number(searchAreaMax);
     if(!searchAreaMin||!searchAreaMax||!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min){
       setExploreError('Ingrese un rango de superficie válido.'); return;
@@ -695,6 +754,13 @@ export default function App() {
     if(frontage!==null&&(!Number.isFinite(frontage)||frontage<0)){
       setExploreError('Ingrese un frente mínimo válido (m).');return;
     }
+    const runId = ++exploreRunId.current;
+    advancedRunId.current++;
+    setAdvancedBusy(false);
+    setExploreError('');
+    setAdvancedRows({});setAdvancedProgress('');setAdvancedError('');setAdvancedFilter('all');
+    if(!preserveSelection && offset===0){setExploreAllGeometries(null);setExploreAllOrder([]);setExploreMapNotice('');}
+    if(!preserveSelection)setExploreSelected(null);
     const clauses=['area_terre >= '+min,'area_terre <= '+max];
     // Optional maximum registered construction/land ratio, applied before
     // counting and pagination. Blank input disables this filter.
@@ -724,15 +790,16 @@ export default function App() {
         return payload;
       };
       const ordering=sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC';
-      const outFields='n_predio,clave_cata,parroquia,area_terre,area_const,frente,administra,tipo_propi,zonificaci';
+      const outFields='n_predio,clave_cata,parroquia,area_terre,area_ter_1,area_const,frente,administra,tipo_propi,zonificaci';
       const [counts,results]=await Promise.all([
         query({returnCountOnly:'true',returnGeometry:'false'}),
         query({outFields,returnGeometry:'true',outSR:'4326',orderByFields:ordering,resultOffset:String(offset),resultRecordCount:String(pageSize)})
       ]);
+      if (runId !== exploreRunId.current) return;
       const count=Number(counts.count||0);
       setExploreCount(count);
       setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
-      if((results.features||[]).length)requestAnimationFrame(()=>document.getElementById('predio-map-reel')?.scrollIntoView({behavior:'smooth',block:'nearest'}));
+      if((results.features||[]).length)requestAnimationFrame(()=>document.getElementById('predio-map-reel')?.scrollIntoView({behavior:scrollBehavior(),block:'nearest'}));
       // Convert ArcGIS rings to GeoJSON. Ring orientation is not guaranteed
       // for all municipal records; never discard a feature solely because its
       // outer ring is counterclockwise. Assign holes by containment.
@@ -777,6 +844,7 @@ export default function App() {
         for(let next=pageSize;next<totalToMap;next+=200){
           const batch=await query({outFields,returnGeometry:'true',outSR:'4326',orderByFields:ordering,
             resultOffset:String(next),resultRecordCount:String(Math.min(200,totalToMap-next))});
+          if (runId !== exploreRunId.current) return;
           mapFeatures.push(...(batch.features||[]));
           if(!(batch.features||[]).length)break;
         }
@@ -785,24 +853,20 @@ export default function App() {
         setExploreAllOrder(mapFeatures.map(f=>String(f.attributes?.n_predio||'')));
         if(allGeo.length<totalToMap)setExploreMapNotice(`Mapa parcial: ${allGeo.length} de ${count} predios con geometría recuperada.`);
       }
+      if (runId !== exploreRunId.current) return;
       setExploreOffset(offset);
       setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioMax.trim()!==''?'ratio-max:'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone,ownershipRegime].join('|'));
-      if(offset===0)setExploreSearchOpen(false);
+      if(offset===0 && count > 0)setExploreSearchOpen(false);
     }catch(error){
-      setExploreError('No se pudo completar la consulta GIS municipal: '+error.message);
+      if (runId !== exploreRunId.current) return;
+      setExploreError('No se pudo completar la búsqueda municipal. Revisa la conexión e inténtalo de nuevo.');
       setExploreResults([]);setExploreGeometries(null);setExploreCount(null);
-    }finally{setExploreBusy(false);}
+      setExploreAllGeometries(null);setExploreAllOrder([]);setExploreMapNotice('');setExploreSelected(null);
+    }finally{if (runId === exploreRunId.current) setExploreBusy(false);}
   }
   async function openExplorePredio(predio) {
-    if(!/^[0-9]+$/.test(String(predio)))return;
-    setIdentifierType('n_predio');setIdentifier(String(predio));setError('');setLoading(true);
-    try {
-      const res=await fetch(`${API}/api/predios/n_predio/${encodeURIComponent(predio)}`);
-      const json=await res.json();
-      if(!res.ok)throw new Error(json.detail||'No se pudo cargar el predio');
-      setData(json);setStep('property');
-    }catch(e){setError(String(e.message));}
-    finally{setLoading(false);}
+    if (!/^\d+$/.test(String(predio))) return;
+    await lookupPredio('n_predio', String(predio), true);
   }
 
   // ==========================================================
@@ -852,41 +916,33 @@ export default function App() {
   return (
     <div className="shell">
 
-      {/* HEADER */}
-
+      <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Ir al contenido</a>
       <header className="header">
-
-        <div className="brand">
-          <span className="brand-mark">▧</span>
-
-          <div>
-            <strong>
-              Predio<span>AI</span>
-            </strong>
-            <small>INTELIGENCIA PREDIAL</small>
-          </div>
-        </div>
-
-        <div className="header-right">
-          <span className="status-dot" />
-          Catastro municipal de Quito
-          <span className="version">MVP 0.2</span>
-        </div>
-
+        <button type="button" className="brand app-header-brand" aria-label="PredioAI · Inicio" onClick={() => navigate('home')}>
+          <span className="brand-mark" aria-hidden="true"><svg width="24" height="26" viewBox="0 0 24 26" fill="none"><path d="M3 7 12 2l9 5v12l-9 5-9-5V7Z" stroke="currentColor" strokeWidth="1.5"/><path d="m3 7 9 5 9-5M12 12v12M7.5 4.5l9 5v12" stroke="currentColor" strokeWidth="1.5"/></svg></span>
+          <span><strong>Predio<span>AI</span></strong><small>INTELIGENCIA TERRITORIAL</small></span>
+        </button>
+        <nav className="primary-nav" aria-label="Navegación principal">
+          {[['home','Inicio'],['explore','Explorar'],['property','Ficha predial'],['selection','Selección'],['analytics','Analítica']].map(([key,label]) => <button key={key} type="button" className={page === key ? 'active' : ''} aria-current={page === key ? 'page' : undefined} onClick={() => navigate(key)}>{label}{key === 'selection' && <span className="nav-count">{savedParcels.length}</span>}{key === 'analytics' && <span className="nav-soon">Próxima etapa</span>}</button>)}
+        </nav>
+        <div className="header-context"><span>Quito, Ecuador</span><span className="version">Versión piloto</span></div>
       </header>
 
-      <section className="audience-switch" aria-label="Tipo de usuario">
-        <h2>¿Cómo desea utilizar PredioAI?</h2>
-        <div className="audience-options">
-          <button type="button" aria-pressed={audience === 'remodeler'} className={audience === 'remodeler' ? 'active' : ''}
-            onClick={() => { setAudience('remodeler'); setStep('property'); setInspection(null); }}>Propietarios y remodeladores</button>
-          <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''}
-            onClick={() => { setAudience('developer'); setStep('property'); setInspection(null); }}>Nueva construcción y terrenos</button>
-          <button type="button" aria-pressed={audience === 'explorer'} className={audience === 'explorer' ? 'active' : ''}
-            onClick={() => { setAudience('explorer'); setStep('property'); setInspection(null); setData(null); }}>Explorar predios</button>
-        </div>
-        <p className="note">{audience === 'explorer' ? 'Explore y compare predios por GIS. Después puede consultar su clasificación PUGS de forma progresiva.' : audience === 'developer' ? 'Consulte un predio concreto, su IRM y el potencial de construcción.' : 'Consulte su predio y revise planos para mantenimiento y remodelaciones.'}</p>
-      </section>
+      <main id="main-content" className="workspace-main" tabIndex={-1}>
+      {page === 'home' && <ProductOverview onExplore={() => navigate('explore')} onConsult={() => navigate('property')} onAnalytics={() => navigate('analytics')} />}
+      {page === 'selection' && <SelectionPage records={savedParcels} onExplore={() => navigate('explore')} onOpen={openExplorePredio} onRemove={id => { setSavedParcels(current => current.filter(p => p.n_predio !== id)); setSelectionNotice(`Predio ${id} retirado de la selección.`); }} loading={loading} error={error} storageAvailable={storageAvailable} />}
+      {page === 'analytics' && <AnalyticsRoadmap onExplore={() => navigate('explore')} onSelection={() => navigate('selection')} />}
+      {isWorkspace && <>
+      {loading && <div className="lookup-progress" role="status">{slowLookup ? 'El servicio está iniciándose o consultando fuentes municipales. La ficha aparecerá al terminar.' : 'Consultando la ficha del predio…'}</div>}
+      <div className="workspace-context-bar">
+        <div className="workspace-breadcrumb"><span>Espacio de trabajo</span><span aria-hidden="true">/</span><strong>{audience === 'explorer' ? 'Explorar predios' : properties ? `Predio ${properties.n_predio}` : 'Ficha predial'}</strong></div>
+        <span className="workspace-stage">{audience === 'explorer' ? '01 · Descubrir' : step === 'property' ? '02 · Conocer' : '03 · Revisar'}</span>
+      </div>
+      {audience !== 'explorer' && <div className="workspace-mode-switch" role="group" aria-label="Tipo de revisión">
+        <span>Revisar para</span>
+        <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''} onClick={() => { setAudience('developer'); setStep('property'); }}>Desarrollo inmobiliario</button>
+        <button type="button" aria-pressed={audience === 'remodeler'} className={audience === 'remodeler' ? 'active' : ''} onClick={() => { setAudience('remodeler'); setStep('property'); }}>Remodelación y planos</button>
+      </div>}
       {audience !== 'explorer' && <nav className="workflow-nav" aria-label="Etapas del proyecto">
         <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
         <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
@@ -894,14 +950,14 @@ export default function App() {
       </nav>}
       {audience === 'explorer' && <section id="predio-query-selector" className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
         <div className="gis-search-heading">
-          <h2>Explorar predios · Selección GIS</h2>
+          <div><span className="eyebrow">BÚSQUEDA TERRITORIAL</span><h1>Encuentra el predio que estás buscando.</h1></div>
           <button type="button" className="secondary gis-edit-search" aria-expanded={exploreSearchOpen}
             onClick={()=>setExploreSearchOpen(open=>!open)}>{exploreSearchOpen?'Ocultar criterios':'Editar búsqueda'}</button>
         </div>
         {!exploreSearchOpen&&<div className="gis-search-summary" role="status">
           <strong>{searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'}</strong>
           <span>{searchAreaMin}–{searchAreaMax} m²</span>
-          <span>{searchParishes.length?searchParishes.length+' parroquias':'Todas las parroquias'}</span>
+          <span>{searchParishes.length?searchParishes.length===1?([...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].find(([code])=>code===searchParishes[0])?.[1]||searchParishes[0]):searchParishes.length+' parroquias':'Todas las parroquias'}</span>
           <span>{[
             constructionRatioMax.trim()!=='' ,minimumFrontage.trim()!=='',
             administrativeZone!=='all',ownershipRegime!=='all'
@@ -910,18 +966,12 @@ export default function App() {
             <span>{exploreCount.toLocaleString('es-EC')} predios coincidentes</span>}
           {exploreQueryKey&&exploreQueryKey!==explorationFilterKey&&<span>Criterios modificados · buscar de nuevo</span>}
         </div>}
-        {exploreSearchOpen&&<div className="gis-search-form">
-        <p className="note gis-search-intro">Consulte el catastro por área, suelo y parroquia. El cruce PUGS es opcional y se ejecuta después.</p>
-        <div className="development-filter-grid">
+        {exploreSearchOpen&&<form className="gis-search-form" onSubmit={event => { event.preventDefault(); exploreParcels(0); }}>
+        <p className="note gis-search-intro">Define la superficie y la ubicación. Después, abre una ficha o guarda los predios que quieras comparar.</p>
+        <div className="search-preset-row" role="group" aria-label="Ubicaciones rápidas"><span>Empieza por una zona</span>{[['CUMBAYA','Cumbayá'],['TUMBACO','Tumbaco'],['PUEMBO','Puembo']].map(([value,label]) => <button type="button" key={value} className={searchParishes.length===1&&searchParishes[0]===value?'active':''} aria-pressed={searchParishes.length===1&&searchParishes[0]===value} onClick={() => {setSearchLandClass('all');setSearchParishes([value]);}}>{label}</button>)}<button type="button" onClick={() => {setSearchParishes([]);setSearchLandClass('all');}}>Todo Quito</button></div>
+        <div className="development-filter-grid gis-primary-fields">
           <label>Clasificación del suelo
-            <select value={searchLandClass} onChange={e=>{
-              const next=e.target.value;
-              setSearchLandClass(next);
-              if(next!=='all'){
-                const allowed=new Set(DMQ_PARISHES[next].map(([code])=>code));
-                setSearchParishes(previous=>previous.filter(code=>allowed.has(code)));
-              }
-            }}>
+            <select value={searchLandClass} onChange={e=>setSearchLandClass(e.target.value)}>
               <option value="all">Urbano y rural</option>
               <option value="urban">Suelo urbano</option>
               <option value="rural">Suelo rural</option>
@@ -933,6 +983,28 @@ export default function App() {
           <label>Superficie máxima (m²)
             <input type="number" min="1" step="1" value={searchAreaMax} onChange={e=>setSearchAreaMax(e.target.value)} />
           </label>
+          <fieldset className="parish-selector">
+            <legend>Parroquias / sectores ({searchParishes.length || 'todas'})</legend>
+            <details><summary>{searchParishes.length === 1 ? [...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].find(([code]) => code === searchParishes[0])?.[1] || searchParishes[0] : searchParishes.length ? `${searchParishes.length} parroquias seleccionadas` : 'Todas las parroquias'}</summary>
+              <div className="parish-selector-actions">
+                <button type="button" onClick={()=>setSearchParishes([])} className="parish-action">Deseleccionar todas</button>
+                <button type="button" onClick={()=>setSearchParishes(old=>[...new Set([...old,...VALLEY_PARISHES])])} className="parish-action">Agregar valles</button>
+                <button type="button" onClick={()=>setSearchParishes([...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].map(x=>x[0]))} className="parish-action">
+                  Seleccionar las 65
+                </button>
+              </div>
+              <p className="note">La parroquia y la clasificación del suelo son filtros independientes. Una parroquia rural puede contener suelo urbano; la zonificación se verifica por predio.</p>
+              <div className="parish-selector-list">
+                {['urban','rural'].map(type=><div key={type} className="parish-selector-group"><strong>{type==='urban'?'Urbanas (32)':'Rurales (33)'}</strong>
+                  {DMQ_PARISHES[type].map(([value,label])=><button key={value} type="button"
+                    className={'parish-selector-option'+(searchParishes.includes(value)?' selected':'')}
+                    aria-pressed={searchParishes.includes(value)}
+                    onClick={()=>setSearchParishes(old=>old.includes(value)?old.filter(x=>x!==value):[...old,value])}>{label}
+                  </button>)}
+                </div>)}
+              </div>
+            </details>
+          </fieldset>
           <details className="gis-optional-filters" open={exploreOptionalOpen}
             onToggle={e=>setExploreOptionalOpen(e.currentTarget.open)}>
             <summary>Filtros adicionales <span>{[
@@ -970,31 +1042,7 @@ export default function App() {
             </div>
           </details>
         </div>
-        <div className="development-filter-grid">
-          <fieldset className="parish-selector">
-            <legend>Parroquias / sectores ({searchParishes.length || 'todas'})</legend>
-            <details><summary>Seleccionar múltiples parroquias</summary>
-              <div className="parish-selector-actions">
-                <button type="button" onClick={()=>setSearchParishes([])} className="parish-action">Deseleccionar todas</button>
-                {searchLandClass!=='urban'&&<button type="button" onClick={()=>setSearchParishes(old=>[...new Set([...old,...VALLEY_PARISHES])])} className="parish-action">Agregar valles</button>}
-                <button type="button" onClick={()=>setSearchParishes((searchLandClass==='all'?[...DMQ_PARISHES.urban,...DMQ_PARISHES.rural]:DMQ_PARISHES[searchLandClass]).map(x=>x[0]))} className="parish-action">
-                  Seleccionar {searchLandClass==='all'?'65':searchLandClass==='urban'?'32':'33'}
-                </button>
-              </div>
-              <p className="note">Se muestran parroquias administrativas {searchLandClass==='urban'?'urbanas':searchLandClass==='rural'?'rurales':'urbanas y rurales'}. La clasificación PUGS del suelo se verifica por predio: una parroquia rural puede contener suelo urbano y viceversa.</p>
-              <div className="parish-selector-list">
-                {(searchLandClass==='all'?['urban','rural']:[searchLandClass]).map(type=><div key={type} className="parish-selector-group"><strong>{type==='urban'?'Urbanas (32)':'Rurales (33)'}</strong>
-                  {DMQ_PARISHES[type].map(([value,label])=><button key={value} type="button"
-                    className={'parish-selector-option'+(searchParishes.includes(value)?' selected':'')}
-                    aria-pressed={searchParishes.includes(value)}
-                    onClick={()=>setSearchParishes(old=>old.includes(value)?old.filter(x=>x!==value):[...old,value])}>{label}
-                  </button>)}
-                </div>)}
-              </div>
-            </details>
-          </fieldset>
-        </div>
-        <button type="button" className="primary-action" disabled={exploreBusy} onClick={()=>exploreParcels(0)}>{exploreBusy?'Consultando catastro…':'Buscar predios que coinciden'}</button>
+        <div className="search-form-actions"><button type="submit" className="primary-action" disabled={exploreBusy}>{exploreBusy?'Consultando catastro…':'Buscar predios →'}</button><button type="button" className="reset-search" disabled={exploreBusy} onClick={() => {setSearchAreaMin('500');setSearchAreaMax('6000');setSearchParishes([]);setSearchLandClass('all');setConstructionRatioMax('');setMinimumFrontage('');setAdministrativeZone('all');setOwnershipRegime('all');}}>Restablecer filtros</button></div>
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
          {exploreCount!==null&&exploreQueryKey===explorationFilterKey&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
@@ -1004,13 +1052,14 @@ export default function App() {
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
           ? <p className="error" role="alert">Indique un rango de superficies válido, con mínimo menor o igual al máximo.</p>
           : null}
-        </div>}
+        </form>}
+        {exploreQueryKey && exploreQueryKey !== explorationFilterKey && <p className="source-note" role="status">Modificaste los criterios. Pulsa «Buscar predios» para actualizar los resultados y el mapa.</p>}
         {exploreCount!==null&&<details className="advanced-landcover" open={advancedOpen} onToggle={event=>setAdvancedOpen(event.currentTarget.open)}>
-          <summary>Análisis avanzado · PUGS y vivienda <span className="advanced-status">Etapa 3 · Cruce espacial</span></summary>
+          <summary>Revisar zonificación <span className="advanced-status">PUGS · Opcional</span></summary>
           <div className="advanced-landcover-content">
-            <p>Primero se muestran los predios del catastro GIS. Después puede comparar los <strong>{exploreResults.length} predios de la página actual</strong> con la capa municipal PUGS 2024 mediante mosaicos geográficos y un índice espacial, sin bloquear el mapa.</p>
+            <p>Primero se muestran los predios del catastro GIS. Después puede comparar los <strong>{exploreResults.length} predios de la página actual</strong> con la zonificación municipal PUGS 2024 y revisar la evidencia disponible de uso residencial.</p>
             <button type="button" className="primary-action" disabled={advancedBusy||!exploreResults.length}
-              onClick={screenAdvancedPugs}>{advancedBusy?'Analizando PUGS…':'Cruzar predios con PUGS (índice espacial)'}</button>
+              onClick={screenAdvancedPugs}>{advancedBusy?'Analizando PUGS…':'Revisar zonificación de esta página'}</button>
             {advancedProgress&&<p role="status">{advancedProgress}</p>}
             {advancedError&&<p role="alert" className="error">{advancedError}</p>}
             {Object.keys(advancedRows).length>0&&<>
@@ -1034,7 +1083,7 @@ export default function App() {
       {/* MAIN LAYOUT */}
 
 
-      {step === 'property' && (      <main className={'layout dashboard-layout'+(detailsCollapsed?' details-collapsed':'')+(audience==='explorer'?' explorer-layout':'')}
+      {step === 'property' && (      <section className={'layout dashboard-layout'+(detailsCollapsed?' details-collapsed':'')+(audience==='explorer'?' explorer-layout':'')}
         style={{'--details-width':(detailsCollapsed?54:detailsWidth)+'px','--results-width':(resultsCollapsed?54:resultsWidth)+'px'}}>
 
         {audience !== 'explorer' && <aside className="sidebar details-sidebar">
@@ -1050,15 +1099,10 @@ export default function App() {
             QUITO · ECUADOR
           </div>
 
-          <h1>
-            Cada predio.
-            <br />
-            <em>Toda su información.</em>
-          </h1>
+          <h1>Una ficha.<br /><em>Más contexto.</em></h1>
 
           <p className="intro">
-            Consulte los límites catastrales, las superficies
-            del predio y su documentación arquitectónica.
+            Consulta los datos catastrales y reúne la evidencia para evaluar un inmueble.
           </p>
 
           {/* PROPERTY SEARCH */}
@@ -1076,10 +1120,8 @@ export default function App() {
               id="identifierType"
               value={identifierType}
               onChange={(event) => {
+                clearIndividualPredioSearch();
                 setIdentifierType(event.target.value);
-                setIdentifier('');
-                setData(null);
-                setError('');
               }}
             >
               <option value="clave_cata">
@@ -1095,6 +1137,9 @@ export default function App() {
 
               <input
                 id="predio"
+                aria-label={identifierType === 'clave_cata' ? 'Clave catastral' : 'Número de predio'}
+                autoComplete="off"
+                maxLength={identifierType === 'clave_cata' ? 10 : 25}
                 value={identifier}
                 onChange={(event) =>
                   setIdentifier(event.target.value)
@@ -1121,6 +1166,7 @@ export default function App() {
 
           {properties && <div className="individual-search-actions">
             <button type="button" className="primary-action" onClick={() => setStep('project')}>{audience === 'developer' ? 'Consultar IRM y evaluar →' : 'Iniciar proyecto →'}</button>
+            <button type="button" className="secondary" disabled={savedParcels.some(p => p.n_predio === String(properties.n_predio))} onClick={() => saveParcel(properties)}>{savedParcels.some(p => p.n_predio === String(properties.n_predio)) ? 'Guardado en selección ✓' : 'Guardar en selección +'}</button>
             <button type="button" className="secondary" onClick={clearIndividualPredioSearch}>Limpiar búsqueda</button>
           </div>}
 
@@ -1149,7 +1195,7 @@ export default function App() {
 
               <div className="property-title">
                 <strong>
-                  Clave {properties.clave_cata}
+                  Predio {properties.n_predio}
                 </strong>
 
                 <span>
@@ -1294,7 +1340,7 @@ export default function App() {
                 <div className="section-heading">
                   AVALÚO CATASTRAL <span>2024</span>
                 </div>
-                <p className="note">Pase el cursor sobre ⓘ para ver qué significa cada componente. Los conceptos comunales son valores asignados a la unidad por su alícuota, no áreas privadas adicionales.</p>
+                <p className="note">Pulsa cada concepto para ver su explicación. Los conceptos comunales son valores asignados a la unidad por su alícuota, no áreas privadas adicionales.</p>
                 <dl>
                   <dt><ValuationTerm label="Avalúo del terreno" helpKey="avaluo_ter" /></dt>
                   <dd>{formatUSD(properties.avaluo_ter)}</dd>
@@ -1413,33 +1459,6 @@ export default function App() {
 
               <p className="source-note">Fuente: Catastro municipal de Quito · atributos catastrales 2024. Geometría 2026 cuando esté disponible. Valores de referencia, no precios comerciales.</p>
 
-              {/* OPTIONAL PROFESSIONAL SERVICES — BEGIN */}
-              <div className="section-heading">
-                SERVICIOS PROFESIONALES <span>DEMO</span>
-              </div>
-              <p className="note">
-                ¿Necesita conocer el valor comercial del inmueble?
-                Solicite una valoración profesional.
-              </p>
-              {/* OPTIONAL PROFESSIONAL SERVICES — END */}
-
-              {/* OPTIONAL PROFESSIONAL APPRAISAL BUTTON — BEGIN
-                  Demo only: no real professional, contact details, or submission.
-                  Comment out this button to remove the entry point.
-              */}
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  const predio = properties?.n_predio || properties?.predio || identifier || 'XXXX';
-                  setAppraisalMessage(`Hola, desearía tener una inspección formal del predio (${predio}).`);
-                  setShowAppraisalContact(true);
-                }}
-              >
-                Solicitar avalúo profesional
-              </button>
-              {/* OPTIONAL PROFESSIONAL APPRAISAL BUTTON — END */}
-
               {/* MULTIPLE MATCHES */}
 
               {data.features.length > 1 && (
@@ -1470,103 +1489,6 @@ export default function App() {
           onKeyDown={event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();setDetailsWidth(w=>Math.max(270,Math.min(680,w+(event.key==='ArrowRight'?20:-20))));}}}
           onPointerDown={event=>startPanelResize(event,'details')} />}
 
-        {/* OPTIONAL PROFESSIONAL APPRAISAL CONTACT SHEET — BEGIN
-            Placeholder contact only; never imply this person is verified.
-            Comment out this block together with the button to disable.
-        */}
-        {showAppraisalContact && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="appraisal-contact-title"
-            style={{
-              position: 'fixed', inset: 0, zIndex: 2000,
-              background: 'rgba(0,0,0,0.65)',
-              display: 'flex', alignItems: 'center',
-              justifyContent: 'center', padding: 20
-            }}
-            onClick={() => setShowAppraisalContact(false)}
-          >
-            <div
-              className="property"
-              style={{
-                background: '#fff', color: '#17202a',
-                borderRadius: 14, padding: 24,
-                width: '100%', maxWidth: 480,
-                maxHeight: '85vh', overflowY: 'auto'
-              }}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="section-heading">
-                CONTACTO PARA AVALÚO <span>DEMOSTRACIÓN</span>
-              </div>
-              <h2 id="appraisal-contact-title">John Doe</h2>
-              <p><strong>Ingeniero civil · Perito avaluador (ejemplo)</strong></p>
-              <p className="note">
-                Perfil ficticio para demostrar el servicio. No es un
-                profesional verificado ni una oferta de avalúo real.
-              </p>
-              <dl>
-                <dt>Especialidad</dt><dd>Avalúos comerciales de terrenos y edificaciones</dd>
-                <dt>Zona de atención</dt><dd>Quito y valles (ejemplo)</dd>
-                <dt>Predio de interés</dt>
-                <dd>{properties?.n_predio || properties?.predio || identifier || '—'}</dd>
-                <dt>Clave catastral</dt>
-                <dd>{properties?.clave_cata || '—'}</dd>
-                <dt>Clasificación del suelo</dt><dd>{landClassification}</dd>
-                <dt>Correo electrónico (ficticio)</dt>
-                <dd>john.doe.predioai.demo@gmail.com</dd>
-                <dt>Teléfono Ecuador (ficticio)</dt>
-                <dd>099 000 0000</dd>
-                <dt>Honorarios</dt><dd>Por cotizar</dd>
-              </dl>
-              {/* OPTIONAL PRE-FILLED MESSAGE — BEGIN
-                  Editable draft only. No messages are sent.
-              */}
-              <label htmlFor="appraisal-message" style={{display: 'block', marginTop: 16}}>
-                <strong>Mensaje para solicitar inspección</strong>
-              </label>
-              <textarea
-                id="appraisal-message"
-                value={appraisalMessage}
-                onChange={(event) => setAppraisalMessage(event.target.value)}
-                rows={4}
-                style={{
-                  boxSizing: 'border-box', width: '100%', padding: 12,
-                  marginTop: 8, marginBottom: 12, borderRadius: 8,
-                  border: '1px solid #a9b0b8', font: 'inherit',
-                  background: '#fff', color: '#17202a'
-                }}
-              />
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  if (navigator.clipboard?.writeText) {
-                    navigator.clipboard.writeText(appraisalMessage).catch(() => {});
-                  }
-                }}
-              >
-                Copiar mensaje
-              </button>
-              {/* OPTIONAL PRE-FILLED MESSAGE — END */}
-              <p className="note">
-                Los datos de contacto son inventados y no deben utilizarse
-                para enviar solicitudes reales.
-              </p>
-              <p className="note">
-                Próximamente: solicitud de cotización y contacto con
-                profesionales habilitados. Este prototipo no envía datos.
-              </p>
-              <button type="button" className="secondary"
-                onClick={() => setShowAppraisalContact(false)}>
-                Cerrar ficha
-              </button>
-            </div>
-          </div>
-        )}
-        {/* OPTIONAL PROFESSIONAL APPRAISAL CONTACT SHEET — END */}
-
         {/* MAP */}
 
         <section className={'map-section'+(resultsCollapsed?' results-collapsed':'')}
@@ -1575,7 +1497,7 @@ export default function App() {
           <div className="predio-map-pane">
           <div className="map-top">
             <span className="live">
-              ● MAPA INTERACTIVO
+              MAPA CATASTRAL
             </span>
 
             <span>
@@ -1583,7 +1505,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={data} searchResults={audience==='explorer'?(advancedFilter==='all'?(exploreAllGeometries||visibleExploreGeometries):visibleExploreGeometries):null} selectedSearchPredio={audience==='explorer'?exploreSelected:null} onSelectSearchPredio={selectExplorePredioFromMap} />
+          <ParcelMap data={audience === 'explorer' ? null : data} searchResults={audience==='explorer'?(advancedFilter==='all'?(exploreAllGeometries||visibleExploreGeometries):visibleExploreGeometries):null} selectedSearchPredio={audience==='explorer'?exploreSelected:null} onSelectSearchPredio={selectExplorePredioFromMap} />
           <div className="map-bottom">
             <span>
               Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
@@ -1606,21 +1528,28 @@ export default function App() {
               {resultsCollapsed&&<span className="collapsed-panel-caption">Predios</span>}
             </div>
             <div className="results-panel-content">
+            {error && <p className="error" role="alert">{error}</p>}
+            {exploreError && <p className="error" role="alert">{exploreError}</p>}
             {exploreMapNotice&&<p className="note" role="status">{exploreMapNotice}</p>}
             {exploreCount!==null&&<button type="button" className="predio-new-query" disabled={exploreBusy} onClick={clearGISExploration}>Limpiar búsqueda · Nueva consulta ↑</button>}
+            {exploreSelected && <section className="selection-detail" aria-label="Predio seleccionado">
+              <div><span className="eyebrow">PREDIO SELECCIONADO</span><strong>Predio {exploreSelected}</strong><p>{selectedExploreParcel?.parroquia || 'Quito'}{selectedExploreParcel?.area_terre != null ? ` · ${formatArea(Number(selectedExploreParcel.area_terre))} de lote` : ''}</p></div>
+              <div className="selection-actions"><button type="button" className="primary-action" disabled={loading} onClick={() => openExplorePredio(exploreSelected)}>{loading ? 'Abriendo ficha…' : 'Abrir ficha →'}</button>
+              <button type="button" className="secondary" disabled={!selectedExploreParcel || savedParcels.some(p => p.n_predio === exploreSelected)} onClick={() => saveParcel(selectedExploreParcel)}>{savedParcels.some(p => p.n_predio === exploreSelected) ? 'Guardado en selección ✓' : 'Guardar en selección +'}</button></div>
+            </section>}
             {exploreResults.length>0 ? <>
           <div className="predio-reel-heading">
             <div>
-              <strong>Explorar predios</strong>
+              <strong>{exploreCount?.toLocaleString('es-EC')} predios encontrados</strong>
               {Object.keys(advancedRows).length>0&&<p className="note">PUGS: {Object.keys(advancedRows).length} comparados · filtro: {advancedFilter==='all'?'Todos':advancedFilter} · {visibleExploreResults.length} visibles</p>}
               <div className="predio-selection-controls">
                 <span className="predio-selection-indicator">{exploreSelected?'Seleccionado: '+exploreSelected:'Ningún predio seleccionado'}</span>
                 {exploreSelected&&<button type="button" className="predio-clear-selection" onClick={()=>setExploreSelected(null)}>Quitar selección</button>}
               </div>
-              <p className="note">Seleccione una tarjeta para ubicarla en el mapa. El cruce PUGS es opcional y se inicia desde Análisis avanzado.</p>
+              <p className="note">Selecciona una tarjeta para ver el predio en el mapa y abrir su ficha.</p>
             </div>
             <label className="predio-reel-sort">Ordenar por
-              <select value={exploreSort} onChange={e=>{
+              <select value={exploreSort} disabled={exploreBusy} onChange={e=>{
                 const next=e.target.value;
                 setExploreSort(next);
                 exploreParcels(0,next);
@@ -1642,17 +1571,17 @@ export default function App() {
             </label>
             <div className="predio-card-view" role="group" aria-label="Distribución de tarjetas">
               <span>Vista</span>
-              <button type="button" className={reelColumns===1?'active':''} aria-pressed={reelColumns===1} onClick={()=>{if(reelColumns!==1){setReelColumns(1);if(exploreCount!==null)exploreParcels(0,exploreSort,listPageSize);}}}><span aria-hidden="true">☰ </span>Lista</button>
-              <button type="button" className={reelColumns===2?'active':''} aria-pressed={reelColumns===2} onClick={()=>{if(reelColumns!==2){setReelColumns(2);if(exploreCount!==null)exploreParcels(0,exploreSort,iconPageSize);}}}><span aria-hidden="true">▦ </span>Iconos</button>
+              <button type="button" disabled={exploreBusy} className={reelColumns===1?'active':''} aria-pressed={reelColumns===1} onClick={()=>{if(reelColumns!==1){setReelColumns(1);if(exploreCount!==null)exploreParcels(0,exploreSort,listPageSize);}}}><span aria-hidden="true">☰ </span>Lista</button>
+              <button type="button" disabled={exploreBusy} className={reelColumns===2?'active':''} aria-pressed={reelColumns===2} onClick={()=>{if(reelColumns!==2){setReelColumns(2);if(exploreCount!==null)exploreParcels(0,exploreSort,iconPageSize);}}}><span aria-hidden="true">▦ </span>Iconos</button>
             </div>
           </div>
           <nav className="predio-reel-pagination" aria-label="Navegar páginas de predios">
-            <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0}
+            <button type="button" className="secondary" disabled={exploreBusy||exploreQueryKey!==explorationFilterKey||exploreOffset===0}
               onClick={()=>exploreParcels(Math.max(0,exploreOffset-explorePageSize))}>Anterior</button>
             <span className="predio-reel-page" aria-live="polite">
               {exploreCount===null?'Sin resultados':`${(exploreResults.length?exploreOffset+1:0).toLocaleString('es-EC')}–${(exploreOffset+exploreResults.length).toLocaleString('es-EC')} / ${exploreCount.toLocaleString('es-EC')}`}
             </span>
-            <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+explorePageSize>=exploreCount}
+            <button type="button" className="secondary" disabled={exploreBusy||exploreQueryKey!==explorationFilterKey||exploreCount===null||exploreOffset+explorePageSize>=exploreCount}
               onClick={()=>exploreParcels(exploreOffset+explorePageSize)}>Siguientes {explorePageSize}</button>
           </nav>
           {advancedFilter!=='all'&&visibleExploreResults.length===0&&<p className="note">No hay coincidencias indicativas para esta clasificación entre los predios de la página actual. Pruebe otro filtro o consulte el IRM.</p>}
@@ -1660,6 +1589,7 @@ export default function App() {
             {visibleExploreResults.map((p,i)=>{
               const id=String(p.n_predio);
               const active=exploreSelected===id;
+              const resultIsPH=String(p.tipo_propi||'').trim().toUpperCase()==='PROPIEDAD HORIZONTAL';
               const hasGeometry=Boolean(exploreGeometries?.features?.some(f=>String(f.properties?.n_predio)===id));
               const landArea=p.area_terre===null||p.area_terre===undefined?null:Number(p.area_terre);
               const builtArea=p.area_const===null||p.area_const===undefined?null:Number(p.area_const);
@@ -1691,7 +1621,7 @@ export default function App() {
                 </span> : <>
                   <span className="predio-reel-card-top"><span>Predio {id}</span><span className="predio-reel-index">{exploreOffset+i+1}</span></span>
                   <span className="predio-reel-parish">{p.parroquia||'Parroquia no indicada'}</span>
-                  <span className="predio-reel-area">{validLand?fmt(landArea):'—'} <small>m² de terreno</small></span>
+                  <span className="predio-reel-area">{validLand?fmt(landArea):'—'} <small>{resultIsPH?'m² de lote matriz':'m² de terreno'}</small></span>
                   <span className="predio-reel-area-comparison">
                     <span>Área construida <strong>{validBuilt?fmt(builtArea)+' m²':'No disponible'}</strong></span>
                     <span>Construcción / terreno <strong>{ratio!==null?ratio.toLocaleString('es-EC',{maximumFractionDigits:1})+'%':'No disponible'}</strong></span>
@@ -1704,17 +1634,19 @@ export default function App() {
             })}
           </div>
           <nav className="predio-reel-pagination" aria-label="Navegar páginas de predios">
-            <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0}
+            <button type="button" className="secondary" disabled={exploreBusy||exploreQueryKey!==explorationFilterKey||exploreOffset===0}
               onClick={()=>exploreParcels(Math.max(0,exploreOffset-explorePageSize))}>Anterior</button>
             <span className="predio-reel-page" aria-live="polite">
               {exploreCount===null?'Sin resultados':`${(exploreResults.length?exploreOffset+1:0).toLocaleString('es-EC')}–${(exploreOffset+exploreResults.length).toLocaleString('es-EC')} / ${exploreCount.toLocaleString('es-EC')}`}
             </span>
-            <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+explorePageSize>=exploreCount}
+            <button type="button" className="secondary" disabled={exploreBusy||exploreQueryKey!==explorationFilterKey||exploreCount===null||exploreOffset+explorePageSize>=exploreCount}
               onClick={()=>exploreParcels(exploreOffset+explorePageSize)}>Siguientes {explorePageSize}</button>
           </nav>
-            </> : <div className="predio-reel-empty">
-              <strong>Explorar predios</strong>
-              <p>Seleccione los criterios y pulse «Buscar predios que coinciden». Aquí aparecerán las tarjetas de los predios encontrados para ubicarlos en el mapa.</p>
+            </> : <div className="predio-reel-empty explorer-empty" role="status">
+              <span className="empty-map-symbol" aria-hidden="true">▧</span>
+              <strong>{exploreBusy ? 'Buscando coincidencias…' : exploreError ? 'La búsqueda no pudo completarse' : exploreCount === 0 ? 'No encontramos coincidencias' : 'El territorio, a tu alcance.'}</strong>
+              <p>{exploreBusy ? 'Consultando atributos y límites catastrales. Puedes seguir explorando el mapa.' : exploreError ? 'Tus criterios se conservan. Pulsa Buscar predios para intentarlo de nuevo.' : exploreCount === 0 ? 'Amplía el rango de superficie o quita algún filtro para explorar más alternativas.' : 'Define tus criterios y busca. Aquí verás los predios para revisar su ficha o agregarlos a tu selección.'}</p>
+              {exploreCount === 0 && <button type="button" className="secondary" onClick={() => {setExploreSearchOpen(true); document.getElementById('predio-query-selector')?.scrollIntoView({behavior:scrollBehavior()});}}>Ajustar criterios</button>}
             </div>}
             </div>
           </div>}
@@ -1724,12 +1656,12 @@ export default function App() {
 
         </section>
 
-      </main>)}
+      </section>)}
       {step === 'project' && properties && audience === 'developer' && (
-        <main className="workspace-page">
+        <section className="workspace-page">
           <div className="workspace-heading"><div>
             <span className="eyebrow">NUEVA CONSTRUCCIÓN · PASO 2</span>
-            <h1>Potencial de construcción del predio {properties.n_predio || identifier}</h1>
+            <h1>Evaluación preliminar · Predio {properties.n_predio || identifier}</h1>
             <p>Seleccione si desea construir en un predio individual o evaluar un terreno para desarrollar varios lotes.</p>
           </div></div>
           <section className="property">
@@ -1740,7 +1672,7 @@ export default function App() {
               <button type="button" className={landGoal === 'develop' ? 'active' : ''} aria-pressed={landGoal === 'develop'}
                 onClick={() => {setLandGoal('develop');setDevelopmentType('multiple');}}>Desarrollar terreno / varios lotes</button>
             </div>
-            <h3>Datos catastrales obtenidos del API municipal</h3>
+            <h3>Datos del catastro municipal</h3>
             <dl>
               <dt>Régimen de propiedad</dt><dd>{lotProfile.ownership}</dd>
               <dt>Estado del lote (catastro)</dt><dd>{lotProfile.status}</dd>
@@ -1770,7 +1702,7 @@ export default function App() {
               <button type="button" className="secondary" onClick={copyIrmPredio}>Copiar número</button>
             </div>
             {irmCopyStatus && <p role="status" className="note">{irmCopyStatus}</p>}
-            <button type="button" className="secondary" disabled={irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consultar IRM con Playwright (escritorio)'}</button>
+            <button type="button" className="secondary" disabled={irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consulta asistida en escritorio'}</button>
                     <a className="irm-open-link" href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf" target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
             <p className="note">Complete el CAPTCHA manualmente. La consulta asistida requiere iniciar el puente local en su computadora. Si no está disponible, utilice el enlace oficial y pegue el número manualmente.</p>
             <details><summary>Consulta asistida desde computadora</summary>
@@ -2021,10 +1953,10 @@ export default function App() {
 
 
           <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
-        </main>
+        </section>
       )}
       {step === 'project' && properties && audience === 'remodeler' && (
-        <main className="workspace-page">
+        <section className="workspace-page">
           <div className="workspace-heading"><div><span className="eyebrow">PASO 2 · CONFIGURACIÓN</span><h1>Proyecto para predio {properties.n_predio || identifier}</h1><p className="note">Seleccione las actividades, adjunte planos e IRM y revise los elementos gráficos extraídos.</p></div><button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button></div>
           <div className="project-layout">
             <section className="project-controls">
@@ -2103,12 +2035,12 @@ export default function App() {
                         Copiar número
                       </button>
                     </div>
-                    <button type="button" className="secondary" disabled={irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consultar IRM con Playwright (escritorio)'}</button>
+                    <button type="button" className="secondary" disabled={irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consulta asistida en escritorio'}</button>
                     <a className="irm-open-link"
                       href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
                       target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
                     {irmCopyStatus && <p className="note" role="status">{irmCopyStatus}</p>}
-                    <p className="note">Para rellenar automáticamente el predio, inicie el puente local y pulse «Consultar IRM con Playwright». Si no está instalado, use «Copiar número» y el enlace oficial. El CAPTCHA siempre se completa manualmente.</p>
+                    <p className="note">Para rellenar automáticamente el predio, inicie el puente local y pulse «Consulta asistida en escritorio». Si no está instalado, use «Copiar número» y el enlace oficial. El CAPTCHA siempre se completa manualmente.</p>
                   </div>
                   <details className="irm-desktop-guide">
                     <summary>Alternativa experimental: consulta IRM asistida en computadora</summary>
@@ -2201,10 +2133,10 @@ export default function App() {
                 : <div className="empty">Adjunte un plano PDF vectorial o DXF y pulse «Inspeccionar documentos» para explorar la geometría. Los planos escaneados no permiten esta selección.</div>}
             </section>
           </div>
-        </main>
+        </section>
       )}
       {step === 'report' && inspection && audience === 'remodeler' && (
-        <main className="report-page">
+        <section className="report-page">
           <span className="eyebrow">PASO 3 · RESULTADO PRELIMINAR</span>
           <h1>Revisión documental del predio {properties?.n_predio || identifier}</h1>
           <p className="note">Este resumen no es un informe técnico certificado, un presupuesto ni una verificación de normativa.</p>
@@ -2214,10 +2146,12 @@ export default function App() {
           </div>
           <p className="source-note">Fuentes: archivos proporcionados por el usuario; la información extraída es preliminar y requiere revisión profesional.</p>
           <div className="report-actions"><button type="button" className="secondary" onClick={() => setStep('project')}>← Revisar planos</button><button type="button" className="secondary" onClick={() => setStep('property')}>Ver información catastral</button></div>
-        </main>
+        </section>
       )}
 
-      <section className="property sources-methodology" aria-label="Fuentes de datos y metodología">
+      </>}
+
+      {page !== 'home' && <section className="property sources-methodology" aria-label="Fuentes de datos y metodología">
         <details className="sources-methodology-details">
           <summary><span>Fuentes de datos y metodología</span><span className="sources-methodology-hint">Ver fuentes y criterios</span></summary>
           <div className="sources-methodology-body">
@@ -2239,15 +2173,14 @@ export default function App() {
         <p className="note">Cuando existan diferencias entre catastro, IRM y PUGS, prevalece la necesidad de verificar la normativa y documentación vigente ante el Municipio.</p>
           </div>
         </details>
-      </section>
+      </section>}
+      </main>
+      {selectionNotice && <div className="selection-notice" role="status"><span>{selectionNotice}</span><button type="button" aria-label="Cerrar aviso" onClick={() => setSelectionNotice('')}>×</button></div>}
+      {!storageAvailable && <p className="storage-note" role="status">El navegador no permite guardar la selección. Se conservará solo durante esta sesión.</p>}
 
       {/* FOOTER */}
 
-      <footer>
-        PredioAI · Prototipo de investigación ·
-        Se deben verificar la precisión y los permisos
-        de reutilización de los datos municipales.
-      </footer>
+      <footer className="app-footer"><span><strong>PredioAI</strong> · Inteligencia territorial para decidir.</span><span>Quito · Versión piloto · Fuentes municipales identificadas</span></footer>
 
     </div>
   );
