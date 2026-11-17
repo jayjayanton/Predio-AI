@@ -1280,3 +1280,14 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
   .gis-optional-grid { grid-template-columns:1fr; }
   .gis-ratio-field { grid-column:auto; }
 }
+
+/* Hide native number input spinner arrows (hover/focus), keep numeric typing. */
+.development-search-criteria input[type="number"]::-webkit-inner-spin-button,
+.development-search-criteria input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance:none;
+  margin:0;
+}
+.development-search-criteria input[type="number"] {
+  appearance:textfield;
+  -moz-appearance:textfield;
+}
