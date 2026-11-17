@@ -118,6 +118,7 @@ export default function App() {
   const [advancedError,setAdvancedError]=useState('');
   const [advancedFilter,setAdvancedFilter]=useState('all');
   const [advancedOpen,setAdvancedOpen]=useState(false);
+  const advancedRunId=React.useRef(0);
   const [pugsData, setPugsData] = useState(null);
   const [pugsLoading, setPugsLoading] = useState(false);
   const [pugsError, setPugsError] = useState('');
@@ -502,7 +503,7 @@ export default function App() {
     const zones=result.zones||[];
     const found=new Set();
     for(const z of zones){
-      for(const value of [z.cod_edi_es,z.unidad_viv]){
+      for(const value of [z.cod_edi_es,z.unidad_viv,z.edifi_ba,z.edifi_gm]){
         const raw=String(value||'').toUpperCase();
         const matches=raw.match(/(^|[^A-Z])(VU|VB|VM)(?=$|[^A-Z])/g)||[];
         for(const token of matches){
@@ -519,7 +520,12 @@ export default function App() {
 
   async function screenAdvancedPugs() {
     const ids=[...new Set(exploreResults.map(p=>String(p.n_predio||'')).filter(id=>/^\d+$/.test(id)))];
+    const runId=++advancedRunId.current;
     if(!ids.length)return;
+    if(API.includes('localhost') && !['localhost','127.0.0.1'].includes(window.location.hostname)){
+      setAdvancedError('El análisis PUGS requiere un backend público configurado mediante VITE_API_URL. La búsqueda GIS sigue disponible.');
+      return;
+    }
     setAdvancedBusy(true);
     setAdvancedError('');
     setAdvancedRows({});
@@ -536,6 +542,7 @@ export default function App() {
         });
         if(!response.ok)throw new Error('Servicio PUGS no disponible (HTTP '+response.status+').');
         const payload=await response.json();
+        if(runId!==advancedRunId.current)return;
         for(const item of payload.results||[])rows[String(item.predio)]={...item,...getPugsHousingEvidence(item)};
         done+=group.length;
         setAdvancedRows({...rows});
@@ -545,7 +552,7 @@ export default function App() {
       setAdvancedError(error.message||'No se pudo analizar PUGS.');
       setAdvancedProgress(`Cruce parcial: ${done} de ${ids.length} predios; los restantes siguen pendientes.`);
     }finally{
-      setAdvancedBusy(false);
+      if(runId===advancedRunId.current)setAdvancedBusy(false);
     }
   }
 
@@ -558,6 +565,8 @@ export default function App() {
     : {...exploreGeometries,features:exploreGeometries.features.filter(f=>visibleExploreIds.has(String(f.properties?.n_predio)))};
 
   function clearGISExploration() {
+    advancedRunId.current++;
+    setAdvancedBusy(false);
     setExploreSelected(null);
     setExploreResults([]);
     setExploreGeometries(null);
@@ -571,6 +580,8 @@ export default function App() {
   }
 
   async function exploreParcels(offset=0, sort=exploreSort) {
+    advancedRunId.current++;
+    setAdvancedBusy(false);
     setExploreError('');
     setAdvancedRows({});setAdvancedProgress('');setAdvancedError('');setAdvancedFilter('all');
     setExploreGeometries(null);
@@ -1439,6 +1450,7 @@ export default function App() {
             <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+50>=exploreCount}
               onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
           </nav>
+          {advancedFilter!=='all'&&visibleExploreResults.length===0&&<p className="note">No hay coincidencias indicativas para esta clasificación entre los predios de la página actual. Pruebe otro filtro o consulte el IRM.</p>}
           <div id="predio-results-reel" className={'predio-results-reel '+(reelColumns===2?'icon-grid':'one-column')} role="group" aria-label="Resultados catastrales ordenados">
             {visibleExploreResults.map((p,i)=>{
               const id=String(p.n_predio);
