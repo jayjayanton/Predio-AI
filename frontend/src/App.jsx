@@ -81,6 +81,12 @@ export default function App() {
   const [searchAreaMax,setSearchAreaMax]=useState('6000');
   const [searchHousingType,setSearchHousingType]=useState('all');
   const [searchOccupation,setSearchOccupation]=useState('all');
+  const [searchParish,setSearchParish]=useState('all');
+  const [exploreResults,setExploreResults]=useState([]);
+  const [exploreCount,setExploreCount]=useState(null);
+  const [exploreBusy,setExploreBusy]=useState(false);
+  const [exploreError,setExploreError]=useState('');
+  const [exploreOffset,setExploreOffset]=useState(0);
   const [pugsData, setPugsData] = useState(null);
   const [pugsLoading, setPugsLoading] = useState(false);
   const [pugsError, setPugsError] = useState('');
@@ -407,6 +413,53 @@ export default function App() {
     }
   }
 
+  // Cadastral discovery: query real municipal attributes, never infer PUGS
+  // classifications from cadastral land-use labels. Results are paginated.
+  const CADASTRE_SEARCH='https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_a_2024/FeatureServer/0/query';
+  const VALLEY_PARISHES=['CUMBAYA','TUMBACO','PUEMBO','PIFO','TABABELA','YARUQUI','CHECA','EL QUINCHE','GUAYLLABAMBA','NAYON','ZAMBIZA'];
+  async function exploreParcels(offset=0) {
+    setExploreError('');
+    const min=Number(searchAreaMin),max=Number(searchAreaMax);
+    if(!searchAreaMin||!searchAreaMax||min<=0||max<min){setExploreError('Ingrese un rango de superficie válido.');return;}
+    if(searchLandClass!=='all'||searchHousingType!=='all'||searchOccupation!=='all'){
+      setExploreError('Los filtros urbano/rural, VU/VB/VM y ocupación requieren el cruce PUGS. Seleccione «Todos» en esos filtros para consultar los resultados catastrales por área y parroquia.');return;
+    }
+    const areaWhere='area_terre >= '+min+' AND area_terre <= '+max;
+    const where=areaWhere+(searchParish==='all'?'':searchParish==='valley'
+      ?' AND ('+VALLEY_PARISHES.map(x=>"UPPER(parroquia) = '"+x+"'").join(' OR ')+')'
+      :" AND UPPER(parroquia) = '"+searchParish+"'");
+    setExploreBusy(true);
+    try {
+      const query=async extra=>{
+        const params=new URLSearchParams({f:'json',where,...extra});
+        const res=await fetch(CADASTRE_SEARCH+'?'+params);
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const json=await res.json();
+        if(json.error)throw new Error(json.error.message||'Error municipal');
+        return json;
+      };
+      const [counts,results]=await Promise.all([
+        query({returnCountOnly:'true',returnGeometry:'false'}),
+        query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi',returnGeometry:'false',orderByFields:'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
+      ]);
+      setExploreCount(Number(counts.count||0));
+      setExploreResults((results.features||[]).map(x=>x.attributes||{}));
+      setExploreOffset(offset);
+    }catch(e){setExploreError('No se pudo completar la consulta municipal: '+e.message);setExploreResults([]);setExploreCount(null);}
+    finally{setExploreBusy(false);}
+  }
+  async function openExplorePredio(predio) {
+    if(!/^\\d+$/.test(String(predio)))return;
+    setIdentifierType('n_predio');setIdentifier(String(predio));setError('');setLoading(true);
+    try {
+      const res=await fetch(`${API}/api/predios/n_predio/${encodeURIComponent(predio)}`);
+      const json=await res.json();
+      if(!res.ok)throw new Error(json.detail||'No se pudo cargar el predio');
+      setData(json);setStep('property');
+    }catch(e){setError(String(e.message));}
+    finally{setLoading(false);}
+  }
+
   // ==========================================================
   // 4. INSPECT ARCHITECTURAL PDF
   // ==========================================================
@@ -489,7 +542,7 @@ export default function App() {
       </section>
       {audience === 'developer' && <section className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
         <h2>Exploración de terrenos · Criterios de selección</h2>
-        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Puede resaltar coincidencias preliminares por superficie geométrica en el mapa (zoom 16+). Los filtros de clasificación y edificabilidad requieren un cruce PUGS antes de confirmar coincidencias.</p>
+        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. Los filtros urbanísticos requieren validación PUGS.</p>
         <div className="development-filter-grid">
           <label>Clasificación del suelo
             <select value={searchLandClass} onChange={e=>setSearchLandClass(e.target.value)}>
@@ -522,6 +575,32 @@ export default function App() {
             </select>
           </label>
         </div>
+        <div className="development-filter-grid">
+          <label>Parroquia / sector
+            <select value={searchParish} onChange={e=>setSearchParish(e.target.value)}>
+              <option value="all">Todo el DMQ</option>
+              <option value="valley">Valles orientales (parroquias seleccionadas)</option>
+              {['CUMBAYA','TUMBACO','PUEMBO','PIFO','TABABELA','YARUQUI','CHECA','EL QUINCHE','GUAYLLABAMBA','NAYON','ZAMBIZA'].map(p=><option key={p} value={p}>{p}</option>)}
+            </select>
+          </label>
+        </div>
+        <button type="button" className="primary-action" disabled={exploreBusy} onClick={()=>exploreParcels(0)}>{exploreBusy?'Consultando catastro…':'Buscar predios que coinciden'}</button>
+        {exploreError&&<p role="alert" className="error">{exploreError}</p>}
+        {exploreCount!==null&&<div className="explore-results" aria-live="polite">
+          <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
+          <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
+          <details open><summary>Ver predios encontrados ({exploreResults.length} en esta página)</summary>
+            <div className="explore-result-list">
+              {exploreResults.map((p,i)=><button type="button" className="secondary" key={String(p.n_predio)+'-'+i} onClick={()=>openExplorePredio(p.n_predio)}>
+                Predio {p.n_predio} · {p.parroquia||'Sin parroquia'} · {Number(p.area_terre).toLocaleString('es-EC')} m² · Ver en mapa
+              </button>)}
+            </div>
+          </details>
+          <div style={{display:'flex',gap:10,marginTop:10}}>
+            <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0} onClick={()=>exploreParcels(Math.max(0,exploreOffset-50))}>Anterior</button>
+            <button type="button" className="secondary" disabled={exploreBusy||exploreOffset+50>=exploreCount} onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
+          </div>
+        </div>}
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
           ? <p className="error" role="alert">Indique un rango de superficies válido, con mínimo menor o igual al máximo.</p>
           : <p className="note">Perfil seleccionado: {searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'} · {Number(searchAreaMin).toLocaleString('es-EC')}–{Number(searchAreaMax).toLocaleString('es-EC')} m² · {searchHousingType==='all'?'Cualquier asignación de vivienda':searchHousingType} · Ocupación {searchOccupation==='all'?'sin restricción seleccionada':searchOccupation}. Para analizar un predio concreto, utilice la consulta catastral y su IRM.</p>}
@@ -1064,7 +1143,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={data} criteria={audience === 'developer' ? {landClass:searchLandClass,min:searchAreaMin,max:searchAreaMax,housingType:searchHousingType,occupation:searchOccupation} : null} />
+          <ParcelMap data={data} />
 
           <div className="map-bottom">
             <span>
