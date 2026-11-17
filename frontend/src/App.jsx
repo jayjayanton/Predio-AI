@@ -846,6 +846,41 @@ export default function App() {
           <label>Superficie máxima (m²)
             <input type="number" min="1" step="1" value={searchAreaMax} onChange={e=>setSearchAreaMax(e.target.value)} />
           </label>
+          <fieldset className="gis-optional-filters">
+            <legend>Filtros catastrales opcionales</legend>
+            <div className="gis-optional-grid">
+              <div className="gis-ratio-field">
+                <label className="gis-option-toggle">
+                  <input type="checkbox" checked={constructionRatioEnabled} onChange={e=>setConstructionRatioEnabled(e.target.checked)}/>
+                  Relación construcción / terreno (%)
+                </label>
+                <div className="gis-ratio-inputs">
+                  <label>Mínimo (%)
+                    <input type="number" min="0" step="0.1" disabled={!constructionRatioEnabled}
+                      value={constructionRatioMin} onChange={e=>setConstructionRatioMin(e.target.value)}/>
+                  </label>
+                  <label>Máximo (%)
+                    <input type="number" min="0" step="0.1" disabled={!constructionRatioEnabled}
+                      value={constructionRatioMax} onChange={e=>setConstructionRatioMax(e.target.value)}/>
+                  </label>
+                </div>
+                <p className="note">Área construida total ÷ terreno registrado. Puede superar 100%; no equivale a COS ni a huella edificada. Los registros sin ambas áreas se excluyen solamente al activar este filtro.</p>
+              </div>
+              <label>Frente mínimo del terreno (m)
+                <input type="number" min="0" step="0.1" placeholder="Sin mínimo"
+                  value={minimumFrontage} onChange={e=>setMinimumFrontage(e.target.value)}/>
+              </label>
+              <label>Administración zonal
+                <select value={administrativeZone} onChange={e=>setAdministrativeZone(e.target.value)}>
+                  <option value="all">Todas las administraciones</option>
+                  {administrativeZoneOptions.map(zone=><option key={zone} value={zone}>{zone}</option>)}
+                  {administrativeZone!=='all'&&!administrativeZoneOptions.includes(administrativeZone)&&
+                    <option value={administrativeZone}>{administrativeZone}</option>}
+                </select>
+                {administrativeZoneError&&<span role="status" className="gis-zone-error">{administrativeZoneError}</span>}
+              </label>
+            </div>
+          </fieldset>
 
 
         </div>
@@ -877,7 +912,7 @@ export default function App() {
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
          {exploreCount!==null&&exploreQueryKey===explorationFilterKey&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
-          <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
+          <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie, parroquia y los filtros catastrales opcionales activos; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
 
         </div>}
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
