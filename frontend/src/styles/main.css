@@ -382,3 +382,19 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .predio-reel-status { margin-top:auto; font-size:12px; font-weight:650; color:#42d6c3; }
 .predio-reel-card.selected .predio-reel-status { color:#ffd17c; }
 @media(max-width:600px) { .predio-reel-heading { flex-wrap:wrap; } .predio-reel-card { flex-basis:78vw; width:78vw; max-width:250px; } }
+
+/* Keep the GIS results reel visibly attached to the map workspace. */
+.map-section:has(.predio-map-reel) { display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+.map-section:has(.predio-map-reel) .parcel-map-wrapper { flex:0 0 auto; height:600px; min-height:600px; }
+.map-section .predio-map-reel { position:relative; z-index:2; background:#10262b; color:#eaf2f1; border-top:1px solid #355258; padding:14px 18px 8px; min-width:0; }
+.predio-map-reel .predio-reel-heading { margin:0 0 10px; }
+.predio-map-reel .predio-results-reel { max-width:100%; }
+.predio-reel-empty { padding:10px 4px 14px; color:#d5e7e4; }
+.predio-reel-empty strong { font-size:15px; }
+.predio-reel-empty p { font-size:12px; line-height:1.5; margin:5px 0 0; color:#a8c4c0; }
+.map-section:has(.predio-map-reel) .map-bottom { bottom:auto; top:550px; }
+@media(max-width:600px) {
+  .map-section:has(.predio-map-reel) .parcel-map-wrapper { height:auto; min-height:0; }
+  .map-section .predio-map-reel { padding:12px; }
+  .map-section:has(.predio-map-reel) .map-bottom { top:395px; bottom:auto; }
+}
