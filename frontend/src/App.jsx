@@ -489,7 +489,7 @@ export default function App() {
       </section>
       {audience === 'developer' && <section className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
         <h2>Exploración de terrenos · Criterios de selección</h2>
-        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Estos filtros preparan el perfil de búsqueda; todavía no ejecutan una búsqueda masiva ni sustituyen la zonificación oficial de cada predio.</p>
+        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Puede resaltar coincidencias preliminares por superficie geométrica en el mapa (zoom 16+). Los filtros de clasificación y edificabilidad requieren un cruce PUGS antes de confirmar coincidencias.</p>
         <div className="development-filter-grid">
           <label>Clasificación del suelo
             <select value={searchLandClass} onChange={e=>setSearchLandClass(e.target.value)}>
@@ -1064,7 +1064,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={data} />
+          <ParcelMap data={data} criteria={audience === 'developer' ? {landClass:searchLandClass,min:searchAreaMin,max:searchAreaMax,housingType:searchHousingType,occupation:searchOccupation} : null} />
 
           <div className="map-bottom">
             <span>
