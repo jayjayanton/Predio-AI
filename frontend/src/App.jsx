@@ -1095,7 +1095,10 @@ export default function App() {
 
           </div>
         </aside>
-        <div className="panel-resize-handle details-resize-handle" role="separator" aria-label="Ajustar ancho del panel de información" aria-orientation="vertical" onPointerDown={event=>startPanelResize(event,'details')} />
+        <div className="panel-resize-handle details-resize-handle" role="separator" aria-label="Ajustar ancho del panel de información" aria-orientation="vertical"
+          tabIndex={0} aria-valuemin={270} aria-valuemax={680} aria-valuenow={detailsWidth}
+          onKeyDown={event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();setDetailsWidth(w=>Math.max(270,Math.min(680,w+(event.key==='ArrowRight'?20:-20))));}}}
+          onPointerDown={event=>startPanelResize(event,'details')} />
 
         {/* OPTIONAL PROFESSIONAL APPRAISAL CONTACT SHEET — BEGIN
             Placeholder contact only; never imply this person is verified.
@@ -1221,7 +1224,10 @@ export default function App() {
             </span>
           </div>
           </div>
-          {audience === 'developer' && !resultsCollapsed && <div className="panel-resize-handle results-resize-handle" role="separator" aria-label="Ajustar ancho del explorador" aria-orientation="vertical" onPointerDown={event=>startPanelResize(event,'results')} />}
+          {audience === 'developer' && !resultsCollapsed && <div className="panel-resize-handle results-resize-handle" role="separator" aria-label="Ajustar ancho del explorador" aria-orientation="vertical"
+            tabIndex={0} aria-valuemin={270} aria-valuemax={680} aria-valuenow={resultsWidth}
+            onKeyDown={event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();setResultsWidth(w=>Math.max(270,Math.min(680,w+(event.key==='ArrowLeft'?20:-20))));}}}
+            onPointerDown={event=>startPanelResize(event,'results')} />}
           {audience === 'developer' && <div className="predio-map-reel" id="predio-map-reel">
             <div className="results-panel-tools">
               <button type="button" className="panel-collapse-button" aria-expanded={!resultsCollapsed}
@@ -1288,7 +1294,7 @@ export default function App() {
               onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
           </nav>
             </> : <div className="predio-reel-empty">
-              <strong>Explorador de predios</strong>
+              <strong>Explorar predios</strong>
               <p>Seleccione los criterios y pulse «Buscar predios que coinciden». Aquí aparecerán las tarjetas de los predios encontrados para ubicarlos en el mapa.</p>
             </div>}
             </div>
