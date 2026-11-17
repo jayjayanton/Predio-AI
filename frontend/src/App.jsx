@@ -96,7 +96,7 @@ export default function App() {
   const [detailsCollapsed,setDetailsCollapsed]=useState(false);
   const [resultsCollapsed,setResultsCollapsed]=useState(false);
   const [detailsWidth,setDetailsWidth]=useState(420);
-  const [resultsWidth,setResultsWidth]=useState(350);
+  const [resultsWidth,setResultsWidth]=useState(410);
   const [exploreGeometries,setExploreGeometries]=useState(null);
   const [exploreSelected,setExploreSelected]=useState(null);
   const toggleExplorePredio=id=>setExploreSelected(current=>current===String(id)?null:String(id));
@@ -661,7 +661,8 @@ export default function App() {
     return ()=>{cancelled=true;};
   },[audience]);
 
-  async function exploreParcels(offset=0, sort=exploreSort) {
+  const explorePageSize=reelColumns===1?20:50;
+  async function exploreParcels(offset=0, sort=exploreSort, pageSize=explorePageSize) {
     advancedRunId.current++;
     setAdvancedBusy(false);
     setExploreError('');
@@ -712,7 +713,7 @@ export default function App() {
       };
       const [counts,results]=await Promise.all([
         query({returnCountOnly:'true',returnGeometry:'false'}),
-        query({outFields:'n_predio,clave_cata,parroquia,area_terre,area_const,frente,administra,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
+        query({outFields:'n_predio,clave_cata,parroquia,area_terre,area_const,frente,administra,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC',resultOffset:String(offset),resultRecordCount:String(pageSize)})
       ]);
       setExploreCount(Number(counts.count||0));
       setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
@@ -952,7 +953,7 @@ export default function App() {
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
          {exploreCount!==null&&exploreQueryKey===explorationFilterKey&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
-          <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie, parroquia y los filtros catastrales opcionales activos; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
+          <p className="note">Se muestran hasta {explorePageSize} resultados por página según la vista elegida. La consulta utiliza superficie, parroquia y los filtros catastrales opcionales activos; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
 
         </div>}
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
@@ -1584,18 +1585,18 @@ export default function App() {
             </label>
             <div className="predio-card-view" role="group" aria-label="Distribución de tarjetas">
               <span>Vista</span>
-              <button type="button" className={reelColumns===1?'active':''} aria-pressed={reelColumns===1} onClick={()=>setReelColumns(1)}><span aria-hidden="true">☰ </span>Lista</button>
-              <button type="button" className={reelColumns===2?'active':''} aria-pressed={reelColumns===2} onClick={()=>setReelColumns(2)}><span aria-hidden="true">▦ </span>Iconos</button>
+              <button type="button" className={reelColumns===1?'active':''} aria-pressed={reelColumns===1} onClick={()=>{if(reelColumns!==1){setReelColumns(1);if(exploreCount!==null)exploreParcels(0,exploreSort,20);}}}><span aria-hidden="true">☰ </span>Lista</button>
+              <button type="button" className={reelColumns===2?'active':''} aria-pressed={reelColumns===2} onClick={()=>{if(reelColumns!==2){setReelColumns(2);if(exploreCount!==null)exploreParcels(0,exploreSort,50);}}}><span aria-hidden="true">▦ </span>Iconos</button>
             </div>
           </div>
           <nav className="predio-reel-pagination" aria-label="Navegar páginas de predios">
             <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0}
-              onClick={()=>exploreParcels(Math.max(0,exploreOffset-50))}>Anterior</button>
+              onClick={()=>exploreParcels(Math.max(0,exploreOffset-explorePageSize))}>Anterior</button>
             <span className="predio-reel-page" aria-live="polite">
               {exploreCount===null?'Sin resultados':`${(exploreResults.length?exploreOffset+1:0).toLocaleString('es-EC')}–${(exploreOffset+exploreResults.length).toLocaleString('es-EC')} / ${exploreCount.toLocaleString('es-EC')}`}
             </span>
-            <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+50>=exploreCount}
-              onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
+            <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+explorePageSize>=exploreCount}
+              onClick={()=>exploreParcels(exploreOffset+explorePageSize)}>Siguientes {explorePageSize}</button>
           </nav>
           {advancedFilter!=='all'&&visibleExploreResults.length===0&&<p className="note">No hay coincidencias indicativas para esta clasificación entre los predios de la página actual. Pruebe otro filtro o consulte el IRM.</p>}
           <div id="predio-results-reel" className={'predio-results-reel '+(reelColumns===2?'icon-grid':'one-column')} role="group" aria-label="Resultados catastrales ordenados">
@@ -1647,12 +1648,12 @@ export default function App() {
           </div>
           <nav className="predio-reel-pagination" aria-label="Navegar páginas de predios">
             <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0}
-              onClick={()=>exploreParcels(Math.max(0,exploreOffset-50))}>Anterior</button>
+              onClick={()=>exploreParcels(Math.max(0,exploreOffset-explorePageSize))}>Anterior</button>
             <span className="predio-reel-page" aria-live="polite">
               {exploreCount===null?'Sin resultados':`${(exploreResults.length?exploreOffset+1:0).toLocaleString('es-EC')}–${(exploreOffset+exploreResults.length).toLocaleString('es-EC')} / ${exploreCount.toLocaleString('es-EC')}`}
             </span>
-            <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+50>=exploreCount}
-              onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
+            <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+explorePageSize>=exploreCount}
+              onClick={()=>exploreParcels(exploreOffset+explorePageSize)}>Siguientes {explorePageSize}</button>
           </nav>
             </> : <div className="predio-reel-empty">
               <strong>Explorar predios</strong>
