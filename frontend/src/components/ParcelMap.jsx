@@ -274,8 +274,9 @@ function SearchResultsLayer({results,selected,onSelect}) {
     <GeoJSON key={JSON.stringify([results.features.map(f=>f.properties?.n_predio),selected,nearest])} data={results}
       style={feature=>{
         const id=String(feature.properties?.n_predio||'');
-        const active=id===String(selected||nearest);
-        return {color:active?'#ffbf47':'#20b7aa',weight:active?3.5:2,fillColor:active?'#ffbf47':'#20b7aa',fillOpacity:active?.48:.17};
+        // An automatically detected nearest parcel is NOT a user selection.
+        const active=selected!=null&&id===String(selected);
+        return {color:active?'#b86dff':'#20b7aa',weight:active?4:2,fillColor:active?'#9b4dff':'#20b7aa',fillOpacity:active?.55:.17};
       }}
       onEachFeature={(feature,layer)=>{
         const id=String(feature.properties?.n_predio||'');
@@ -284,7 +285,7 @@ function SearchResultsLayer({results,selected,onSelect}) {
       }}/>
     <div className="leaflet-bottom leaflet-right" style={{pointerEvents:'none',marginBottom:42}}>
       <div className="leaflet-control" style={{background:'#10262be8',color:'#eaf2f1',padding:'8px 10px',fontSize:12,borderRadius:8,margin:10}}>
-        {results.features.length} polígonos preliminares · destacado: {selected||nearest||'ninguno'}
+        {results.features.length} polígonos preliminares · {selected?'Seleccionado: '+selected:'Ningún predio seleccionado'}
       </div>
     </div>
   </>;
