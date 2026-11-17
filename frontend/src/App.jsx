@@ -86,6 +86,9 @@ export default function App() {
   const [administrativeZone,setAdministrativeZone]=useState('all');
   const [administrativeZoneOptions,setAdministrativeZoneOptions]=useState([]);
   const [administrativeZoneError,setAdministrativeZoneError]=useState('');
+  const [ownershipRegime,setOwnershipRegime]=useState('all');
+  const [ownershipRegimeOptions,setOwnershipRegimeOptions]=useState([]);
+  const [ownershipRegimeError,setOwnershipRegimeError]=useState('');
   const [searchParishes,setSearchParishes]=useState([]);
   const [exploreResults,setExploreResults]=useState([]);
   const [exploreSort,setExploreSort]=useState('id');
@@ -603,7 +606,7 @@ export default function App() {
     searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),
     searchLandClass,exploreSort,
     constructionRatioEnabled?'ratio:'+constructionRatioMin+':'+constructionRatioMax:'ratio:off',
-    minimumFrontage,administrativeZone
+    minimumFrontage,administrativeZone,ownershipRegime
   ].join('|');
 
   useEffect(()=>{
@@ -629,6 +632,32 @@ export default function App() {
       }
     };
     loadZones();
+    return ()=>{cancelled=true;};
+  },[audience]);
+
+  useEffect(()=>{
+    if(audience!=='explorer')return;
+    let cancelled=false;
+    const loadRegimes=async()=>{
+      setOwnershipRegimeError('');
+      try{
+        const params=new URLSearchParams({
+          f:'json',where:'tipo_propi IS NOT NULL',
+          outFields:'tipo_propi',returnDistinctValues:'true',
+          returnGeometry:'false',orderByFields:'tipo_propi ASC',resultRecordCount:'200'
+        });
+        const response=await fetch(CADASTRE_SEARCH+'?'+params);
+        if(!response.ok)throw new Error('HTTP '+response.status);
+        const payload=await response.json();
+        if(payload.error)throw new Error(payload.error.message||'ArcGIS error');
+        if(payload.exceededTransferLimit)throw new Error('Lista municipal incompleta');
+        const regimes=[...new Set((payload.features||[]).map(f=>String(f.attributes?.tipo_propi||'').trim()).filter(Boolean))];
+        if(!cancelled)setOwnershipRegimeOptions(regimes.sort((a,b)=>a.localeCompare(b,'es')));
+      }catch(error){
+        if(!cancelled)setOwnershipRegimeError('No se pudo consultar la lista de regímenes de propiedad.');
+      }
+    };
+    loadRegimes();
     return ()=>{cancelled=true;};
   },[audience]);
 
@@ -663,6 +692,8 @@ export default function App() {
     if(frontage!==null)clauses.push('frente >= '+frontage);
     if(administrativeZone!=='all')
       clauses.push("administra = '"+administrativeZone.replace(/'/g,"''")+"'");
+    if(ownershipRegime!=='all')
+      clauses.push("tipo_propi = '"+ownershipRegime.replace(/'/g,"''")+"'");
     if(searchParishes.length) {
       clauses.push('('+searchParishes.map(p=>"UPPER(parroquia) = '"+p.replace(/'/g,"''")+"'").join(' OR ')+')');
     }
@@ -717,7 +748,7 @@ export default function App() {
       });
       setExploreGeometries({type:'FeatureCollection',features:geometries});
       setExploreOffset(offset);
-      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioEnabled?'ratio:'+constructionRatioMin+':'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone].join('|'));
+      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioEnabled?'ratio:'+constructionRatioMin+':'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone,ownershipRegime].join('|'));
     }catch(error){
       setExploreError('No se pudo completar la consulta GIS municipal: '+error.message);
       setExploreResults([]);setExploreGeometries(null);setExploreCount(null);
@@ -878,6 +909,15 @@ export default function App() {
                     <option value={administrativeZone}>{administrativeZone}</option>}
                 </select>
                 {administrativeZoneError&&<span role="status" className="gis-zone-error">{administrativeZoneError}</span>}
+              </label>
+              <label>Régimen de propiedad
+                <select value={ownershipRegime} onChange={e=>setOwnershipRegime(e.target.value)}>
+                  <option value="all">Todos los regímenes</option>
+                  {ownershipRegimeOptions.map(regime=><option key={regime} value={regime}>{regime}</option>)}
+                  {ownershipRegime!=='all'&&!ownershipRegimeOptions.includes(ownershipRegime)&&
+                    <option value={ownershipRegime}>{ownershipRegime}</option>}
+                </select>
+                {ownershipRegimeError&&<span role="status" className="gis-zone-error">{ownershipRegimeError}</span>}
               </label>
             </div>
           </fieldset>
