@@ -6,11 +6,19 @@ PredioAI began with a practical question: **how can someone understand their hom
 
 The intended platform connects **predio + architectural PDF/CAD + relevant IRM information → structured evidence → interactive drawings → reviewed measurements and reports**. It is for ordinary homeowners as well as architects, remodeling contractors and construction teams. Real estate discovery is a complementary application of the same property context. A potential insurance/peritaje extension would connect plans with evidence of actual damage to support professional reporting; it is not implemented.
 
-**Public-facing message:** “Entiende tu casa. Planea su transformación.”
+**Public-facing message:** “Entiende tus planos. Prepara tu reforma.”
 
 **Working pilot, not a completed measurement engine.** Cadastral lookup, document inspection and selectable vector geometry exist. Calibrated architectural measurements, corrections with recalculation and exportable technical reports are the next core architectural milestones. Explainable parcel scoring and unsupervised segmentation remain planned on a parallel analytics track.
 
 [Open the application](https://jayjayanton.github.io/Predio-AI/) · [Architectural methodology and product scope](docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md) · [Deployment guide](DEPLOYMENT.md)
+
+## UX focus and straightforward navigation
+
+The public entry now answers a single question: **what does PredioAI help you do?** It is an experimental architectural-plan and municipal-context review tool for planning a household intervention—not a project-management platform, supplier finder, construction contractor, budget generator, or software that performs the renovation. The product does not currently generate verified architectural measurements or export finished takeoffs.
+
+The first screen offers **two explicit paths**: **Analizar planos** for a home improvement task (currently requiring a predio lookup first), or **Mi predio** for cadastral/municipal information. **Explorar mapa** is a separate GIS discovery tool. **Selección** preserves the existing parcel shortlist. **Analítica** is accessible from the expanded complementary/future section of the homepage and through its existing hash route, without competing with primary tasks in the header.
+
+Consumer-facing tasks are painting, flooring, repair, remodeling, reorganization and expansion. Existing document geometry inspection is not the same as wall recognition, calibrated measurements, quotes, contractor selection, materials procurement or managing building works. A working interpretation/calibration/measurement pipeline and reviewed reports are separate milestones. The guidance for obtaining municipal copies remains owner-led; PredioAI does not submit the request.
 
 ## Product status and navigation
 
@@ -18,12 +26,12 @@ The interface is in Spanish and the initial municipal-data scope is Quito's Dist
 
 | Section | Purpose |
 | --- | --- |
-| **Inicio** | Homeowner-first product overview, everyday interventions, actual capabilities and future uses |
-| **Planos y remodelación** | Entry to the existing predio-linked project, activity, document and geometry-review workflow |
-| **Ficha predial** | Look up a predio, inspect its cadastral information and continue to IRM review or the document workflow |
-| **Explorar** | Find cadastral records, browse the map and open a property sheet |
+| **Inicio** | One clear proposition, two choices (plans or property), what's implemented, what's not, and everyday use cases |
+| **Analizar planos** | Entry to the existing predio-linked project, activity, document and geometry-review workflow |
+| **Mi predio** | Look up a predio, inspect its cadastral information and continue to IRM review or the document workflow |
+| **Explorar mapa** | Find cadastral records, browse the map and open a property sheet |
 | **Selección** | Compare up to four saved parcels and download descriptive attributes as CSV |
-| **Analítica** | Roadmap for future parcel scoring and unsupervised segmentation; no active scores |
+| **Analítica (secondary)** | Roadmap for future parcel scoring and unsupervised segmentation, linked under complementary capabilities; no active scores |
 
 The architectural journey is **identify the property → select the work → supply plans and relevant IRM → inspect/explore geometry → review evidence**. Verified measurements and technical report export are planned, not completed steps. The current UI requires a property lookup before advancing to the project/document screen; stand-alone document analysis is a future usability improvement.
 

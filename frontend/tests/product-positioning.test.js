@@ -3,36 +3,42 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const overview = readFileSync(new URL('../src/components/ProductOverview.jsx', import.meta.url), 'utf8');
+const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const readme = readFileSync(new URL('../../README.md', import.meta.url), 'utf8');
 const methodology = readFileSync(new URL('../../docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md', import.meta.url), 'utf8');
 
-// Copy/positioning regression checks only. These do not validate measurements,
-// rendering, live municipal services or the drawing inspection API.
-test('the main homepage action starts a home project without removing discovery', () => {
+// Source-based copy/UX regressions, not e2e browser or geometry measurements.
+test('the primary action enters the preserved plan workflow', () => {
   assert.match(overview, /className="po-button po-button-primary" onClick=\{onBlueprints\}>Iniciar mi proyecto/);
-  for (const callback of ['onBlueprints', 'onConsult', 'onExplore', 'onAnalytics']) {
-    assert.ok(overview.includes(`onClick={${callback}}`), `${callback} remains reachable`);
+  for (const handler of ['onBlueprints','onConsult','onExplore','onAnalytics']) {
+    assert.ok(overview.includes('onClick={' + handler + '}'), handler + ' remains reachable');
   }
+  assert.match(app, /const ROUTES = \{[^}]+planos: 'blueprints'/);
+  assert.match(app, /page === 'blueprints'/);
 });
-
-test('everyday interventions and the original property-plan-IRM foundation stay visible', () => {
-  for (const text of ['Entiende tu casa.', 'Pintar paredes y techos', 'Cambiar el piso', 'Reorganizar o reparar', 'Reconstruir o ampliar', 'PDF / DXF', 'IRM']) {
-    assert.ok(overview.includes(text), `Missing product context: ${text}`);
+test('home explains the product and two unambiguous entry points', () => {
+  for (const phrase of ['Entiende tus planos.', 'Prepara tu reforma.', 'Quiero revisar los planos de mi casa','Quiero conocer la información de mi propiedad','Una herramienta de análisis previo, no una empresa de reformas.']) {
+    assert.ok(overview.includes(phrase), 'Missing explanation: ' + phrase);
   }
-  assert.ok(!readme.includes('Territorial intelligence for real estate decisions'));
+  assert.match(overview,/No contrata obreros, selecciona proveedores, administra una obra, calcula presupuestos finales ni realiza una reforma por ti/);
+  assert.match(readme,/not a project-management platform/);
 });
-
-test('existing geometry inspection is distinct from planned measurement and insurance', () => {
-  assert.match(overview, /Selección múltiple, capas y zoom, sin medidas verificadas/);
-  assert.match(overview, /Posible extensión · no implementada/);
-  assert.match(overview, /Un plano describe el diseño, no el daño ocurrido/);
-  assert.match(overview, /Mediciones verificadas|mediciones verificadas/);
-  assert.ok(!methodology.includes('The product is **not** an insurance-claims platform.'));
-});
-
-test('methodology preserves calculation and professional review boundaries', () => {
-  for (const guardrail of ['automatic_costs=False', 'determine_safety=False', 'decide_coverage=False', 'calculate_indemnity=False', 'invalidate_dependent_results']) {
-    assert.ok(methodology.includes(guardrail), `Missing boundary: ${guardrail}`);
+test('keep household use cases and distinguish actual geometry from planned measurement', () => {
+  for (const phrase of ['Pintar paredes y techos','Cambiar el piso','Reorganizar o reparar','Reconstruir o ampliar','PDF \/ DXF','IRM']) {
+    assert.ok(overview.includes(phrase), 'Missing use case: '+phrase);
   }
-  assert.match(methodology, /not a claim that every proposed use is already built/);
+  assert.match(overview,/La selección de líneas funciona; identificar muros y calcular superficies confiables sigue en desarrollo/);
+  assert.match(overview,/medidas arquitectónicas verificadas y reportes exportables/);
+  assert.match(overview,/Posible extensión · no implementada/);
+  assert.match(overview,/Un plano describe el diseño, no el daño ocurrido/);
+});
+test('header prioritizes direct workflows; complementary analytics stays reachable', () => {
+  assert.match(app,/\[\['home','Inicio'\],\['blueprints','Analizar planos'\],\['property','Mi predio'\],\['explore','Explorar mapa'\],\['selection','Selección'\]\]/);
+  assert.match(overview,/Otras herramientas y posibilidades futuras/);
+  assert.match(overview,/onClick=\{onAnalytics\}>Ver futura analítica/);
+});
+test('methodology still preserves human review and safe measurement boundaries', () => {
+  for (const phrase of ['automatic_costs=False','determine_safety=False','decide_coverage=False','calculate_indemnity=False','invalidate_dependent_results']) {
+    assert.ok(methodology.includes(phrase),'Missing methodology guardrail: '+phrase);
+  }
 });

@@ -117,7 +117,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const titles = { home: 'Inteligencia territorial para decidir', explore: 'Explorar predios', property: 'Ficha predial', blueprints: 'Planos y remodelación', selection: 'Mi selección', analytics: 'Próxima etapa: analítica' };
+    const titles = { home: 'Inteligencia territorial para decidir', explore: 'Explorar predios', property: 'Ficha predial', blueprints: 'Analizar planos', selection: 'Mi selección', analytics: 'Próxima etapa: analítica' };
     document.title = `PredioAI | ${titles[page]}`;
     window.scrollTo({top: 0, behavior: 'auto'});
     document.getElementById('main-content')?.focus({preventScroll: true});
@@ -922,10 +922,10 @@ export default function App() {
       <header className="header">
         <button type="button" className="brand app-header-brand" aria-label="PredioAI · Inicio" onClick={() => navigate('home')}>
           <span className="brand-mark" aria-hidden="true"><svg width="24" height="26" viewBox="0 0 24 26" fill="none"><path d="M3 7 12 2l9 5v12l-9 5-9-5V7Z" stroke="currentColor" strokeWidth="1.5"/><path d="m3 7 9 5 9-5M12 12v12M7.5 4.5l9 5v12" stroke="currentColor" strokeWidth="1.5"/></svg></span>
-          <span><strong>Predio<span>AI</span></strong><small>INTELIGENCIA TERRITORIAL</small></span>
+          <span><strong>Predio<span>AI</span></strong><small>PLANOS Y PROPIEDAD</small></span>
         </button>
         <nav className="primary-nav" aria-label="Navegación principal">
-          {[['home','Inicio'],['explore','Explorar'],['property','Ficha predial'],['blueprints','Planos y remodelación'],['selection','Selección'],['analytics','Analítica']].map(([key,label]) => <button key={key} type="button" className={page === key ? 'active' : ''} aria-current={page === key ? 'page' : undefined} onClick={() => navigate(key)}>{label}{key === 'selection' && <span className="nav-count">{savedParcels.length}</span>}{key === 'analytics' && <span className="nav-soon">Próxima etapa</span>}</button>)}
+          {[['home','Inicio'],['blueprints','Analizar planos'],['property','Mi predio'],['explore','Explorar mapa'],['selection','Selección']].map(([key,label]) => <button key={key} type="button" className={page === key ? 'active' : ''} aria-current={page === key ? 'page' : undefined} onClick={() => navigate(key)}>{label}{key === 'selection' && <span className="nav-count">{savedParcels.length}</span>}{key === 'analytics' && <span className="nav-soon">Próxima etapa</span>}</button>)}
         </nav>
         <div className="header-context"><span>Quito, Ecuador</span><span className="version">Versión piloto</span></div>
       </header>
@@ -945,7 +945,7 @@ export default function App() {
         <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''} onClick={() => { setAudience('developer'); setStep('property'); }}>Desarrollo inmobiliario</button>
         <button type="button" aria-pressed={audience === 'remodeler'} className={audience === 'remodeler' ? 'active' : ''} onClick={() => { setAudience('remodeler'); setStep('property'); }}>Remodelación y planos</button>
       </div>}
-      {page === 'blueprints' && <section className="blueprint-intro" aria-label="Análisis remoto de planos" style={{padding:'1.25rem',marginBottom:'1rem',border:'1px solid #cdd8ce',borderRadius:'12px',background:'#f4f7f0'}}><p style={{fontSize:'.75rem',letterSpacing:'.1em',fontWeight:700,color:'#416a51'}}>ARQUITECTURA · REMODELACIÓN · AMPLIACIONES</p><h1 style={{margin:'.35rem 0'}}>Mediciones preliminares, sin empezar por una visita.</h1><p>Vincula un predio y revisa planos PDF para preparar reparaciones, remodelaciones o ampliaciones. El prototipo inspecciona documentos; la selección y medición validada de muros, superficies y ambientes es una próxima capacidad. Los planos no sustituyen la verificación de condiciones reales ni la visita profesional cuando sea necesaria.</p><p><strong>Flujo:</strong> consultar predio → proyecto y planos → revisar medidas → informe preliminar. Introduce un número de predio para activar el siguiente paso.</p></section>}
+      {page === 'blueprints' && <section className="blueprint-intro" aria-label="Análisis remoto de planos" style={{padding:'1.25rem',marginBottom:'1rem',border:'1px solid #cdd8ce',borderRadius:'12px',background:'#f4f7f0'}}><p style={{fontSize:'.75rem',letterSpacing:'.1em',fontWeight:700,color:'#416a51'}}>ARQUITECTURA · REMODELACIÓN · AMPLIACIONES</p><h1 style={{margin:'.35rem 0'}}>Revisa los planos de tu vivienda.</h1><p>Consulta primero el predio y después incorpora planos PDF o DXF que tengas autorización para utilizar. Puedes inspeccionar texto y geometría, seleccionar elementos y mostrar capas. La interpretación arquitectónica y las medidas verificadas todavía están en desarrollo. PredioAI no gestiona contratistas ni realiza la obra.</p><p><strong>Flujo:</strong> consultar predio → proyecto y planos → revisar medidas → informe preliminar. Introduce un número de predio para activar el siguiente paso; no es necesario buscar terrenos en el mapa.</p></section>}
       {audience !== 'explorer' && <nav className="workflow-nav" aria-label="Etapas del proyecto">
         <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
         <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
