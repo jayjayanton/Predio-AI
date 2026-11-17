@@ -131,6 +131,8 @@ export default function App() {
   const [exploreError,setExploreError]=useState('');
   const [exploreOffset,setExploreOffset]=useState(0);
   const [exploreQueryKey,setExploreQueryKey]=useState('');
+  const [exploreSearchOpen,setExploreSearchOpen]=useState(true);
+  const [exploreOptionalOpen,setExploreOptionalOpen]=useState(false);
   const [advancedRows,setAdvancedRows]=useState({});
   const [advancedBusy,setAdvancedBusy]=useState(false);
   const [advancedProgress,setAdvancedProgress]=useState('');
@@ -606,6 +608,7 @@ export default function App() {
     setExploreCount(null);
     setExploreOffset(0);
     setExploreQueryKey('');
+    setExploreSearchOpen(true);
     setExploreError('');
     setAdvancedRows({});setAdvancedProgress('');setAdvancedError('');setAdvancedFilter('all');
     // Keep chosen filters so the user can refine rather than re-enter them.
@@ -784,6 +787,7 @@ export default function App() {
       }
       setExploreOffset(offset);
       setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioMax.trim()!==''?'ratio-max:'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone,ownershipRegime].join('|'));
+      if(offset===0)setExploreSearchOpen(false);
     }catch(error){
       setExploreError('No se pudo completar la consulta GIS municipal: '+error.message);
       setExploreResults([]);setExploreGeometries(null);setExploreCount(null);
@@ -889,8 +893,25 @@ export default function App() {
         {audience === 'remodeler' && <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>}
       </nav>}
       {audience === 'explorer' && <section id="predio-query-selector" className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
-        <h2>Explorar predios · Selección GIS</h2>
-        <p className="note">Primero consulte directamente el catastro ArcGIS por área, clasificación catastral y parroquia. Luego, en Análisis avanzado, cruce los predios obtenidos con la cartografía PUGS. La búsqueda inicial nunca espera el análisis PUGS.</p>
+        <div className="gis-search-heading">
+          <h2>Explorar predios · Selección GIS</h2>
+          <button type="button" className="secondary gis-edit-search" aria-expanded={exploreSearchOpen}
+            onClick={()=>setExploreSearchOpen(open=>!open)}>{exploreSearchOpen?'Ocultar criterios':'Editar búsqueda'}</button>
+        </div>
+        {!exploreSearchOpen&&<div className="gis-search-summary" role="status">
+          <strong>{searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'}</strong>
+          <span>{searchAreaMin}–{searchAreaMax} m²</span>
+          <span>{searchParishes.length?searchParishes.length+' parroquias':'Todas las parroquias'}</span>
+          <span>{[
+            constructionRatioMax.trim()!=='' ,minimumFrontage.trim()!=='',
+            administrativeZone!=='all',ownershipRegime!=='all'
+          ].filter(Boolean).length} filtros adicionales</span>
+          {exploreCount!==null&&exploreQueryKey===explorationFilterKey&&
+            <span>{exploreCount.toLocaleString('es-EC')} predios coincidentes</span>}
+          {exploreQueryKey&&exploreQueryKey!==explorationFilterKey&&<span>Criterios modificados · buscar de nuevo</span>}
+        </div>}
+        {exploreSearchOpen&&<div className="gis-search-form">
+        <p className="note gis-search-intro">Consulte el catastro por área, suelo y parroquia. El cruce PUGS es opcional y se ejecuta después.</p>
         <div className="development-filter-grid">
           <label>Clasificación del suelo
             <select value={searchLandClass} onChange={e=>{
@@ -912,8 +933,12 @@ export default function App() {
           <label>Superficie máxima (m²)
             <input type="number" min="1" step="1" value={searchAreaMax} onChange={e=>setSearchAreaMax(e.target.value)} />
           </label>
-          <fieldset className="gis-optional-filters">
-            <legend>Filtros catastrales opcionales</legend>
+          <details className="gis-optional-filters" open={exploreOptionalOpen}
+            onToggle={e=>setExploreOptionalOpen(e.currentTarget.open)}>
+            <summary>Filtros adicionales <span>{[
+              constructionRatioMax.trim()!=='',minimumFrontage.trim()!=='',
+              administrativeZone!=='all',ownershipRegime!=='all'
+            ].filter(Boolean).length} activos</span></summary>
             <div className="gis-optional-grid">
               <label className="gis-ratio-field">Relación construcción / terreno (%) · máximo
                 <input type="number" min="0" max="100" step="1" placeholder="Sin límite (0–100)"
@@ -943,9 +968,7 @@ export default function App() {
                 {ownershipRegimeError&&<span role="status" className="gis-zone-error">{ownershipRegimeError}</span>}
               </label>
             </div>
-          </fieldset>
-
-
+          </details>
         </div>
         <div className="development-filter-grid">
           <fieldset className="parish-selector">
@@ -980,8 +1003,9 @@ export default function App() {
         </div>}
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
           ? <p className="error" role="alert">Indique un rango de superficies válido, con mínimo menor o igual al máximo.</p>
-          : <p className="note">Perfil seleccionado: {searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'} · {Number(searchAreaMin).toLocaleString('es-EC')}–{Number(searchAreaMax).toLocaleString('es-EC')} m². Para analizar un predio concreto, utilice la consulta catastral y su IRM.</p>}
-        <details className="advanced-landcover" open={advancedOpen} onToggle={event=>setAdvancedOpen(event.currentTarget.open)}>
+          : null}
+        </div>}
+        {exploreCount!==null&&<details className="advanced-landcover" open={advancedOpen} onToggle={event=>setAdvancedOpen(event.currentTarget.open)}>
           <summary>Análisis avanzado · PUGS y vivienda <span className="advanced-status">Etapa 3 · Cruce espacial</span></summary>
           <div className="advanced-landcover-content">
             <p>Primero se muestran los predios del catastro GIS. Después puede comparar los <strong>{exploreResults.length} predios de la página actual</strong> con la capa municipal PUGS 2024 mediante mosaicos geográficos y un índice espacial, sin bloquear el mapa.</p>
