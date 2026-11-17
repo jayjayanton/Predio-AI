@@ -608,18 +608,18 @@ export default function App() {
           </label>
         </div>
         <div className="development-filter-grid">
-          <fieldset style={{border:'1px solid #607d83',borderRadius:10,padding:12,gridColumn:'1 / -1'}}>
+          <fieldset className="parish-selector">
             <legend>Parroquias / sectores ({searchParishes.length || 'todas'})</legend>
-            <details><summary style={{cursor:'pointer'}}>Seleccionar múltiples parroquias</summary>
-              <div style={{display:'flex',gap:6,flexWrap:'wrap',margin:'12px 0'}}>
-                <button type="button" onClick={()=>setSearchParishes([])} style={{width:'auto',minHeight:32,padding:'5px 9px',fontSize:13,flex:'0 0 auto',borderRadius:7}}>Todo el DMQ</button>
-                <button type="button" onClick={()=>setSearchParishes([...new Set([...searchParishes,...VALLEY_PARISHES])])} style={{width:'auto',minHeight:32,padding:'5px 9px',fontSize:13,flex:'0 0 auto',borderRadius:7}}>Agregar valles</button>
-                <button type="button" onClick={()=>setSearchParishes([...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].map(x=>x[0]))} style={{width:'auto',minHeight:32,padding:'5px 9px',fontSize:13,flex:'0 0 auto',borderRadius:7}}>Seleccionar 65</button>
+            <details><summary>Seleccionar múltiples parroquias</summary>
+              <div className="parish-selector-actions">
+                <button type="button" onClick={()=>setSearchParishes([])} className="parish-action">Todo el DMQ</button>
+                <button type="button" onClick={()=>setSearchParishes([...new Set([...searchParishes,...VALLEY_PARISHES])])} className="parish-action">Agregar valles</button>
+                <button type="button" onClick={()=>setSearchParishes([...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].map(x=>x[0]))} className="parish-action">Seleccionar 65</button>
               </div>
-              <div style={{maxHeight:240,overflowY:'auto'}}>
-                {['urban','rural'].map(type=><div key={type}><strong>{type==='urban'?'Urbanas (32)':'Rurales (33)'}</strong>
-                  {DMQ_PARISHES[type].map(([value,label])=><label key={value} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 2px',fontSize:14,fontWeight:400}}>
-                    <input type="checkbox" style={{width:18,height:18,minWidth:18,flex:"0 0 18px",margin:0}} checked={searchParishes.includes(value)} onChange={e=>setSearchParishes(old=>e.target.checked?[...old,value]:old.filter(x=>x!==value))}/>{label}
+              <div className="parish-selector-list">
+                {['urban','rural'].map(type=><div key={type} className="parish-selector-group"><strong>{type==='urban'?'Urbanas (32)':'Rurales (33)'}</strong>
+                  {DMQ_PARISHES[type].map(([value,label])=><label key={value} className="parish-selector-option">
+                    <input type="checkbox" className="parish-selector-checkbox" checked={searchParishes.includes(value)} onChange={e=>setSearchParishes(old=>e.target.checked?[...old,value]:old.filter(x=>x!==value))}/>{label}
                   </label>)}
                 </div>)}
               </div>
