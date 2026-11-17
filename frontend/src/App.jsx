@@ -618,13 +618,32 @@ export default function App() {
          {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass].join('|')&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
-          <details open><summary>Ver predios encontrados ({exploreResults.length} en esta página)</summary>
-            <div className="explore-result-list">
-              {exploreResults.map((p,i)=><button type="button" className="secondary" key={String(p.n_predio)+'-'+i} onClick={()=>setExploreSelected(String(p.n_predio))}>
-                Predio {p.n_predio} · {p.parroquia||'Sin parroquia'} · {Number(p.area_terre).toLocaleString('es-EC')} m² · Ubicar en mapa
-              </button>)}
+          <div className="predio-reel-heading">
+            <div>
+              <strong>Explorar predios ({exploreResults.length} en esta página)</strong>
+              <p className="note">Seleccione una tarjeta para destacar y acercar su polígono en el mapa. Análisis PUGS pendiente.</p>
             </div>
-          </details>
+            <div className="predio-reel-controls" role="group" aria-label="Navegar tarjetas de predios">
+              <button type="button" className="secondary" aria-label="Tarjetas anteriores" onClick={()=>document.getElementById('predio-results-reel')?.scrollBy({left:-300,behavior:'smooth'})}>‹</button>
+              <button type="button" className="secondary" aria-label="Tarjetas siguientes" onClick={()=>document.getElementById('predio-results-reel')?.scrollBy({left:300,behavior:'smooth'})}>›</button>
+            </div>
+          </div>
+          <div id="predio-results-reel" className="predio-results-reel" role="group" aria-label="Resultados catastrales desplazables">
+            {exploreResults.map((p,i)=>{
+              const id=String(p.n_predio);
+              const active=exploreSelected===id;
+              const hasGeometry=Boolean(exploreGeometries?.features?.some(f=>String(f.properties?.n_predio)===id));
+              return <button type="button" key={id+'-'+i}
+                className={'predio-reel-card'+(active?' selected':'')}
+                aria-pressed={active} onClick={()=>setExploreSelected(id)}>
+                <span className="predio-reel-card-top"><span>Predio {id}</span><span className="predio-reel-index">{exploreOffset+i+1}</span></span>
+                <span className="predio-reel-parish">{p.parroquia||'Parroquia no indicada'}</span>
+                <span className="predio-reel-area">{Number.isFinite(Number(p.area_terre))?Number(p.area_terre).toLocaleString('es-EC'):'—'} <small>m²</small></span>
+                <span className="predio-reel-metadata">{hasGeometry?'Polígono disponible':'Geometría no disponible'}</span>
+                <span className="predio-reel-status">{active?'● Seleccionado en mapa':hasGeometry?'Ver en mapa':'Ver ficha catastral'}</span>
+              </button>;
+            })}
+          </div>
           <div style={{display:'flex',gap:10,marginTop:10}}>
             <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0} onClick={()=>exploreParcels(Math.max(0,exploreOffset-50))}>Anterior</button>
             <button type="button" className="secondary" disabled={exploreBusy||exploreOffset+50>=exploreCount} onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
