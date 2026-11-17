@@ -838,3 +838,71 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
     overflow-y:auto;
   }
 }
+
+/* Prevent the page-wide blank region below Leaflet: a fixed-height three-panel
+   workspace, with scrolling confined to its sidebars rather than growing grid rows. */
+@media(min-width:901px) {
+  .shell > .dashboard-layout {
+    flex:0 0 auto;
+    width:100%;
+    height:clamp(600px,78vh,820px);
+    min-height:0;
+    max-height:820px;
+    grid-template-rows:minmax(0,1fr);
+    align-items:stretch;
+  }
+  .dashboard-layout > .details-sidebar {
+    height:100%;
+    max-height:100%;
+    min-height:0;
+    overflow-y:auto;
+  }
+  .dashboard-layout > .map-section:has(.predio-map-reel) {
+    height:100%;
+    min-height:0;
+    max-height:100%;
+    align-self:stretch;
+    grid-template-rows:minmax(0,1fr);
+  }
+  .dashboard-layout .map-section .predio-map-pane,
+  .dashboard-layout .map-section .predio-map-reel {
+    height:100%;
+    min-height:0;
+    max-height:100%;
+  }
+}
+.advanced-landcover {
+  margin:18px 0 0;
+  border:1px solid #38585c;
+  border-radius:11px;
+  background:#142c31;
+  overflow:hidden;
+}
+.advanced-landcover summary {
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:14px 16px;
+  color:#e5f4f1;
+  font-size:14px;
+  font-weight:700;
+}
+.advanced-landcover summary:hover { background:#1b393d; }
+.advanced-landcover summary:focus-visible { outline:2px solid #20b7aa; outline-offset:-2px; }
+.advanced-landcover .advanced-status {
+  font-size:11px;
+  font-weight:500;
+  color:#a8ccc7;
+  border:1px solid #476a69;
+  border-radius:20px;
+  padding:3px 8px;
+}
+.advanced-landcover-content {
+  padding:0 16px 15px;
+  color:#bad3cf;
+  font-size:12px;
+  line-height:1.6;
+}
+.advanced-landcover-content p { margin:8px 0; }
