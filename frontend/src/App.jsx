@@ -461,16 +461,17 @@ export default function App() {
           const item=byId.get(String(candidate.n_predio));
           if(!item||!['single_zone','multiple_zones'].includes(item.status))return false;
           const zones=item.zones||[];
-          const cadastralClass=String(candidate.zonificaci||'').trim().toUpperCase();
-          const land=searchLandClass==='all'||(searchLandClass==='urban'
-            ? ['URBANO','URBANA'].includes(cadastralClass) : cadastralClass==='RURAL');
-          if(!land)return false;
           return zones.some(z=>{
+            const landCode=String(z.cod_clasif||'').trim().toUpperCase();
+            const land=searchLandClass==='all'||(searchLandClass==='urban'?landCode==='SU':landCode==='SRU');
+            if(!land)return false;
             // The municipality publishes VU/VB/VM as housing assignment codes,
             // not as a free-text occurrence in an unrelated zoning description.
             // Unmapped codes are unknown, never a verified non-match.
-            const assignment=String(z.cod_edi_es||'').toUpperCase();
-            const housing=searchHousingType==='all'||new RegExp('(^|[^A-Z])'+searchHousingType+'([^A-Z]|$)').test(assignment);
+            // Housing designation is stored in unidad_viv, not cod_edi_es.
+            // Match the exact published code; never infer it from building-code text.
+            const housingCode=String(z.unidad_viv||'').trim().toUpperCase();
+            const housing=searchHousingType==='all'||housingCode===searchHousingType;
             // PUGS occupancy fields contain descriptive labels, not letters A/B/C/D.
             const occupancyLabels={A:'AISLADA',B:'PAREADA',C:'CONTINUA',D:'SOBRE LINEA DE FABRICA'};
             const normalized=x=>String(x||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().trim();
@@ -480,7 +481,7 @@ export default function App() {
           });
         });
         setExploreResults(matches);
-        setExplorePugsStatus(`PUGS: ${screening.screened} de ${candidates.length} candidatos de esta página examinados; ${matches.length} coincidencias preliminares. Los restantes no están evaluados. Códigos de vivienda ausentes o ambiguos requieren revisión del IRM; esto NO es un conteo de elegibilidad en el DMQ.`);
+        setExplorePugsStatus(`PUGS: ${screening.screened} de ${candidates.length} candidatos de esta página examinados; ${matches.length} coincidencias con los códigos disponibles. Los restantes no están evaluados. Códigos de vivienda ausentes o ambiguos requieren revisión del IRM; esto NO es un conteo de elegibilidad en el DMQ.`);
       }else{
         setExploreResults(candidates);
         setExplorePugsStatus('');
