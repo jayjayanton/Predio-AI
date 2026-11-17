@@ -451,12 +451,26 @@ export default function App() {
         if (API.includes('localhost') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
           throw new Error('El filtro PUGS necesita un servidor público. La web publicada intenta conectarse a localhost:8000, que no está disponible desde este teléfono. Configure VITE_API_URL y despliegue el backend.');
         }
-        const batch=candidates.filter(x=>x.n_predio!=null).slice(0,20);
-        setExplorePugsStatus('Verificando hasta 20 predios de esta página contra PUGS…');
-        const response=await fetch(`${API}/api/pugs/screen`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({predios:batch.map(x=>String(x.n_predio))})});
-        if(!response.ok)throw new Error('El servicio PUGS no está disponible (HTTP '+response.status+').');
-        const screening=await response.json();
-        const byId=new Map((screening.results||[]).map(x=>[String(x.predio),x]));
+        const eligible=candidates.filter(x=>x.n_predio!=null);
+        const batches=[];
+        for(let i=0;i<eligible.length;i+=20)batches.push(eligible.slice(i,i+20));
+        const byId=new Map();
+        let screened=0;
+        let unavailable=0;
+        for(let i=0;i<batches.length;i++){
+          setExplorePugsStatus(`Verificando PUGS: ${screened} de ${eligible.length} predios de esta página; lote ${i+1} de ${batches.length}…`);
+          const response=await fetch(`${API}/api/pugs/screen`,{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({predios:batches[i].map(x=>String(x.n_predio))})
+          });
+          if(!response.ok)throw new Error('El servicio PUGS no está disponible (HTTP '+response.status+').');
+          const screening=await response.json();
+          for(const item of screening.results||[]){
+            byId.set(String(item.predio),item);
+            if(!['single_zone','multiple_zones'].includes(item.status))unavailable++;
+          }
+          screened+=batches[i].length;
+        }
         const matches=candidates.filter(candidate=>{
           const item=byId.get(String(candidate.n_predio));
           if(!item||!['single_zone','multiple_zones'].includes(item.status))return false;
@@ -481,7 +495,7 @@ export default function App() {
           });
         });
         setExploreResults(matches);
-        setExplorePugsStatus(`PUGS: ${screening.screened} de ${candidates.length} candidatos de esta página examinados; ${matches.length} coincidencias con los códigos disponibles. Los restantes no están evaluados. Códigos de vivienda ausentes o ambiguos requieren revisión del IRM; esto NO es un conteo de elegibilidad en el DMQ.`);
+        setExplorePugsStatus(`PUGS: ${screened} de ${candidates.length} candidatos de esta página examinados; ${matches.length} coincidencias preliminares; ${unavailable} sin clasificación PUGS verificable. No es un conteo de elegibilidad en todo el DMQ.`);
       }else{
         setExploreResults(candidates);
         setExplorePugsStatus('');
