@@ -1437,14 +1437,19 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
   .gis-search-heading h2 { font-size:15px; }
 }
 
-/* Leaflet gives clicked SVG paths a browser-native black focus rectangle.
-   Keep the purple selected polygon styling; suppress only the mouse outline.
-   Keyboard navigation retains a visible themed focus indication. */
-.parcel-map-wrapper .leaflet-interactive:focus:not(:focus-visible),
-.parcel-map-wrapper .leaflet-container svg path:focus:not(:focus-visible) {
-  outline:none !important;
+/* Leaflet sets outline: 2px solid black on focused SVG paths.
+   Chrome may mark a clicked path as :focus-visible, so the earlier
+   :not(:focus-visible) rule did not reliably suppress the black rectangle.
+   Suppress browser outlines for map vector paths only. Selection is shown
+   by the existing purple stroke/fill, not a rectangular focus box. */
+.parcel-map-wrapper .leaflet-container .leaflet-interactive:focus,
+.parcel-map-wrapper .leaflet-container .leaflet-interactive:focus-visible,
+.parcel-map-wrapper .leaflet-container svg path:focus,
+.parcel-map-wrapper .leaflet-container svg path:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
-.parcel-map-wrapper .leaflet-interactive:focus-visible {
-  outline:2px solid #d85bea;
-  outline-offset:2px;
+/* The map itself can receive focus after clicking a polygon. */
+.parcel-map-wrapper .leaflet-container:focus {
+  outline: none !important;
 }
