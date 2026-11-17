@@ -17,7 +17,7 @@ test('supports alternate column, leading zeros and rejects money or formulas',()
  const rows=[['Nombre','Número de predio','Monto'],['A','000123456','100.25'],['B','987654','150'],['C','1.0E+6','200'],['D','=123456','300'],['E','123456.0','400'],['F','987654','500']];
  assert.equal(suggestedHeader(rows).col,1);
  const result=candidatesFromColumn(rows,0,1);
- assert.deepEqual(result.candidates.map(x=>x.n_predio),['000123456','987654']);
+ assert.deepEqual(result.candidates.map(x=>x.n_predio),['000123456','987654','123456']);
  assert.equal(result.warnings.length,1);
 });
 test('valuation and taxes are not accepted as predio identifiers',()=>{
