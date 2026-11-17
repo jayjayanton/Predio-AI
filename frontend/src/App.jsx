@@ -79,10 +79,8 @@ export default function App() {
   const [searchLandClass,setSearchLandClass]=useState('all');
   const [searchAreaMin,setSearchAreaMin]=useState('500');
   const [searchAreaMax,setSearchAreaMax]=useState('6000');
-  const [searchOccupation,setSearchOccupation]=useState('all');
   const [searchParishes,setSearchParishes]=useState([]);
   const [exploreResults,setExploreResults]=useState([]);
-  const [explorePugsStatus,setExplorePugsStatus]=useState('');
   const [exploreCount,setExploreCount]=useState(null);
   const [exploreBusy,setExploreBusy]=useState(false);
   const [exploreError,setExploreError]=useState('');
@@ -422,80 +420,42 @@ export default function App() {
     rural: [["ALANGASI","Alangasí"],["AMAGUANA","Amaguaña"],["ATAHUALPA","Atahualpa"],["CALACALI","Calacalí"],["CALDERON","Calderón"],["CHAVEZPAMBA","Chavezpamba"],["CHECA","Checa"],["CONOCOTO","Conocoto"],["CUMBAYA","Cumbayá"],["EL QUINCHE","El Quinche"],["GUALEA","Gualea"],["GUANGOPOLO","Guangopolo"],["GUAYLLABAMBA","Guayllabamba"],["LA MERCED","La Merced"],["LLANO CHICO","Llano Chico"],["LLOA","Lloa"],["NANEGAL","Nanegal"],["NANEGALITO","Nanegalito"],["NAYON","Nayón"],["NONO","Nono"],["PACTO","Pacto"],["PERUCHO","Perucho"],["PIFO","Pifo"],["PINTAG","Píntag"],["POMASQUI","Pomasqui"],["PUELLARO","Puéllaro"],["PUEMBO","Puembo"],["SAN ANTONIO DE PICHINCHA","San Antonio de Pichincha"],["SAN JOSE DE MINAS","San José de Minas"],["TABABELA","Tababela"],["TUMBACO","Tumbaco"],["YARUQUI","Yaruquí"],["ZAMBIZA","Zámbiza"]]
   };
   const VALLEY_PARISHES=['CUMBAYA','TUMBACO','PUEMBO','PIFO','TABABELA','YARUQUI','CHECA','EL QUINCHE','GUAYLLABAMBA','NAYON','ZAMBIZA'];
+  // Phase 1: direct cadastral GIS search. PUGS and IRM are reviewed per predio later.
   async function exploreParcels(offset=0) {
     setExploreError('');
-    setExplorePugsStatus('');
-    const min=Number(searchAreaMin),max=Number(searchAreaMax);
-    if(!searchAreaMin||!searchAreaMax||min<=0||max<min){setExploreError('Ingrese un rango de superficie válido.');return;}
-    const areaWhere='area_terre >= '+min+' AND area_terre <= '+max;
-    const where=areaWhere+(searchParishes.length===0?'':' AND ('+searchParishes.map(x=>"UPPER(parroquia) = '"+x+"'").join(' OR ')+')');
+    const min=Number(searchAreaMin), max=Number(searchAreaMax);
+    if(!searchAreaMin||!searchAreaMax||!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min){
+      setExploreError('Ingrese un rango de superficie válido.'); return;
+    }
+    const clauses=['area_terre >= '+min,'area_terre <= '+max];
+    if(searchParishes.length) {
+      clauses.push('('+searchParishes.map(p=>"UPPER(parroquia) = '"+p.replace(/'/g,"''")+"'").join(' OR ')+')');
+    }
+    if(searchLandClass==='urban')clauses.push("UPPER(zonificaci) IN ('URBANO','URBANA')");
+    if(searchLandClass==='rural')clauses.push("UPPER(zonificaci) = 'RURAL'");
+    const where=clauses.join(' AND ');
     setExploreBusy(true);
     try {
       const query=async extra=>{
         const params=new URLSearchParams({f:'json',where,...extra});
-        const res=await fetch(CADASTRE_SEARCH+'?'+params);
-        if(!res.ok)throw new Error('HTTP '+res.status);
-        const json=await res.json();
-        if(json.error)throw new Error(json.error.message||'Error municipal');
-        return json;
+        const response=await fetch(CADASTRE_SEARCH+'?'+params);
+        if(!response.ok)throw new Error('HTTP '+response.status);
+        const payload=await response.json();
+        if(payload.error)throw new Error(payload.error.message||'Error municipal');
+        return payload;
       };
       const [counts,results]=await Promise.all([
         query({returnCountOnly:'true',returnGeometry:'false'}),
         query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi,zonificaci',returnGeometry:'false',orderByFields:'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
       ]);
       setExploreCount(Number(counts.count||0));
-      const candidates=(results.features||[]).map(x=>x.attributes||{});
-      const needsPugs=searchLandClass!=='all'||searchOccupation!=='all';
-      if(needsPugs){
-        if (API.includes('localhost') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-          throw new Error('El filtro PUGS necesita un servidor público. La web publicada intenta conectarse a localhost:8000, que no está disponible desde este teléfono. Configure VITE_API_URL y despliegue el backend.');
-        }
-        const eligible=candidates.filter(x=>x.n_predio!=null);
-        const batches=[];
-        for(let i=0;i<eligible.length;i+=20)batches.push(eligible.slice(i,i+20));
-        const byId=new Map();
-        let screened=0;
-        let unavailable=0;
-        for(let i=0;i<batches.length;i++){
-          setExplorePugsStatus(`Verificando PUGS: ${screened} de ${eligible.length} predios de esta página; lote ${i+1} de ${batches.length}…`);
-          const response=await fetch(`${API}/api/pugs/screen`,{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({predios:batches[i].map(x=>String(x.n_predio))})
-          });
-          if(!response.ok)throw new Error('El servicio PUGS no está disponible (HTTP '+response.status+').');
-          const screening=await response.json();
-          for(const item of screening.results||[]){
-            byId.set(String(item.predio),item);
-            if(!['single_zone','multiple_zones'].includes(item.status))unavailable++;
-          }
-          screened+=batches[i].length;
-        }
-        const matches=candidates.filter(candidate=>{
-          const item=byId.get(String(candidate.n_predio));
-          if(!item||!['single_zone','multiple_zones'].includes(item.status))return false;
-          const zones=item.zones||[];
-          return zones.some(z=>{
-            const landCode=String(z.cod_clasif||'').trim().toUpperCase();
-            const land=searchLandClass==='all'||(searchLandClass==='urban'?landCode==='SU':landCode==='SRU');
-            if(!land)return false;
-            // PUGS occupancy fields contain descriptive labels, not letters A/B/C/D.
-            const occupancyLabels={A:'AISLADA',B:'PAREADA',C:'CONTINUA',D:'SOBRE LINEA DE FABRICA'};
-            const normalized=x=>String(x||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().trim();
-            const occupation=searchOccupation==='all'||[z.cod_ocu_ba,z.cod_ocu_gm].some(v=>normalized(v)===searchOccupation)
-              ||[z.ocupa_ba,z.ocupa_gm].some(v=>normalized(v)===occupancyLabels[searchOccupation]);
-            return occupation;
-          });
-        });
-        setExploreResults(matches);
-        setExplorePugsStatus(`PUGS: ${screened} de ${candidates.length} candidatos de esta página examinados; ${matches.length} coincidencias preliminares; ${unavailable} sin clasificación PUGS verificable. No es un conteo de elegibilidad en todo el DMQ.`);
-      }else{
-        setExploreResults(candidates);
-        setExplorePugsStatus('');
-      }
+      setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
       setExploreOffset(offset);
-      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchOccupation].join('|'));
-    }catch(e){setExploreError('No se pudo completar la búsqueda: '+e.message);setExplorePugsStatus('');setExploreResults([]);setExploreCount(null);}
-    finally{setExploreBusy(false);}
+      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass].join('|'));
+    }catch(error){
+      setExploreError('No se pudo completar la consulta GIS municipal: '+error.message);
+      setExploreResults([]);setExploreCount(null);
+    }finally{setExploreBusy(false);}
   }
   async function openExplorePredio(predio) {
     if(!/^[0-9]+$/.test(String(predio)))return;
@@ -591,7 +551,7 @@ export default function App() {
       </section>
       {audience === 'developer' && <section className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
         <h2>Exploración de terrenos · Criterios de selección</h2>
-        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. Los filtros de clasificación del suelo y ocupación se verifican provisionalmente con información geográfica PUGS. El tipo de vivienda se revisará después de obtener resultados preliminares.</p>
+        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. La búsqueda preliminar consulta directamente el catastro GIS por superficie, clasificación catastral y parroquia. PUGS, ocupación y tipo de vivienda se revisan después para cada predio.</p>
         <div className="development-filter-grid">
           <label>Clasificación del suelo
             <select value={searchLandClass} onChange={e=>{
@@ -614,15 +574,7 @@ export default function App() {
             <input type="number" min="1" step="1" value={searchAreaMax} onChange={e=>setSearchAreaMax(e.target.value)} />
           </label>
 
-          <label>Forma de ocupación
-            <select value={searchOccupation} onChange={e=>setSearchOccupation(e.target.value)}>
-              <option value="all">Todas / por verificar</option>
-              <option value="A">A — Aislada</option>
-              <option value="B">B — Pareada</option>
-              <option value="C">C — Continua</option>
-              <option value="D">D — Sobre línea de fábrica</option>
-            </select>
-          </label>
+
         </div>
         <div className="development-filter-grid">
           <fieldset className="parish-selector">
@@ -648,8 +600,7 @@ export default function App() {
         </div>
         <button type="button" className="primary-action" disabled={exploreBusy} onClick={()=>exploreParcels(0)}>{exploreBusy?'Consultando catastro…':'Buscar predios que coinciden'}</button>
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
-         {explorePugsStatus&&<p className="note" role="status">{explorePugsStatus}</p>}
-        {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchOccupation].join('|')&&<div className="explore-results" aria-live="polite">
+         {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass].join('|')&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
           <details open><summary>Ver predios encontrados ({exploreResults.length} en esta página)</summary>
@@ -666,7 +617,7 @@ export default function App() {
         </div>}
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
           ? <p className="error" role="alert">Indique un rango de superficies válido, con mínimo menor o igual al máximo.</p>
-          : <p className="note">Perfil seleccionado: {searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'} · {Number(searchAreaMin).toLocaleString('es-EC')}–{Number(searchAreaMax).toLocaleString('es-EC')} m² · Ocupación {searchOccupation==='all'?'sin restricción seleccionada':searchOccupation}. Para analizar un predio concreto, utilice la consulta catastral y su IRM.</p>}
+          : <p className="note">Perfil seleccionado: {searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'} · {Number(searchAreaMin).toLocaleString('es-EC')}–{Number(searchAreaMax).toLocaleString('es-EC')} m². Para analizar un predio concreto, utilice la consulta catastral y su IRM.</p>}
       </section>}
       {/* MAIN LAYOUT */}
 
