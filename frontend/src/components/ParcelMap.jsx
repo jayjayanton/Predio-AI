@@ -94,6 +94,29 @@ function ZoomToParcel({ data }) {
 // Only request features visible in the current map viewport. Never download
 // the full Quito cadastre into the browser.
 const PARCEL_SERVICE='https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_2026_feb/FeatureServer/5/query';
+const PARCEL_ATTRIBUTES='https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_a_2024/FeatureServer/0/query';
+const COLORS={nearby:'#91bd9e',searched:'#438cf7',selected:'#d85bea'};
+
+const numberLabel=value=>value===null||value===undefined||value===''||!Number.isFinite(Number(value))?'No disponible':Number(value).toLocaleString('es-EC',{maximumFractionDigits:2})+' m²';
+
+function nearbyParcelPopup(predio,attributes=null,error='') {
+  const root=document.createElement('div');
+  root.className='predio-info-popup';
+  const heading=document.createElement('strong');heading.textContent='Predio '+predio;root.appendChild(heading);
+  const row=(label,value)=>{const p=document.createElement('p');const b=document.createElement('b');b.textContent=label+': ';p.appendChild(b);p.appendChild(document.createTextNode(value));root.appendChild(p);};
+  if(error){row('Catastro',error);return root;}
+  if(!attributes){row('Catastro','Consultando atributos oficiales…');return root;}
+  const land=attributes.area_terre,constructed=attributes.area_const;
+  row('Parroquia',attributes.parroquia||'No disponible');
+  row('Área de terreno',numberLabel(land));
+  row('Área construida',numberLabel(constructed));
+  const validLand=land!=null&&Number.isFinite(Number(land))&&Number(land)>0;
+  const validBuilt=constructed!=null&&Number.isFinite(Number(constructed))&&Number(constructed)>=0;
+  row('Construcción / terreno',validLand&&validBuilt?(100*Number(constructed)/Number(land)).toLocaleString('es-EC',{maximumFractionDigits:1})+'%':'No disponible');
+  const note=document.createElement('small');note.textContent='Relación de superficies registradas; no equivale a COS ni huella construida.';root.appendChild(note);
+  return root;
+}
+
 const MIN_PARCEL_ZOOM=16;
 const MAX_BATCH=250;
 const MAX_RENDERED=2400;
@@ -114,6 +137,8 @@ function VisibleParcels({enabled,criteria,highlightMatches}) {
   const map=useMap();
   const [features,setFeatures]=useState(null);
   const [status,setStatus]=useState('');
+  const [selectedNearby,setSelectedNearby]=useState(null);
+  const attributesCache=React.useRef(new Map());
   // Retain completed features across pans, while bounding browser memory.
   const cache=React.useRef(new Map());
   useEffect(()=>{
@@ -221,13 +246,47 @@ function VisibleParcels({enabled,criteria,highlightMatches}) {
   const matchIds=new Set((areaMatches||[]).map(f=>String(f.properties?.predio??f.id??'')));
   const highlight=Boolean(highlightMatches&&validRange&&!advanced);
   return <>
-    {features?.features?.length>0&&<GeoJSON className="predio-nearby-outline" key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
-      style={feature=>{const match=highlight&&matchIds.has(String(feature.properties?.predio??feature.id??''));return {color:match?'#e2a321':'#9fe7b6',weight:match?2.5:1.7,opacity:1,fillColor:match?'#ffd65c':'#9fe7b6',fillOpacity:match?0.42:0};}}
+    {features?.features?.length>0&&<GeoJSON className="predio-nearby-interactive"
+      key={JSON.stringify([features.features.map(f=>f.id||f.properties?.predio),selectedNearby])} data={features}
+      style={feature=>{
+        const id=String(feature.properties?.predio??feature.id??'');
+        const isSelected=selectedNearby===id;
+        const match=highlight&&matchIds.has(id);
+        return {color:isSelected?COLORS.selected:match?'#d8ae4d':COLORS.nearby,
+          weight:isSelected?4:match?2.5:1.6,
+          opacity:1,fillColor:isSelected?COLORS.selected:match?'#d8ae4d':COLORS.nearby,
+          fillOpacity:isSelected?.48:match?.28:0};
+      }}
       onEachFeature={(feature,layer)=>{
-        layer.bindPopup('Predio: '+String(feature.properties?.predio||'No identificado'));
-        layer.on('mouseover',()=>layer.setStyle({color:'#2eae75',weight:3,fillColor:'#5bc992',fillOpacity:0.18}));
-        layer.on('mouseout',()=>{const match=highlight&&matchIds.has(String(feature.properties?.predio??feature.id??''));layer.setStyle({color:match?'#e2a321':'#9fe7b6',weight:match?2.5:1.7,opacity:1,fillColor:match?'#ffd65c':'#9fe7b6',fillOpacity:match?0.42:0});});
-        layer.on('click',()=>layer.setStyle({color:'#139e68',weight:3,fillColor:'#5bc992',fillOpacity:0.22}));
+        const id=String(feature.properties?.predio??feature.id??'');
+        if(!id)return;
+        layer.bindTooltip('Predio '+id);
+        layer.on('click',async()=>{
+          if(selectedNearby===id){
+            setSelectedNearby(null);
+            layer.closePopup();
+            return;
+          }
+          setSelectedNearby(id);
+          layer.bindPopup(nearbyParcelPopup(id,attributesCache.current.get(id)||null),{maxWidth:290}).openPopup();
+          if(attributesCache.current.has(id))return;
+          try{
+            const params=new URLSearchParams({f:'json',
+              where:"n_predio = '"+id.replace(/'/g,"''")+"'",
+              outFields:'n_predio,parroquia,area_terre,area_const',
+              returnGeometry:'false',resultRecordCount:'1'});
+            const response=await fetch(PARCEL_ATTRIBUTES+'?'+params);
+            if(!response.ok)throw new Error('HTTP '+response.status);
+            const payload=await response.json();
+            if(payload.error)throw new Error(payload.error.message||'Error catastral');
+            const attributes=payload.features?.[0]?.attributes;
+            if(!attributes){layer.setPopupContent(nearbyParcelPopup(id,null,'Sin atributos coincidentes en catastro 2024'));return;}
+            attributesCache.current.set(id,attributes);
+            layer.setPopupContent(nearbyParcelPopup(id,attributes));
+          }catch(error){
+            layer.setPopupContent(nearbyParcelPopup(id,null,'Consulta no disponible: '+error.message));
+          }
+        });
       }}/>}
     {highlightMatches&&<div role="status" style={{fontSize:12,padding:'6px 10px',color:'#c9e2e0',background:'#173038'}}>
       {!validRange?'Introduzca un rango de superficie válido.':advanced?'La clasificación, VU/VB/VM y ocupación requieren cruce PUGS; no se resaltan coincidencias sin verificar.':highlight?('Coincidencias preliminares por área geométrica visible: '+matchIds.size+'. No verifica PUGS ni superficie oficial.'):'Active el resaltado para ver coincidencias por área.'}
@@ -260,7 +319,7 @@ function SearchResultsLayer({results,selected,onSelect}) {
         const id=String(feature.properties?.n_predio||'');
         // An automatically detected nearest parcel is NOT a user selection.
         const active=selected!=null&&id===String(selected);
-        return {color:active?'#b86dff':'#20b7aa',weight:active?4:2,fillColor:active?'#9b4dff':'#20b7aa',fillOpacity:active?.55:.17};
+        return {color:active?COLORS.selected:COLORS.searched,weight:active?4:2.4,fillColor:active?COLORS.selected:COLORS.searched,fillOpacity:active?.55:.22};
       }}
       onEachFeature={(feature,layer)=>{
         const id=String(feature.properties?.n_predio||'');
@@ -373,9 +432,9 @@ export default function ParcelMap({ data, criteria, searchResults, selectedSearc
             )}
             data={data}
             style={{
-              color: '#00bfae',
+              color: COLORS.selected,
               weight: 3,
-              fillColor: '#00bfae',
+              fillColor: COLORS.selected,
               fillOpacity:
                 basemap === 'satellite' ? 0.12 : 0.20
             }}
