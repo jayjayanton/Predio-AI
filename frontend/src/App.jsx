@@ -1029,7 +1029,7 @@ export default function App() {
             </>}
             <p className="note">La clasificación VU/VB/VM se extrae solo cuando el código aparece explícitamente en los campos cartográficos examinados. Una ausencia de código no significa prohibición. Las intersecciones y los códigos son provisionales y deben contrastarse con el IRM. No representa un conteo de todo Quito ni una aprobación constructiva.</p>
           </div>
-        </details>
+        </details>}
       </section>}
       {/* MAIN LAYOUT */}
 
