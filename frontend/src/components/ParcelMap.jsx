@@ -262,14 +262,15 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
       onEachFeature={(feature,layer)=>{
         const id=String(feature.properties?.predio??feature.id??'');
         if(!id)return;
-        layer.bindTooltip('Predio '+id);
+        suppressParcelFocus(layer);
+        // No tooltip box on parcel hover or selection.
         layer.on('click',async()=>{
           if(selectedNearbyRef.current===id){
             selectedNearbyRef.current=null;
             selectedLayerRef.current=null;
             setSelectedNearby(null);
             layer.setStyle({color:COLORS.nearby,weight:1.6,fillOpacity:0});
-            layer.closePopup();
+            
             return;
           }
           if(selectedLayerRef.current&&selectedLayerRef.current!==layer){
@@ -280,7 +281,7 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
           selectedLayerRef.current=layer;
           setSelectedNearby(id);
           layer.setStyle({color:COLORS.selected,weight:4,fillColor:COLORS.selected,fillOpacity:.48});
-          layer.bindPopup(nearbyParcelPopup(id,attributesCache.current.get(id)||null),{maxWidth:290,autoPan:false}).openPopup();
+          // Selection should only recolor the parcel; no popup box.
           if(attributesCache.current.has(id))return;
           try{
             const params=new URLSearchParams({f:'json',
@@ -292,11 +293,11 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
             const payload=await response.json();
             if(payload.error)throw new Error(payload.error.message||'Error catastral');
             const attributes=payload.features?.[0]?.attributes;
-            if(!attributes){layer.setPopupContent(nearbyParcelPopup(id,null,'Sin atributos coincidentes en catastro 2024'));return;}
+            if(!attributes){return;}
             attributesCache.current.set(id,attributes);
-            layer.setPopupContent(nearbyParcelPopup(id,attributes));
+            
           }catch(error){
-            layer.setPopupContent(nearbyParcelPopup(id,null,'Consulta no disponible: '+error.message));
+            
           }
         });
       }}/>}
@@ -305,6 +306,27 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
     </div>}
     {status&&<div className="leaflet-top leaflet-right" style={{pointerEvents:'none',marginTop:62}}><div className="leaflet-control" style={{background:'rgba(255,255,255,.94)',color:'#263238',padding:'5px 8px',margin:'0 8px',fontSize:11,maxWidth:180,borderRadius:6}}>{status}</div></div>}
   </>;
+}
+
+// SVG paths can acquire a browser-native rectangular focus box on click.
+// Remove pointer-created focus at the layer level rather than relying on CSS.
+function suppressParcelFocus(layer) {
+  const element=layer.getElement?.();
+  if(element){
+    element.setAttribute('tabindex','-1');
+    element.setAttribute('focusable','false');
+  }
+  layer.on('add',()=>{
+    const path=layer.getElement?.();
+    if(path){
+      path.setAttribute('tabindex','-1');
+      path.setAttribute('focusable','false');
+    }
+  });
+  layer.on('click',()=>{
+    const path=layer.getElement?.();
+    if(path&&typeof path.blur==='function')path.blur();
+  });
 }
 
 function SearchResultsLayer({results,selected,onSelect}) {
@@ -350,7 +372,8 @@ function SearchResultsLayer({results,selected,onSelect}) {
       }}
       onEachFeature={(feature,layer)=>{
         const id=String(feature.properties?.n_predio||'');
-        layer.bindTooltip('Predio '+id);
+        suppressParcelFocus(layer);
+        // No tooltip box on parcel hover or selection.
         layer.on('click',event=>{
           // A blue GIS result always becomes the active card immediately.
           // Stop the same click reaching nearby cadastral layers below it.
@@ -480,7 +503,8 @@ export default function ParcelMap({ data, criteria, searchResults, selectedSearc
             }}
             onEachFeature={(feature,layer)=>{
               const id=feature.properties?.n_predio??feature.properties?.predio;
-              if(id!=null)layer.bindTooltip('Predio seleccionado: '+String(id));
+              suppressParcelFocus(layer);
+              // No tooltip box on the selected parcel.
               // Individual lookup is an explicit selection for either audience.
               layer.bringToFront();
             }}
