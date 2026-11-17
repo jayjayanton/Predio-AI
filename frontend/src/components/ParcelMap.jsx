@@ -275,30 +275,14 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
           }
           if(selectedLayerRef.current&&selectedLayerRef.current!==layer){
             selectedLayerRef.current.setStyle({color:COLORS.nearby,weight:1.6,fillOpacity:0});
-            selectedLayerRef.current.closePopup();
+
           }
           selectedNearbyRef.current=id;
           selectedLayerRef.current=layer;
           setSelectedNearby(id);
           layer.setStyle({color:COLORS.selected,weight:4,fillColor:COLORS.selected,fillOpacity:.48});
           // Selection should only recolor the parcel; no popup box.
-          if(attributesCache.current.has(id))return;
-          try{
-            const params=new URLSearchParams({f:'json',
-              where:"n_predio = '"+id.replace(/'/g,"''")+"'",
-              outFields:'n_predio,parroquia,area_terre,area_const',
-              returnGeometry:'false',resultRecordCount:'1'});
-            const response=await fetch(PARCEL_ATTRIBUTES+'?'+params);
-            if(!response.ok)throw new Error('HTTP '+response.status);
-            const payload=await response.json();
-            if(payload.error)throw new Error(payload.error.message||'Error catastral');
-            const attributes=payload.features?.[0]?.attributes;
-            if(!attributes){return;}
-            attributesCache.current.set(id,attributes);
-            
-          }catch(error){
-            
-          }
+
         });
       }}/>}
     {highlightMatches&&<div role="status" style={{fontSize:12,padding:'6px 10px',color:'#c9e2e0',background:'#173038'}}>
