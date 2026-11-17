@@ -77,7 +77,17 @@ const MAX_RENDERED=2400;
 const MAX_DEPTH=5;
 const MAX_QUERIES=64;
 
-function VisibleParcels({enabled}) {
+
+// Geometry-only preliminary screening. ArcGIS 2026 parcel features currently
+// expose a predio identifier, not authoritative urban/rural or VU zoning.
+function geometryAreaM2(geometry) {
+  if(!geometry || !['Polygon','MultiPolygon'].includes(geometry.type)) return NaN;
+  const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.coordinates;
+  return polygons.reduce((total,rings)=>total+Math.abs(L.GeometryUtil.geodesicArea(rings[0].map(([lng,lat])=>L.latLng(lat,lng))))-
+    rings.slice(1).reduce((holes,ring)=>holes+Math.abs(L.GeometryUtil.geodesicArea(ring.map(([lng,lat])=>L.latLng(lat,lng)))),0),0);
+}
+
+function VisibleParcels({enabled,criteria,highlightMatches}) {
   const map=useMap();
   const [features,setFeatures]=useState(null);
   const [status,setStatus]=useState('');
@@ -181,24 +191,34 @@ function VisibleParcels({enabled}) {
     update();
     return ()=>{seq++;if(timer)clearTimeout(timer);if(controller)controller.abort();map.off('moveend',update);};
   },[map,enabled]);
+  const min=Number(criteria?.min),max=Number(criteria?.max);
+  const validRange=criteria && criteria.min!=='' && criteria.max!=='' && min>0 && max>=min;
+  const advanced=criteria?.landClass!=='all'||criteria?.housingType!=='all'||criteria?.occupation!=='all';
+  const areaMatches=validRange && !advanced && (features?.features||[]).filter(f=>{const a=geometryAreaM2(f.geometry);return Number.isFinite(a)&&a>=min&&a<=max;});
+  const matchIds=new Set((areaMatches||[]).map(f=>String(f.properties?.predio??f.id??'')));
+  const highlight=Boolean(highlightMatches&&validRange&&!advanced);
   return <>
     {features?.features?.length>0&&<GeoJSON className="predio-nearby-outline" key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
-      style={{color:'#9fe7b6',weight:1.7,opacity:1,fillColor:'#9fe7b6',fillOpacity:0}}
+      style={feature=>{const match=highlight&&matchIds.has(String(feature.properties?.predio??feature.id??''));return {color:match?'#e2a321':'#9fe7b6',weight:match?2.5:1.7,opacity:1,fillColor:match?'#ffd65c':'#9fe7b6',fillOpacity:match?0.42:0};}}
       onEachFeature={(feature,layer)=>{
         layer.bindPopup('Predio: '+String(feature.properties?.predio||'No identificado'));
         layer.on('mouseover',()=>layer.setStyle({color:'#2eae75',weight:3,fillColor:'#5bc992',fillOpacity:0.18}));
-        layer.on('mouseout',()=>layer.setStyle({color:'#9fe7b6',weight:1.7,opacity:1,fillOpacity:0}));
+        layer.on('mouseout',()=>{const match=highlight&&matchIds.has(String(feature.properties?.predio??feature.id??''));layer.setStyle({color:match?'#e2a321':'#9fe7b6',weight:match?2.5:1.7,opacity:1,fillColor:match?'#ffd65c':'#9fe7b6',fillOpacity:match?0.42:0});});
         layer.on('click',()=>layer.setStyle({color:'#139e68',weight:3,fillColor:'#5bc992',fillOpacity:0.22}));
       }}/>}
+    {highlightMatches&&<div role="status" style={{fontSize:12,padding:'6px 10px',color:'#c9e2e0',background:'#173038'}}>
+      {!validRange?'Introduzca un rango de superficie válido.':advanced?'La clasificación, VU/VB/VM y ocupación requieren cruce PUGS; no se resaltan coincidencias sin verificar.':highlight?('Coincidencias preliminares por área geométrica visible: '+matchIds.size+'. No verifica PUGS ni superficie oficial.'):'Active el resaltado para ver coincidencias por área.'}
+    </div>}
     {status&&<div className="leaflet-top leaflet-right" style={{pointerEvents:'none',marginTop:62}}><div className="leaflet-control" style={{background:'rgba(255,255,255,.94)',color:'#263238',padding:'5px 8px',margin:'0 8px',fontSize:11,maxWidth:180,borderRadius:6}}>{status}</div></div>}
   </>;
 }
 
 // Main cadastral map component.
 
-export default function ParcelMap({ data }) {
+export default function ParcelMap({ data, criteria }) {
   const [basemap, setBasemap] = useState('streets');
   const [showNearbyParcels,setShowNearbyParcels]=useState(true);
+  const [highlightMatches,setHighlightMatches]=useState(false);
 
   const selectedBasemap = BASEMAPS[basemap];
 
@@ -247,6 +267,10 @@ export default function ParcelMap({ data }) {
         <input type="checkbox" checked={showNearbyParcels} onChange={e=>setShowNearbyParcels(e.target.checked)}/>
         Predios catastrales cercanos (zoom 16+)
       </label>
+      {criteria&&<label className="parcel-layer-toggle" style={{display:'flex',alignItems:'center',gap:6,margin:'8px 0',fontSize:13}}>
+        <input type="checkbox" checked={highlightMatches} onChange={e=>setHighlightMatches(e.target.checked)}/>
+        Resaltar predios que coinciden con los criterios
+      </label>}
       {/* Leaflet map */}
 
       <MapContainer
@@ -271,7 +295,7 @@ export default function ParcelMap({ data }) {
           maxZoom={19}
         />
 
-        <VisibleParcels enabled={showNearbyParcels}/>
+        <VisibleParcels enabled={showNearbyParcels} criteria={criteria} highlightMatches={highlightMatches}/>
 
         {/* Municipal cadastral polygons */}
 
