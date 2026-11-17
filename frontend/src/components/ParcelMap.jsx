@@ -354,7 +354,7 @@ function SearchResultsLayer({results,selected,onSelect}) {
         layer.on('click',event=>{
           // A blue GIS result always becomes the active card immediately.
           // Stop the same click reaching nearby cadastral layers below it.
-          L.DomEvent.stopPropagation(event);
+          if(event.originalEvent)L.DomEvent.stopPropagation(event.originalEvent);
           onSelect?.(id);
         });
       }}/>
