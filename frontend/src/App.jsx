@@ -81,6 +81,7 @@ export default function App() {
   const [searchAreaMax,setSearchAreaMax]=useState('6000');
   const [searchParishes,setSearchParishes]=useState([]);
   const [exploreResults,setExploreResults]=useState([]);
+  const [exploreSort,setExploreSort]=useState('id');
   const [exploreGeometries,setExploreGeometries]=useState(null);
   const [exploreSelected,setExploreSelected]=useState(null);
   const [exploreCount,setExploreCount]=useState(null);
@@ -423,7 +424,7 @@ export default function App() {
   };
   const VALLEY_PARISHES=['CUMBAYA','TUMBACO','PUEMBO','PIFO','TABABELA','YARUQUI','CHECA','EL QUINCHE','GUAYLLABAMBA','NAYON','ZAMBIZA'];
   // Phase 1: direct cadastral GIS search. PUGS and IRM are reviewed per predio later.
-  async function exploreParcels(offset=0) {
+  async function exploreParcels(offset=0, sort=exploreSort) {
     setExploreError('');
     setExploreGeometries(null);
     setExploreSelected(null);
@@ -450,7 +451,7 @@ export default function App() {
       };
       const [counts,results]=await Promise.all([
         query({returnCountOnly:'true',returnGeometry:'false'}),
-        query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
+        query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
       ]);
       setExploreCount(Number(counts.count||0));
       setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
@@ -467,7 +468,7 @@ export default function App() {
       });
       setExploreGeometries({type:'FeatureCollection',features:geometries});
       setExploreOffset(offset);
-      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass].join('|'));
+      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort].join('|'));
     }catch(error){
       setExploreError('No se pudo completar la consulta GIS municipal: '+error.message);
       setExploreResults([]);setExploreGeometries(null);setExploreCount(null);
@@ -616,7 +617,7 @@ export default function App() {
         </div>
         <button type="button" className="primary-action" disabled={exploreBusy} onClick={()=>exploreParcels(0)}>{exploreBusy?'Consultando catastro…':'Buscar predios que coinciden'}</button>
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
-         {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass].join('|')&&<div className="explore-results" aria-live="polite">
+         {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,exploreSort].join('|')&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
           <button type="button" className="secondary" style={{margin:'10px 0'}} onClick={()=>document.getElementById('predio-map-reel')?.scrollIntoView({behavior:'smooth',block:'center'})}>Ver tarjetas y polígonos en el mapa</button>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
@@ -1157,6 +1158,7 @@ export default function App() {
 
         <section className="map-section">
 
+          <div className="predio-map-pane">
           <div className="map-top">
             <span className="live">
               ● MAPA INTERACTIVO
@@ -1168,19 +1170,36 @@ export default function App() {
           </div>
 
           <ParcelMap data={data} searchResults={exploreGeometries} selectedSearchPredio={exploreSelected} onSelectSearchPredio={setExploreSelected} />
+          <div className="map-bottom">
+            <span>
+              Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
+            </span>
+
+            <span>
+              Límite predial ≠ huella de edificación
+            </span>
+          </div>
+          </div>
           {audience === 'developer' && <div className="predio-map-reel" id="predio-map-reel">
             {exploreResults.length>0 ? <>
           <div className="predio-reel-heading">
             <div>
               <strong>Explorar predios ({exploreResults.length} en esta página)</strong>
-              <p className="note">Seleccione una tarjeta para destacar y acercar su polígono en el mapa. Análisis PUGS pendiente.</p>
+              <p className="note">Ordene los predios por superficie y seleccione una tarjeta para ubicarla en el mapa. PUGS pendiente.</p>
             </div>
-            <div className="predio-reel-controls" role="group" aria-label="Navegar tarjetas de predios">
-              <button type="button" className="secondary" aria-label="Tarjetas anteriores" onClick={()=>document.getElementById('predio-results-reel')?.scrollBy({left:-300,behavior:'smooth'})}>‹</button>
-              <button type="button" className="secondary" aria-label="Tarjetas siguientes" onClick={()=>document.getElementById('predio-results-reel')?.scrollBy({left:300,behavior:'smooth'})}>›</button>
-            </div>
+            <label className="predio-reel-sort">Ordenar por
+              <select value={exploreSort} onChange={e=>{
+                const next=e.target.value;
+                setExploreSort(next);
+                exploreParcels(0,next);
+              }}>
+                <option value="id">Número de predio</option>
+                <option value="largest">Mayor a menor superficie</option>
+                <option value="smallest">Menor a mayor superficie</option>
+              </select>
+            </label>
           </div>
-          <div id="predio-results-reel" className="predio-results-reel" role="group" aria-label="Resultados catastrales desplazables">
+          <div id="predio-results-reel" className="predio-results-reel" role="group" aria-label="Resultados catastrales ordenados">
             {exploreResults.map((p,i)=>{
               const id=String(p.n_predio);
               const active=exploreSelected===id;
@@ -1204,15 +1223,7 @@ export default function App() {
           </div>}
 
 
-          <div className="map-bottom">
-            <span>
-              Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
-            </span>
 
-            <span>
-              Límite predial ≠ huella de edificación
-            </span>
-          </div>
 
         </section>
 
