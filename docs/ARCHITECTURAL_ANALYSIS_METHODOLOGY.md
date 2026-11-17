@@ -1,313 +1,255 @@
-# PredioAI — Architectural Document Intelligence
+# PredioAI — Property, Plans and Intervention Intelligence
 
-**Project methodology and development roadmap**  
-**Stage:** Product design and validation · November 2026  
+**Product scope, methodology and development roadmap**  
+**Scope revised:** 17 November 2026  
 **Companion document:** [Project README](../README.md)
 
-## Commercial workflow: remote-first remodeling and construction
+## Product origin and positioning
 
-PredioAI serves **two connected buyer groups**: (1) real estate firms, investors, and developers researching lots or buildings; and (2) architects, construction companies, renovation contractors, and property owners planning interventions in existing buildings. The second workflow must remain visible as a first-class product capability, not a footnote to cadastral exploration.
+PredioAI originated in **improving an existing home**, not in trading land. Painting, replacing floors, repairing walls, remodeling, reorganizing a layout, reconstructing and expanding a house are central use cases. The platform is intended for ordinary homeowners and for architects, remodelers and construction companies serving them.
 
-**Value proposition:** use approved or otherwise authorized plans and cadastral/IRM context to prepare preliminary quantities remotely, reducing manual drawing measurements and potentially avoiding some early exploratory site visits. This is a testable cost-saving hypothesis, **not a proven reduction in project cost or a replacement for professional surveys**.
+**One-line definition:** PredioAI connects property records, architectural plans and relevant municipal information so people and professionals can understand a building and prepare evidence-based interventions.
 
-### User journey: renovation, repair, and expansion
+**Homepage message:** “Entiende tu casa. Planea su transformación.”
 
-1. Enter **Planos y remodelación** directly or from a selected property; property linking is optional in the target architecture, although the current prototype still requires a property lookup to advance.
-2. Define the intervention: repair, maintenance, renovation, structural alteration, or extension. Flag structural changes and extensions for professional and municipal review.
-3. Upload authorized floor plans, elevations, sections, and schedules; inspect whether the documents contain text, vector geometry, dimensions, and usable scale.
-4. Select the relevant rooms, walls, openings, ceilings, or floors in a future interactive viewer. Prefer vector geometry and explicit dimensions; use computer vision only when necessary and validated.
-5. Confirm scale, wall heights, number of wall faces, deductions for openings, and whether the plans reflect the *as-built* condition. Record missing evidence explicitly.
-6. Compute reviewable **measurements and surface quantities**, e.g. paintable wall area = sum of verified wall lengths × verified heights × selected faces − verified openings. Never infer wall heights or structural conditions from a floor plan alone.
-7. Produce a preliminary measurement schedule and report, with provenance and manual corrections. Do **not** automatically estimate materials, labor, prices, or construction budgets.
-8. Require an on-site survey when measurements are unverified, drawings are outdated, existing conditions differ, structural work is planned, or municipal/professional obligations apply.
+**Conceptual workflow:** predio → authorized PDF/CAD plans and relevant IRM → structured document evidence → interactive drawings → reviewed measurements → reports for the owner, contractor or professional client.
 
-### Pilot success criteria
+The map is context, not the whole product. “Multi-purpose” means several uses of this same evidence model, not a claim that every proposed use is already built. Do not recast remodeling as a secondary feature of a real-estate platform in later redesigns.
 
-Measure time to produce a reviewed takeoff versus a manual baseline, discrepancies against site-verified measurements, percentage of measurements requiring correction, and the share of preliminary site visits genuinely avoided. Report uncertainty and document coverage; do not present estimated savings as achieved savings before validation.
+## Audiences and commercial hypothesis
 
-### Implementation sequence
-
-- **Present:** cadastral and IRM context; repair/remodel/expansion activity categories; PDF inspection and preliminary document viewing.
-- **Next:** stand-alone document workspace, drawing scale calibration, selectable geometry, validated wall/room/surface measurements, manual corrections, and provenance.
-- **Later:** saved projects, collaborative review, exportable measurement reports, and optional assisted retrieval grounded in uploaded documents.
-- **Separate analytics track:** property scoring and unsupervised parcel segmentation are future real-estate intelligence capabilities, not prerequisites for architectural takeoff.
-
-**Important boundary:** municipal cadastral footprints are not reliable substitutes for individual room plans or as-built measurements. A digitally calculated surface does not by itself certify constructability, code compliance, structural safety, or approval for an extension.
-
-## Project overview
-
-PredioAI is being developed as a practical bridge between **property GIS** and **construction-document analysis**. Its current prototype retrieves Quito cadastral data and inspects PDF structure. The next stage will allow users to upload authorized architectural drawings, extract reliable construction quantities, explore the findings through an AI assistant, and generate technical reports.
-
-The intended users include homeowners, architects, estimators, remodeling contractors, and construction companies in Ecuador. The initial use case is **quantity takeoff from existing plans**—not insurance claim handling or automatically retrieving government documents.
-
-### Product hypothesis
-
-If architectural plans already contain room dimensions, area schedules, sections, and construction annotations, PredioAI can reduce repetitive manual measurement work by turning those documents into structured, reviewable quantities. The hypothesis must be tested against real approved drawings and manually verified results.
-
-### Guiding principles
-
-1. **Upload-first:** The user provides the architectural PDF. Linking it to a Quito cadastral record is optional.
-2. **Extract before infer:** Prefer explicit annotations and vector geometry; calculate from verified inputs.
-3. **Evidence for every number:** Preserve document, page, location, units, formula, and verification status.
-4. **Reviewable, not magical:** Users can correct ambiguous room associations, scales, and dimensions.
-5. **One source of truth:** Dashboard, AI chat, and reports use the same structured construction profile.
-6. **No custom model training by default:** Introduce advanced computer vision only if a measured need arises.
-
-## Existing foundation
-
-| System | Current state |
-| --- | --- |
-| React/Vite Spanish-language interface | Implemented |
-| Quito cadastral lookup (`clave_cata`, `n_predio`) | Implemented |
-| Esri basemap switching and parcel visualization | Implemented |
-| PH unit-versus-parent-lot distinction | Implemented |
-| `POST /api/blueprints/inspect` | Implemented; page/vector/text metadata only |
-| Automatic room/wall/roof extraction | Not implemented |
-| Persistent document workspace | Not implemented |
-| AI assistant and report generation | Not implemented |
-
-### Cadastral interpretation
-
-For PH example predio `627739`, the municipal layer previously returned:
-- Registered construction area (`area_const`): **211.36 m²**.
-- Attributed land share (`area_ter_1`): **223.43 m²**.
-- Parent/global lot (`area_terre`): **33,348.48 m²**.
-
-The mapped cadastral polygon represents the global lot, **not the individual dwelling footprint**. These are separate from plan-derived room and roof measurements.
-
-## User journey
-
-1. **Start:** Search a property by cadastral identifier, or open **Análisis de planos** directly.
-2. **Upload:** Supply authorized PDF plans, ideally including floor plans, sections, elevations, roof plans, and area schedules.
-3. **Inspect:** Determine document type, pages, text, vector content, and whether OCR is needed.
-4. **Extract:** Read explicit dimensions, room labels, schedules, levels, and documented construction characteristics.
-5. **Validate:** Associate annotations with the correct elements; verify scale and highlight discrepancies.
-6. **Calculate:** Derive quantities from verified measurements, leaving unsupported values pending.
-7. **Explore:** Display the PDF and measurements side by side; ask the contextual assistant questions.
-8. **Report:** Export a technical summary and quantity schedule with citations and caveats.
-
-The upload should open an **in-app analysis tab/workspace**, not a separate browser tab. Long-term project persistence requires authentication and secure storage.
-
-## Architectural information model
-
-| Quantity | Preferred evidence | Rule |
+| Audience | Job to be done | Product boundary |
 | --- | --- | --- |
-| Total construction area | `Cuadro de áreas` | Do not silently overwrite cadastral figures |
-| Room area | Room schedule or verified plan geometry | Specify net vs gross area |
-| Room dimensions | Dimension annotations (`cotas`) | Associate with correct room and floor |
-| Wall length | Dimensioned wall geometry | Declare measurement convention |
-| Wall height | Sections (`cortes`), elevations, schedules | Never assume from floor plan alone |
-| Gross/net wall surface | Verified length, height, openings | Specify wall faces and opening deductions |
-| Roof surface | Roof plan and verified slopes | Distinguish projected area from actual slope area |
-| Doors/windows | Opening schedules and annotated geometry | Verify counts and dimensions |
-| Materials | Notes and specifications | Unknown if undocumented |
+| Homeowner | Understand what is needed for painting, flooring, repairs, renovation or expansion | Accessible project language; professional review where needed |
+| Architect, remodeling contractor, construction firm | Inspect documents remotely, review quantities and prepare client-facing documentation | Measured geometry and reports must be verified and traceable |
+| Real estate firm or developer | Discover/compare parcels and review their municipal context | A complementary existing workflow; no automatic investment recommendation |
+| Insurer or loss-assessment professional | Link observed damage to documented building elements and prepare a reviewed evaluation | Potential extension; actual damage evidence and professional validation required |
 
-Government approval may support document provenance, but it does **not** guarantee that every quantity is shown or that the building matches the drawings today.
+**Value hypothesis:** adequate plans and verified dimensions could reduce repetitive measurements, preparation time and some early site visits. Do not state savings as achieved before measuring them. Necessary site verification, structural assessment and applicable approvals are not replaced.
 
-## Technical architecture
+PredioAI extracts information and derives measurements/quantities from verified inputs. It does **not** automatically decide materials, labor, unit prices, repair costs, budgets, insurance coverage or compensation. Companies and professionals use the reviewed information for their own evaluations and pricing.
+
+## Existing foundation versus planned capabilities
+
+| Capability | State |
+| --- | --- |
+| Spanish React/Vite interface; predio lookup and parcel map | Implemented |
+| PH unit versus parent-lot distinction | Implemented |
+| Cadastral comparison and descriptive CSV export | Implemented; local browser selection |
+| Assisted IRM access and browser PDF field extraction | Implemented prototype; CAPTCHA and document review remain manual |
+| PDF/DXF document inspection through `/api/documents/analyze` | Implemented experimental extraction |
+| Vector-geometry viewer, zoom, page switching, layer visibility, multiple selection | Implemented; uncalibrated geometry |
+| Preliminary on-screen document-inspection summary | Implemented; not a verified measurement report |
+| Automatic wall/room/roof classification | Not implemented |
+| Verified scale and architectural lengths/surfaces | Not implemented |
+| Manual measurement corrections with authoritative recalculation | Planned |
+| Exportable technical measurement reports | Planned |
+| Secure persistent projects, collaboration and contextual AI assistant | Planned |
+| Parcel scoring and unsupervised segmentation | Planned parallel analytics track |
+| Damage-evidence workflow for insurance/peritaje | Potential extension; not implemented |
+
+The current UI requires a predio lookup to advance to the document workspace. A future upload-first path may make cadastral linking optional; do not present that as current behavior.
+
+The developer IRM parser runs locally in the browser. The remodeling/project document workflow sends files to the backend for in-memory processing. Do not promise that all uploaded files stay on-device. Existing local IRM automation is optional desktop tooling, not automatic municipal retrieval by the hosted app.
+
+## Core user journey
+
+1. **Identify the property.** Obtain the predio and cadastral context. Separate the lot, building, PH unit and individual room; they are not interchangeable geometries.
+2. **Define the intervention.** Start with plain-language tasks: paint, change flooring, repair, remodel/reorganize, reconstruct or expand. Escalate technical review for structural changes and extensions.
+3. **Provide documents.** Upload authorized PDF or DXF drawings and relevant IRM. For DWG, require authorized conversion to DXF. Plans are already digital when vector PDF/CAD is provided; the job is parsing/structuring, not assuming they need a newly trained vision model.
+4. **Inspect before inferring.** Determine available text, vector geometry, pages/layers and explicit dimensions. A raster scan needs a distinct validated extraction path. An IRM provides urban-planning context, not room dimensions.
+5. **Explore interactively.** Use the existing viewer to zoom, show/hide layers and select geometry. Future semantic associations connect these elements to walls, rooms, floors or openings; selection alone is not recognition.
+6. **Validate measurement inputs.** Confirm scale/units per drawing, dimensions, heights, face conventions, openings and evidence that the drawing corresponds to the current building. Mark unknowns and conflicts explicitly.
+7. **Calculate and correct.** A future deterministic engine computes only supported quantities. A correction invalidates dependent quantities and triggers backend recalculation before a report is treated as current.
+8. **Review and communicate.** Assemble traceable quantities and missing information into a report reviewed by the responsible person/professional, then export/share through an authorized workflow when implemented.
+
+Use an in-app workspace. Do not send a user to a separate browser tab to inspect drawing geometry. Secure project persistence requires authentication, access controls, retention and deletion policies first.
+
+## Everyday examples
+
+### Painting a room
+
+The target workflow lets a user select the relevant wall faces, verify their lengths and heights, and deduct openings for those same faces. Report gross/net wall area and the included faces. Never assume a wall height from a floor plan alone. A ceiling is a separate selected surface. Paint choice, coats, coverage per product and price are outside automatic estimation.
+
+### Replacing a floor
+
+Verify a room boundary and scale, then measure the selected floor polygon. Identify net versus gross area and any holes/deductions. Do not silently add waste factors or convert the area into boxes of flooring, a shopping list or a price.
+
+### Reorganizing, remodeling, reconstructing or expanding
+
+Record the existing documented configuration, the user's intended intervention and relevant municipal information. Proposed design changes must stay separate from source/as-built evidence. The current viewer does not move walls, redesign a floor plan or authorize demolition. Structural roles, hidden conditions, geometry/retreat compliance and permission require appropriate professional review; insufficient evidence produces a pending item, not a positive feasibility result.
+
+## Potential insurance and damage-documentation extension
+
+This is now an explicit **future product hypothesis**, not a prohibited adjacent market and not a current claims capability.
+
+Example: an insurer or appointed professional wants to document a wall affected by an earthquake and prepare an evaluation to communicate to the client.
+
+A proposed workflow would:
+
+1. Obtain authorization for the property/project documents and damage evidence.
+2. Link the correct drawing version and documented wall to dated photographs, observations and, where available, pre-event/as-built references.
+3. Let a reviewer annotate the affected element, visible damage region and confidence/uncertainty. Keep the designed wall area distinct from the observed damaged area.
+4. Quantify an extent only when a verified scale/dimension and reliable evidence-to-element association exist. A whole wall is not automatically wholly damaged, and a photograph alone is not assumed to provide reliable scale.
+5. Record what cannot be determined remotely and refer those items for inspection.
+6. Generate a draft evidence-linked report for professional review. An authorized professional or insurer makes the evaluation and controls client delivery.
+
+Plans alone cannot establish that damage occurred, its extent, hidden damage, structural safety or its cause. The platform must not automatically declare a building safe/unsafe, decide coverage, calculate indemnity or send unreviewed client decisions. This extension would need separate ground-truth validation, consent, access controls, provenance, retention rules and audit history. No insurance upload, damage detector or report-delivery service is added by this positioning update.
+
+## Cadastral and municipal interpretation
+
+For historical PH example predio `627739`, previously retrieved values were construction **211.36 m²**, attributed land **223.43 m²** and parent lot **33,348.48 m²**. These are historical example observations, not guaranteed current values.
+
+The cadastral polygon is the **lote matriz**, not the unit footprint or room boundaries. Never derive room/wall measurements from it. Do not overwrite cadastral area with plan-derived area: store both sources, definitions and dates. Cadastral/AIVA values are not construction prices or market appraisals.
+
+An IRM is evidence for reviewing urban-planning conditions, not proof of current building condition or an automatic construction permit. Current project upload requirements are application workflow rules, not universal legal statements. Multiple zoning assignments, PH rights and missing fields remain visible for review.
+
+## Evidence model and measurement rules
+
+Each future measurement must include:
+
+- Identity: project, building/unit, level, room, selected element IDs and measurement convention.
+- Value: numeric quantity, units, gross/net status and selected wall faces.
+- Source: document ID/version, page or CAD layer, original coordinates/region and any user-provided evidence.
+- Derivation: documented, calculated or user-confirmed; not an unsupported inferred number.
+- Review: pending, verified, conflicting or unavailable, plus reviewer and revision information.
+- Calculation: formula, verified inputs, deductions and dependencies.
+
+| Quantity | Preferred evidence | Guardrail |
+| --- | --- | --- |
+| Total construction area | Area schedule | Preserve separately from cadastral figures |
+| Room/floor area | Verified boundary and scale or explicit area schedule | Declare net/gross convention |
+| Wall length | Associated dimensions or calibrated geometry | Declare centerline/face convention |
+| Wall height | Sections, elevations, schedules or verified user evidence | Never infer from plan view alone |
+| Wall surface | Verified length, height, faces and openings | Deductions must correspond to selected faces |
+| Roof surface | Roof geometry and verified slope | Distinguish projected and sloping area |
+| Doors/windows | Annotated geometry and schedules | Verify dimensions and counts |
+| Material description | Documented notes/specifications | Unknown when absent; not automatic material quantities |
+| Observed damage extent | Verified actual-condition evidence linked to elements | Future module; never equate it with design geometry |
+
+Illustrative formulas, not implemented claims:
+
+```text
+Rectangular floor area = verified length × verified width
+General floor area = area of verified selected polygon minus verified holes
+Gross wall-face area = sum of verified face lengths × their verified heights
+Net paintable wall area = gross selected face area − corresponding opening areas
+Simple roof-plane surface = verified projected area / cos(verified roof pitch)
+```
+
+For multiple heights, faces or roof planes, calculate each supported part separately. Unknown scale, dimensions, height, pitch or element identity must return **pending/unavailable**, not zero or a fabricated estimate. Evidence of approval does not guarantee that drawings match today's building.
+
+## Architecture: preserve and extend
 
 ```text
 React application
-├── Catastro (existing)
-├── Análisis de planos (planned)
-│   ├── Upload + PDF viewer
-│   ├── Measurement review panel
-│   └── Property-aware AI chat
-└── Informes (planned)
-          │
-          ▼
-FastAPI backend
-├── Municipal cadastral service (existing)
-├── PDF inspection (existing)
-├── Document extraction (planned)
-├── Scale / geometry validation (planned)
-├── Deterministic quantity engine (planned)
-├── Versioned construction profile (planned)
-├── AI retrieval + calculation tools (planned)
-└── PDF / Excel report generation (planned)
+├── Predio / municipal context (existing)
+├── Planos y remodelación (existing experimental entry)
+│   ├── Activity and document inputs (existing)
+│   ├── Vector selection / layers / zoom (existing)
+│   ├── Scale and measurement review (planned)
+│   └── Corrections and report preparation (planned)
+├── Discovery / comparison (existing complementary workflow)
+├── Scoring / unsupervised segmentation (planned parallel track)
+└── Damage-evidence review for professionals (potential extension)
+         │
+         ▼
+FastAPI and browser services
+├── Municipal lookup and PUGS (existing)
+├── Browser developer IRM parsing (existing)
+├── Backend PDF/DXF extraction (existing experimental)
+├── Validated geometry / deterministic quantities (planned)
+├── Versioned evidence profile / secure storage (planned)
+└── Reviewed technical exports / optional grounded assistant (planned)
 ```
 
-**Suggested tools:** PyMuPDF for PDF inspection and vector/text extraction; OCR only where needed; NumPy/Shapely for geometry; an LLM API for language understanding and source-grounded explanations. The AI should never invent a quantity the geometry engine cannot support.
+Prefer PyMuPDF/vector PDF extraction and ezdxf/CAD entities before inference. Use geometry libraries for deterministic calculations. Introduce OCR or computer vision only for specific document types that need them and only after validation. Custom model training is not a default prerequisite. A future language assistant retrieves evidence and calls calculation tools; it never invents measurements or substitutes its own arithmetic for the authoritative engine.
 
-## Processing pseudocode
-
-The following functions are **design pseudocode**, not existing backend APIs.
+### Design pseudocode — not existing APIs
 
 ```python
-def process_upload(files, project_id=None, cadastral_id=None):
-    require_upload_authorization()
-    project = get_or_create_project(project_id, cadastral_id)
-    documents = validate_and_store_securely(files, project, versioned=True)
-
+def process_project_documents(files, property_context=None):
+    require_authorized_use(files)
+    documents = validate_inputs(files)
+    candidates = []
     for document in documents:
-        inspection = inspect_pdf(document)
-        sheets = classify_sheets(inspection)  # plan / section / elevation / roof / schedule
-        raw = extract_text_tables_dimensions_vectors(document, sheets)
-
-        if raw.has_scanned_pages:
-            raw += ocr_relevant_pages(document)
-
-        observations = locate_explicit_annotations(raw)
-        evidence = link_to_source_pages_and_regions(observations, document)
-        scale = validate_scale_from_known_dimensions(raw, evidence)
-
-        candidates = associate_rooms_walls_roofs(
-            raw, observations, scale, evidence
-        )
-        save_candidates(project, candidates, status="pending_review")
-
-    return get_measurement_review_queue(project)
+        inspection = inspect_document(document)
+        raw = extract_available_text_vectors_layers(document)
+        if inspection.requires_raster_processing:
+            raw = validated_raster_path_or_pending(document, raw)
+        candidates += preserve_source_links(raw, document)
+    return evidence_profile(property_context, candidates, status="pending_review")
 
 
-def confirm_measurements_and_calculate(project_id, corrections):
-    verified = apply_user_review(project_id, corrections)
-    geometry = build_geometry_from_verified_inputs(verified)
-
-    quantities = {
-        "room_areas": calculate_room_areas(geometry),
-        "wall_lengths": calculate_wall_lengths(geometry),
-        "wall_face_areas": calculate_wall_areas_if_height_known(
-            geometry, verified.heights, verified.openings
-        ),
-        "roof_areas": calculate_roof_areas_if_pitch_known(
-            geometry, verified.roof_geometry, verified.roof_slopes
-        ),
-    }
-
-    quantities = mark_missing_inputs_as_pending(quantities)
-    return save_versioned_profile(project_id, quantities)
+def confirm_and_recalculate(profile, corrections):
+    reviewed = apply_corrections_with_revision_history(profile, corrections)
+    invalidate_dependent_results(reviewed)
+    scale = validate_scale_and_units_per_view(reviewed)
+    if not scale.verified:
+        return pending_measurements(reason="Scale or units unverified")
+    geometry = build_geometry_from_reviewed_elements(reviewed)
+    quantities = calculate_only_supported_lengths_and_surfaces(geometry, reviewed)
+    return save_versioned_profile_with_sources(reviewed, quantities)
 
 
-def answer_question(project_id, question):
-    profile = load_construction_profile(project_id)
-    sources = retrieve_relevant_pdf_evidence(project_id, question)
-    calculations = execute_validated_quantity_tools(question, profile)
-
-    return llm_explain_with_citations(
-        question, profile, sources, calculations,
-        never_invent_measurements=True
-    )
+def prepare_report(profile):
+    require_results_match_latest_review_revision(profile)
+    return draft_report(profile, include_sources=True,
+                        include_formulas=True, include_pending_items=True,
+                        include_limitations=True, automatic_costs=False)
 
 
-def create_report(project_id, sections, output_format="pdf"):
-    profile = load_construction_profile(project_id)
-    report = assemble_technical_report(
-        profile, sections,
-        include_source_pages=True,
-        include_formulas=True,
-        include_review_status=True,
-        include_limitations=True
-    )
-    return export(report, output_format)
+def annotate_damage_future(profile, evidence, reviewer):
+    require_authorized_evidence(evidence)
+    observations = reviewer.link_observations_to_elements(evidence, profile)
+    extent = quantify_only_if_supported(observations)
+    return draft_for_professional_review(observations, extent,
+                                        determine_safety=False,
+                                        decide_coverage=False,
+                                        calculate_indemnity=False)
 ```
 
-## Measurement rules and traceability
+## Reports and optional assistant
 
-Each measurement should record:
-- **Identity:** Project, building, floor, room, element ID, and measurement convention.
-- **Quantity:** Numeric value, unit, and whether gross/net.
-- **Source:** Document ID/version, sheet/page, and page region where possible.
-- **Derivation:** `documented`, `calculated`, `user_confirmed`, or `estimated`.
-- **Review status:** `pending`, `verified`, `conflicting`, or `unavailable`.
-- **Calculation:** Formula, verified inputs, and assumptions.
+The UI, future assistant and exports must use the same versioned evidence profile. Proposed report sections: property identification, document/version inventory, intervention scope, selected element overlays, reviewed lengths/areas, formula and input provenance, corrections, missing/conflicting data, reviewer status and limitations. PDF is the proposed first technical export, with structured table export later. These are not existing report-download features; the current cadastral CSV is a different export.
 
-Sample formulas—only when the required dimensions are known:
+Example grounded assistant requests: “¿Qué superficie de pared seleccioné?”, “¿Qué falta verificar antes de medir este piso?”, “¿De dónde sale esta dimensión?” and “Prepara un resumen por ambiente.” Where no verified measurement exists, explain the missing input and link to the source rather than supply a number.
 
-```text
-Rectangular floor area        = length × width
-Gross wall-face area          = measured wall-face length × verified height
-Net paintable wall area       = gross wall-face area − verified openings
-Simple sloped roof-plane area = projected area / cos(verified roof pitch)
-Preliminary work cost         = measured quantity × user-supplied unit rate
-```
+The insurance extension would add observed damage evidence and a professional review/delivery state. A draft is never described as a certified evaluation. Do not include automatic material/price schedules or cost projections in the architectural measurement scope.
 
-For complex floor plans and roofs, calculate by verified polygons or individual planes rather than relying on a single simplified formula. Missing scale, height, pitch, or geometry must produce **pending**, not an invented estimate.
+## Delivery roadmap and validation
 
-## Conversational assistant
-
-The proposed assistant is an all-purpose interface **within the uploaded project's context**. It retrieves structured measurements, consults relevant document evidence, invokes deterministic calculation tools, and explains results in Spanish.
-
-Example requests:
-- “¿Cuál es el área de cada dormitorio?”
-- “¿Cuántos metros lineales de paredes tiene la planta baja?”
-- “¿Cuántos metros cuadrados de pared necesito pintar?”
-- “¿Cuál es el área de la cubierta, considerando su pendiente?”
-- “¿Coincide el cuadro de áreas con el catastro?”
-- “Genera un informe técnico por ambiente.”
-
-Quantitative answers should link to source pages and ideally highlight the relevant PDF region. The LLM is an interface and explanation layer, **not** the authority for measured geometry.
-
-## Technical reports
-
-Reports should be generated from the **same structured profile** used by the chat and UI.
-
-**First export:** PDF. **Next:** Excel.
-
-Proposed sections:
-1. Property and cadastral identification, if linked.
-2. Document inventory and drawing versions.
-3. Construction area and levels.
-4. Room-by-room areas, dimensions, and perimeters.
-5. Wall lengths, heights, and net/gross surfaces.
-6. Roof areas, slopes, and calculation assumptions.
-7. Doors, windows, and material notes where documented.
-8. Optional preliminary quantity/cost schedule using user-provided rates.
-9. Sources, calculation notes, conflicts, missing information, and review status.
-
-Reports are analytical outputs, not automatically certified architectural or engineering documents.
-
-## Delivery roadmap
-
-| Milestone | Deliverable | Success condition |
+| Milestone | Deliverable | Acceptance evidence |
 | --- | --- | --- |
-| **M0 — Stable foundation** | Confirm current app/API behavior and CI | Baseline cadastral lookup and PDF inspection remain functional |
-| **M1 — Document extraction** | Parse authorized vector PDFs; identify sheets, text, areas, dimensions | Extracted data linked to original document/page |
-| **M2 — Measurement engine** | Validate scale, associate geometry, calculate room areas and wall lengths | Measurements reviewed against manual ground truth |
-| **M3 — Analysis workspace** | In-app PDF viewer, corrections, secure project/document records | Users can review and reopen a project's findings |
-| **M4 — AI + reports** | Contextual chat, deterministic calculation tools, PDF/Excel export | Chat, dashboard, and report agree on all quantities |
-| **M5 — Optional extensions** | OCR improvements, cost integrations, authorized document retrieval | Added only after validated user demand |
+| M0 — Preserve the foundation | Keep cadastral, IRM, activity and viewer flows working | Tests/build plus browser review; do not rebuild them for marketing changes |
+| M1 — Source-linked document evidence | Improve sheet/element associations using authorized PDF/DXF | Original document/page/layer references remain inspectable |
+| M2 — Verified measurements | Scale calibration, selected room/wall/surface calculations, corrections and recalculation | Agreement with manually checked reference measurements |
+| M3 — Usable project workspace | Homeowner-friendly guidance and professional review; secure saved projects when ready | Users understand pending data and can trace/reopen supported results |
+| M4 — Reviewed exports | Technical reports consistent with latest geometry/evidence revision | UI and report agree; stale results cannot be exported as current |
+| Parallel — Territorial analytics | Explainable scoring and validated unsupervised groups | Transparent criteria, data quality and cluster usefulness checks |
+| Optional — Insurance/peritaje pilot | Actual-condition evidence and damage annotations | Separate reviewed ground truth, privacy controls and reporting validation |
 
-No custom CNN or advanced CV phase is currently planned.
+### Proposed validation with M2 Construction Services
 
-## Validation with M2 Construction Services
+Subject to their willingness and authorization, obtain **2–3 completed drawing sets** and manually verified takeoffs. Include at least a painting or flooring task before expanding to complex renovations. This is a proposed collaboration, not a claimed customer or signed partnership.
 
-A proposed pilot is to obtain **2–3 authorized completed drawing sets** and their manually verified quantity takeoffs, if M2 is willing to share them.
+Ask which source formats and approved/as-built sheets are available, which quantities are laborious, how they measure wall faces/areas, which conventions and tolerances they use, how results are delivered and what confidentiality restrictions apply.
 
-Key questions:
-- Are project documents vector PDFs, scans, DWG files, or mixed?
-- Which approved sheets are routinely available?
-- Which quantities take the most manual effort?
-- Which conventions govern room area, wall length, wall faces, and rounding?
-- How long does a manual takeoff take, and how are its results delivered?
-- Are prior verified takeoffs available for objective comparison?
-- What confidentiality restrictions apply to the documents?
+Measure source coverage, element matching, length/area discrepancies, unsupported cases, reviewer corrections and preparation time versus a manual baseline. Separately record whether any preliminary site visits were actually avoided and which visits remained necessary. Establish accuracy targets after inspecting the pilot documents; do not invent promised accuracy or savings.
 
-Measure room-label matching, room-area error, wall-length error, extraction coverage, reviewer corrections, and processing time. Set quantitative accuracy targets **after** inspecting real pilot documents, not before.
+### First measurement-prototype acceptance criteria
 
-## First prototype acceptance criteria
+Given an authorized dimensioned vector plan: identify usable views and elements; trace candidate dimensions to sources; verify scale; compute selected supported lengths/areas; leave unknown heights/slopes pending; apply corrections and recalculate; show source-linked overlays and unique IDs; generate a reviewed report consistent with the same profile; compare with a manually verified reference. A successful file parse alone is not acceptance.
 
-Given an authorized dimensioned vector architectural PDF, the prototype should:
-- Identify sheets and extract explicit room labels and area schedules.
-- Link each extracted quantity to its source page.
-- Validate drawing scale before measuring geometry.
-- Calculate selected room areas and wall lengths from verified inputs.
-- Leave unknown wall heights and roof pitches pending.
-- Allow the user to correct extracted values.
-- Answer a grounded room-measurement question.
-- Generate a technical report that agrees with the reviewed construction profile.
-- Compare its quantities with at least one manually verified takeoff.
+## Scope guardrails for future changes
 
-## Boundaries and future decisions
+- Lead with homeowners and improvement projects; keep professionals prominent and real estate complementary.
+- Keep existing geometry interaction visible; distinguish it from semantic recognition, editing and real-world measurement.
+- Insurance/peritaje is a possible future extension, never a currently operating automated claims service.
+- Parcel scoring and unsupervised ML are distinct from architectural extraction and damage detection.
+- Never invent dimensions, quantities, regulatory values, materials, costs, customers, partnerships or achieved savings.
+- User document authorization and secure handling precede persistent storage, collaboration and client sharing.
+- Human review and necessary field verification remain part of the intended workflow.
+- Confirm municipal-data/basemap reuse terms before commercialization; pricing remains open.
 
-- User-uploaded PDFs are **Plan A**. Municipal document retrieval is optional future work.
-- Cadastral lookup is helpful but not mandatory for blueprint analysis.
-- The product is **not** an insurance-claims platform.
-- Plans are evidence of documented design, not proof of current as-built conditions.
-- No automatic professional certification or guarantee that a site visit can be eliminated.
-- Authentication, access controls, document retention, and deletion rules must precede persistent multi-user storage.
-- Confirm municipal-data and basemap reuse terms before commercial launch.
-- Pricing and monetization remain open; prioritize extraction accuracy and user value first.
-
----
-
-**Next practical step:** Review one real approved architectural PDF and a verified manual quantity takeoff, then refine M1 and M2 based on what the document actually contains.
+**Next practical step:** validate one real drawing and a manually checked painting or flooring measurement case, while preserving the existing predio → plans/IRM → interactive review foundation.

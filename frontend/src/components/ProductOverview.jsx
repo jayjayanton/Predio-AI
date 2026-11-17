@@ -1,138 +1,109 @@
 import React from 'react';
 import '../styles/overview.css';
+import '../styles/positioning.css';
 
 function Arrow({ diagonal = false }) {
   return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={diagonal ? 'M6 18 18 6M6 6h12v12' : 'M4 12h15m-6-6 6 6-6 6'} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
-function TerritoryIllustration() {
-  return <figure className="po-territory" aria-labelledby="po-territory-caption">
-    <div className="po-territory-heading"><span>Una perspectiva del territorio</span><span className="po-territory-coordinate" aria-hidden="true">Q / DMQ</span></div>
-    <svg className="po-territory-svg" viewBox="0 0 580 430" role="img" aria-labelledby="po-map-title po-map-description">
-      <title id="po-map-title">Ilustración conceptual de parcelas y su entorno</title>
-      <desc id="po-map-description">Una trama de parcelas junto a una vía y un corredor natural. Una parcela está seleccionada para representar la relación entre el mapa y su ficha. Es una ilustración, no cartografía de un predio real.</desc>
-      <defs>
-        <pattern id="po-map-grid" width="29" height="29" patternUnits="userSpaceOnUse"><path d="M29 0H0v29" fill="none" stroke="#d9dfd5" strokeWidth=".6" /></pattern>
-        <pattern id="po-map-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0v8" stroke="#88a78e" strokeWidth="1" /></pattern>
-        <clipPath id="po-map-clip"><rect x="0" y="0" width="580" height="430" rx="0" /></clipPath>
-      </defs>
-      <g clipPath="url(#po-map-clip)">
-        <rect width="580" height="430" fill="#e9eee6" />
-        <rect width="580" height="430" fill="url(#po-map-grid)" />
-        <path d="M435-30c-59 58-101 88-76 145s102 78 104 133-37 94-12 212h163V-30Z" fill="#dce7d7" />
-        <path d="M445-30c-59 58-101 88-76 145s102 78 104 133-37 94-12 212h163V-30Z" fill="url(#po-map-hatch)" opacity=".5" />
-        <g fill="none" stroke="#bacbb5" strokeWidth="1.1">
-          <path d="M448-20c-64 74-67 101-33 145s92 74 91 137-26 104-12 178" />
-          <path d="M471-20c-65 76-71 101-35 145s96 71 94 134-21 104-12 181" />
-          <path d="M495-20c-64 74-72 98-39 141s100 75 99 137-20 106-12 182" />
-          <path d="M521-20c-64 74-76 101-44 145s105 73 104 136" />
-        </g>
-        <path d="M-25 305 143 216 230 188 323 161 371 96 430-28" fill="none" stroke="#f9faf5" strokeWidth="28" strokeLinejoin="round" />
-        <path d="M-25 305 143 216 230 188 323 161 371 96 430-28" fill="none" stroke="#c4cec1" strokeWidth="1.2" strokeDasharray="7 9" strokeLinejoin="round" />
-        <path d="m143 216 69 242M230 188 175-20" fill="none" stroke="#f9faf5" strokeWidth="17" />
-        <g fill="#f2f4ec" stroke="#a8b7a1" strokeWidth="1.3" strokeLinejoin="round">
-          <path d="m-12 34 76-5 15 76-91 19Z" />
-          <path d="m73 28 89-11 22 77-97 11Z" />
-          <path d="m-12 133 92-19 15 74-107 57Z" />
-          <path d="m88 114 99-12 21 76-105 35Z" />
-          <path d="m192 16 82-9 15 71-77 17Z" />
-          <path d="m284 7 90-13-39 83-37 2Z" />
-          <path d="m215 103 74-15 22 64-75 23Z" />
-          <path d="m300 88 30-2 34-4-40 62Z" />
-          <path d="m-12 324 81-41 39 80-120 58Z" />
-          <path d="m78 279 57-31 25 85-44 25Z" />
-          <path d="m121 367 43-23 25 90-68 9Z" />
-          <path d="m180 333 95-24 25 92-95 25Z" />
-          <path d="m285 306 86-15 31 90-92 17Z" />
-          <path d="m267 199 59-23 32 36 12 69-86 16Z" />
-          <path d="m380 297 39-7 12 85-20 4Z" />
-        </g>
-        <path d="m158 240 87-33 27 90-94 24Z" fill="#b9d6ba" stroke="#225c43" strokeWidth="2.5" strokeLinejoin="round" />
-        <g fill="#225c43"><circle cx="158" cy="240" r="3" /><circle cx="245" cy="207" r="3" /><circle cx="272" cy="297" r="3" /><circle cx="178" cy="321" r="3" /></g>
-        <circle cx="215" cy="264" r="15" fill="#184e3a" />
-        <path d="m209 264 4 4 8-9" fill="none" stroke="#f7f9ef" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M230 264h67l31-26h72" fill="none" stroke="#184e3a" strokeWidth="1.1" />
-        <rect x="328" y="205" width="195" height="54" rx="4" fill="#fbfcf6" stroke="#cad5c5" />
-        <circle cx="346" cy="224" r="3" fill="#225c43" />
-        <text x="359" y="228" fill="#173e30" fontSize="12" fontWeight="600" fontFamily="system-ui, sans-serif">Parcela seleccionada</text>
-        <text x="343" y="246" fill="#647667" fontSize="10" fontFamily="system-ui, sans-serif">Un punto de partida para evaluar</text>
-        <g transform="translate(39 351)" fill="none" stroke="#4e6b55" strokeWidth="1.2"><path d="M0 25V0m-5 7 5-7 5 7" /><text x="-4" y="-10" fill="#4e6b55" stroke="none" fontSize="10" fontFamily="system-ui, sans-serif">N</text></g>
-      </g>
-    </svg>
-    <figcaption id="po-territory-caption"><span>El mapa es el inicio. El contexto hace la diferencia.</span><small>Ilustración conceptual · sin datos de un predio real</small></figcaption>
-  </figure>;
-}
-
 const steps = [
-  { number: '01', title: 'Encuentra tu área de interés', text: 'Filtra por parroquia, superficie y características catastrales. Ubica los resultados directamente en el mapa.' },
-  { number: '02', title: 'Entiende cada predio', text: 'Revisa superficies, régimen de propiedad y referencias catastrales. Mantén visibles la fuente y el alcance de cada dato.' },
-  { number: '03', title: 'Profundiza con el IRM', text: 'Consulta el portal municipal, incorpora el documento y revisa los parámetros y condiciones urbanísticas del predio.' },
+  { number: '01', title: 'Ubica tu inmueble', text: 'Consulta el número de predio o la clave catastral. Conoce el terreno y distingue sus datos de los de la vivienda.', status: 'En el piloto' },
+  { number: '02', title: 'Reúne planos e información', text: 'Adjunta planos PDF o CAD en formato DXF y el IRM cuando corresponda al flujo. La inspección extrae la información disponible para revisarla.', status: 'En el piloto' },
+  { number: '03', title: 'Explora el plano', text: 'Selecciona geometría, activa u oculta capas y cambia la vista. El visor no identifica automáticamente cada muro o habitación.', status: 'Visor experimental' },
+  { number: '04', title: 'Valida medidas y documenta', text: 'La siguiente etapa permitirá confirmar escala y dimensiones, corregir selecciones y generar reportes de las superficies de intervención.', status: 'Próximo desarrollo', planned: true },
 ];
 
+function ProjectGuide() {
+  return <aside className="po-project-guide" aria-labelledby="po-guide-title">
+    <div className="po-guide-top"><span>EL PUNTO DE PARTIDA</span><span className="po-stage">Piloto</span></div>
+    <h2 id="po-guide-title">Tu vivienda.<br /><em>Un proyecto con contexto.</em></h2>
+    <p className="po-guide-intro">Conectar lo que sabes del inmueble con lo que muestran sus planos.</p>
+    <ol className="po-project-documents">
+      <li><span className="po-file-label" aria-hidden="true">01</span><div><strong>El predio</strong><span>Ubicación y datos catastrales</span></div></li>
+      <li><span className="po-file-label" aria-hidden="true">02</span><div><strong>Tus planos PDF / DXF</strong><span>Texto y geometría disponibles</span></div></li>
+      <li><span className="po-file-label" aria-hidden="true">03</span><div><strong>El IRM, cuando corresponda</strong><span>Información urbanística para contrastar</span></div></li>
+    </ol>
+    <div className="po-guide-result"><strong>Un espacio para explorar y revisar</strong><p>Seleccionar geometría · mostrar capas · acercar el plano</p><small>Visor experimental. Unidades y escala aún sin verificar.</small></div>
+  </aside>;
+}
+
 export default function ProductOverview({ onExplore, onConsult, onBlueprints, onAnalytics }) {
-  return <section className="product-overview" id="product-overview" aria-label="Presentación de PredioAI">
+  return <section className="product-overview" id="product-overview" aria-label="PredioAI: vivienda, planos y proyectos">
     <section className="po-hero" aria-labelledby="po-hero-title">
       <div className="po-hero-copy">
-        <p className="po-eyebrow"><span aria-hidden="true" /> QUITO · DISTRITO METROPOLITANO <span className="po-pilot-label">PILOTO</span></p>
-        <h1 id="po-hero-title">Tu próxima oportunidad empieza en <em>el territorio.</em></h1>
-        <p className="po-hero-description">Catastro, cartografía e información urbanística en un mismo espacio. Una perspectiva más clara para los equipos que buscan, evalúan y desarrollan inmuebles.</p>
+        <p className="po-eyebrow"><span aria-hidden="true" /> VIVIENDA · PLANOS · PROYECTOS <span className="po-pilot-label">PILOTO EN QUITO</span></p>
+        <h1 id="po-hero-title">Entiende tu casa.<br /><em>Planea su transformación.</em></h1>
+        <p className="po-hero-description">Desde pintar una habitación o cambiar el piso hasta remodelar, reorganizar, reconstruir o ampliar tu vivienda. PredioAI conecta la información del predio, tus planos PDF/CAD y los datos del IRM en un espacio de análisis.</p>
         <div className="po-hero-actions">
-          <button type="button" className="po-button po-button-primary" onClick={onExplore}>Explorar predios <Arrow /></button>
-          <button type="button" className="po-button po-button-secondary" onClick={onConsult}>Consultar un predio <Arrow diagonal /></button>
+          <button type="button" className="po-button po-button-primary" onClick={onBlueprints}>Iniciar mi proyecto <Arrow /></button>
+          <button type="button" className="po-button po-button-secondary" onClick={onConsult}>Consultar mi predio <Arrow diagonal /></button>
         </div>
-        <p className="po-hero-footnote">Para inmobiliarias, promotores, arquitectos y empresas de remodelación y construcción.</p>
+        <p className="po-hero-footnote">Para personas que quieren mejorar su hogar y profesionales que les ayudan a hacerlo.</p>
+        <p className="po-release-note">Hoy: consulta predial e inspección interactiva de geometría. Próxima etapa: mediciones verificadas y reportes técnicos exportables.</p>
       </div>
-      <TerritoryIllustration />
+      <ProjectGuide />
     </section>
 
-    <section className="po-pilot" aria-labelledby="po-blueprint-title">
-      <div className="po-pilot-intro">
-        <p className="po-eyebrow">DEL PREDIO A LA OBRA</p>
-        <h2 id="po-blueprint-title">También para quienes transforman inmuebles.</h2>
-        <p>Una vivienda no solo se compra o vende: también se repara, remodela y amplía. PredioAI conecta la información del predio con la revisión de planos para que arquitectos y contratistas puedan preparar mediciones preliminares a distancia.</p>
-        <p>La meta es reducir trabajo manual y visitas exploratorias innecesarias, no reemplazar inspecciones profesionales, levantamientos de obra o permisos municipales.</p>
-      </div>
-      <div className="po-pilot-plan">
-        <h3>Planos y remodelación</h3>
-        <ul><li>Vincular planos PDF con un predio y su contexto municipal.</li><li>Inspeccionar documentos y, en fases posteriores, seleccionar muros, habitaciones y superficies para obtener medidas revisables.</li><li>Preparar informes preliminares para reparaciones, remodelaciones y ampliaciones.</li></ul>
-        <button type="button" className="po-pilot-link" onClick={onBlueprints}>Conocer el flujo de planos <Arrow /></button>
-        <small>El análisis geométrico y las mediciones automáticas aún están en desarrollo.</small>
+    <section className="po-origin" aria-labelledby="po-origin-title">
+      <p className="po-eyebrow">ASÍ NACIÓ LA IDEA</p>
+      <div><h2 id="po-origin-title">No empezó con la venta de terrenos.<br /><span>Empezó con una casa que queríamos mejorar.</span></h2><p>¿Qué información necesito para pintar, cambiar pisos, reparar un muro o ampliar un espacio? La idea es convertir planos y documentos en información que puedas explorar y, con medidas verificadas, usar para preparar una intervención. El catastro aporta contexto; el proyecto de la vivienda es el centro.</p></div>
+    </section>
+
+    <section className="po-use-cases" aria-labelledby="po-use-cases-title">
+      <div className="po-section-heading"><p className="po-eyebrow">DE LO COTIDIANO A UN PROYECTO MAYOR</p><h2 id="po-use-cases-title">¿Qué quieres cambiar en casa?</h2></div>
+      <p className="po-section-description">Estos son los trabajos que guían el desarrollo del módulo de mediciones. La inspección de planos ya existe; las cantidades verificadas todavía no se generan.</p>
+      <div className="po-use-case-grid">
+        <article><span className="po-case-number">01 / PINTURA</span><h3>Pintar paredes y techos</h3><p>Seleccionar las superficies de interés y revisar alturas, caras de muro y aberturas antes de obtener el área a pintar.</p></article>
+        <article><span className="po-case-number">02 / PISOS</span><h3>Cambiar el piso</h3><p>Delimitar los ambientes y verificar su superficie. Los materiales y el presupuesto los defines tú con el proveedor.</p></article>
+        <article><span className="po-case-number">03 / REMODELACIÓN</span><h3>Reorganizar o reparar</h3><p>Ubicar habitaciones y elementos a intervenir, documentar lo que se conoce y señalar lo que requiere revisión.</p></article>
+        <article><span className="po-case-number">04 / CONSTRUCCIÓN</span><h3>Reconstruir o ampliar</h3><p>Reunir planos y contexto del IRM para preparar la revisión del proyecto con profesionales, sin confundirla con una aprobación.</p></article>
       </div>
     </section>
 
     <section className="po-workflow" aria-labelledby="po-workflow-title">
-      <div className="po-section-heading"><p className="po-eyebrow">DEL MAPA A LA EVALUACIÓN</p><h2 id="po-workflow-title">Una consulta. <span>Más contexto para decidir.</span></h2></div>
-      <ol className="po-steps">{steps.map(step => <li key={step.number}>
-        <span className="po-step-number" aria-hidden="true">{step.number}</span>
-        <h3>{step.title}</h3><p>{step.text}</p>
+      <div className="po-section-heading"><p className="po-eyebrow">DEL PREDIO AL PLANO Y A LA INTERVENCIÓN</p><h2 id="po-workflow-title">Una base común. <span>Distintas formas de usarla.</span></h2></div>
+      <ol className="po-steps po-home-steps">{steps.map(step => <li key={step.number}>
+        <span className="po-step-number" aria-hidden="true">{step.number}</span><h3>{step.title}</h3><p>{step.text}</p><span className={`po-stage${step.planned ? ' po-stage-planned' : ''}`}>{step.status}</span>
       </li>)}</ol>
+      <p className="po-workflow-note">En este piloto, consulta primero el predio para continuar a Proyecto y planos. PDF vectorial y DXF permiten inspeccionar geometría disponible; un escaneo puede requerir procesamiento adicional. DWG requiere conversión previa a DXF.</p>
     </section>
 
     <section className="po-product-path" aria-labelledby="po-product-path-title">
       <div className="po-current">
-        <p className="po-eyebrow">EL PUNTO DE PARTIDA</p>
-        <h2 id="po-product-path-title">Primero, la evidencia.<br /><span>Después, la inteligencia.</span></h2>
-        <p>PredioAI reúne las piezas de la evaluación inicial en un flujo de trabajo que permite pasar de la búsqueda territorial a la revisión de un inmueble.</p>
+        <p className="po-eyebrow">LO QUE YA PUEDES EXPLORAR</p>
+        <h2 id="po-product-path-title">Documentos conectados.<br /><span>Información que puedes revisar.</span></h2>
         <ul className="po-evidence-list">
-          <li><span>Exploración geográfica</span><small>Filtros, mapa y ficha catastral</small></li>
-          <li><span>Contexto urbanístico</span><small>Consulta asistida del IRM y cruce PUGS preliminar</small></li>
-          <li><span>Referencias con trazabilidad</span><small>Fuentes y limitaciones visibles</small></li>
+          <li><span>Tu inmueble en contexto</span><small>Ficha catastral, mapa y revisión asistida del IRM</small></li>
+          <li><span>Planos y actividades de intervención</span><small>Inspección PDF/DXF y selección del tipo de trabajo</small></li>
+          <li><span>Geometría interactiva</span><small>Selección múltiple, capas y zoom, sin medidas verificadas</small></li>
+          <li><span>Resumen documental preliminar</span><small>Evidencia extraída y datos pendientes; no un informe técnico certificado</small></li>
         </ul>
-        <p className="po-scope-note">Los registros catastrales no indican disponibilidad de venta. La evaluación requiere contrastar la documentación municipal vigente.</p>
+        <button type="button" className="po-pilot-link" onClick={onBlueprints}>Abrir Planos y remodelación <Arrow /></button>
       </div>
       <div className="po-next">
-        <p className="po-next-label"><span aria-hidden="true">↗</span> PRÓXIMA ETAPA</p>
-        <h3>De encontrar predios<br />a priorizar oportunidades.</h3>
-        <p>El siguiente paso es un motor analítico para comparar predios con criterios explícitos y comprender patrones en el territorio.</p>
-        <div className="po-next-features"><div><span>01 / SCORING</span><p>Priorización con variables, criterios y resultados explicables.</p></div><div><span>02 / SEGMENTACIÓN</span><p>Aprendizaje no supervisado para explorar grupos de predios con características similares.</p></div></div>
-        <button type="button" className="po-roadmap-link" onClick={onAnalytics}>Conocer la hoja de ruta <Arrow /></button>
-        <small className="po-next-note">En planificación. Estas capacidades aún no generan puntuaciones ni recomendaciones en la plataforma.</small>
+        <p className="po-next-label"><span aria-hidden="true">↗</span> PRÓXIMO DESARROLLO DEL MÓDULO DE PLANOS</p>
+        <h3>De seleccionar geometría<br />a obtener medidas revisables.</h3>
+        <p>Confirmar unidades y escala, asociar elementos del plano con la intervención y calcular solo cuando exista información suficiente.</p>
+        <div className="po-next-features"><div><span>01 / MEDICIONES</span><p>Longitudes y superficies con su fuente, correcciones y datos faltantes visibles.</p></div><div><span>02 / REPORTES</span><p>Resultados revisados que puedas compartir con tu arquitecto, contratista o cliente.</p></div></div>
+        <small className="po-next-note">Objetivo: reducir mediciones repetitivas y algunas visitas preliminares cuando los planos sean adecuados. El ahorro debe validarse; no se calculan costos ni se sustituyen inspecciones necesarias.</small>
+      </div>
+    </section>
+
+    <section className="po-audiences" aria-labelledby="po-audiences-title">
+      <div className="po-section-heading"><p className="po-eyebrow">UNA PLATAFORMA, VARIOS CONTEXTOS</p><h2 id="po-audiences-title">Empieza en tu hogar. <span>Puede crecer con tu trabajo.</span></h2></div>
+      <div className="po-audience-grid">
+        <article><span className="po-stage">El origen</span><h3>Personas y hogares</h3><p>Entender qué se quiere cambiar y reunir la información para hablar del proyecto con mayor claridad, desde una pintura hasta una ampliación.</p></article>
+        <article><span className="po-stage">Uso profesional</span><h3>Arquitectura y construcción</h3><p>Revisar documentos a distancia y preparar intervenciones para clientes. La próxima etapa suma mediciones y reportes trazables, con revisión profesional.</p></article>
+        <article><span className="po-stage">Herramientas del piloto</span><h3>Inmobiliarias y desarrolladores</h3><p>Explorar predios, comparar alternativas y revisar su contexto urbanístico. Es una aplicación de la plataforma, no su única razón de ser.</p><button type="button" className="po-pilot-link" onClick={onExplore}>Explorar predios <Arrow /></button></article>
+        <article className="po-insurance-card"><span className="po-stage po-stage-planned">Posible extensión · no implementada</span><h3>Seguros y peritajes</h3><p>Vincular en el futuro planos, fotografías y observaciones de una afectación —por ejemplo, un muro dañado por un sismo— para apoyar al profesional que evalúa su alcance y prepara un informe para el cliente.</p><p className="po-insurance-boundary">Un plano describe el diseño, no el daño ocurrido. Esta extensión necesitaría evidencia del estado real y validación profesional; no determinaría por sí sola seguridad estructural, cobertura o indemnización.</p></article>
       </div>
     </section>
 
     <section className="po-pilot" aria-labelledby="po-pilot-title">
-      <div className="po-pilot-intro"><p className="po-eyebrow">UNA PROPUESTA PARA EQUIPOS INMOBILIARIOS</p><h2 id="po-pilot-title">Un piloto con preguntas reales.</h2><p>Una zona de interés. Un conjunto de predios. Un equipo que conoce el negocio. Ese es el punto de partida propuesto para evaluar PredioAI en un proceso de trabajo concreto.</p></div>
-      <div className="po-pilot-plan"><h3>¿Qué evaluaríamos juntos?</h3><ul><li>La utilidad de los filtros para una búsqueda real.</li><li>La claridad de la información para revisar cada predio.</li><li>Las variables que deberían orientar el futuro scoring.</li></ul><button type="button" className="po-pilot-link" onClick={onExplore}>Comenzar por el territorio <Arrow /></button></div>
+      <div className="po-pilot-intro"><p className="po-eyebrow">VALIDAR CON PROYECTOS REALES</p><h2 id="po-pilot-title">Una vivienda. Un trabajo concreto.<br />Un resultado que podamos comprobar.</h2><p>El piloto propuesto parte de planos autorizados y una intervención definida con su propietario y un profesional. Compararíamos el trabajo manual con el flujo digital para comprobar utilidad, precisión y tiempo.</p></div>
+      <div className="po-pilot-plan"><h3>Qué queremos demostrar</h3><ul><li>Que una persona entiende el proyecto y los datos que faltan.</li><li>Que las futuras mediciones coinciden con referencias verificadas.</li><li>Que el flujo reduce trabajo repetitivo y permite identificar qué visitas siguen siendo necesarias.</li></ul><button type="button" className="po-pilot-link" onClick={onBlueprints}>Comenzar por mi proyecto <Arrow /></button></div>
     </section>
+
+    <section className="po-analytics-extension" aria-labelledby="po-analytics-title"><div><p className="po-eyebrow">LÍNEA COMPLEMENTARIA · EN PLANIFICACIÓN</p><h2 id="po-analytics-title">El territorio también tiene su hoja de ruta.</h2><p>El scoring explicable y el aprendizaje no supervisado siguen previstos para priorizar y agrupar predios. Son una línea complementaria, no un requisito para analizar planos ni un detector de daños.</p></div><button type="button" className="po-button po-button-secondary" onClick={onAnalytics}>Ver futura analítica <Arrow /></button></section>
   </section>;
 }

@@ -1,0 +1,65 @@
+/* Home/project positioning only; preserve the existing GIS and drawing workspace. */
+.product-overview .po-release-note { margin-top: 18px; padding-left: 13px; border-left: 2px solid #8ca789; max-width: 510px; font-size: 12px; line-height: 1.7; color: #405b49; }
+.product-overview .po-project-guide { min-width: 0; background: #eef2e8; border: 1px solid #c9d5c4; border-radius: 10px; padding: clamp(22px, 3vw, 40px); box-shadow: 0 18px 42px -32px #173d3155; }
+.product-overview .po-guide-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 10px; font-weight: 650; letter-spacing: 1.2px; }
+.product-overview .po-project-guide h2 { margin: 25px 0 14px; font: 400 clamp(27px, 2.7vw, 39px)/1.2 Georgia, serif; letter-spacing: -.8px; }
+.product-overview .po-project-guide h2 em { color: #416b4d; font-weight: 400; }
+.product-overview .po-guide-intro { font-size: 13px; color: #536858; line-height: 1.75; max-width: 400px; }
+.product-overview .po-project-documents { list-style: none; padding: 0; margin: 23px 0; }
+.product-overview .po-project-documents li { display: flex; align-items: center; gap: 15px; padding: 14px 0; border-top: 1px solid #d1dbc9; }
+.product-overview .po-project-documents li:last-child { border-bottom: 1px solid #d1dbc9; }
+.product-overview .po-file-label { display: grid; place-items: center; width: 37px; height: 43px; flex: 0 0 37px; border: 1px solid #b9cab4; border-radius: 3px 9px 3px 3px; background: #f7f8f2; font: 17px Georgia, serif; color: #45664d; }
+.product-overview .po-project-documents strong, .product-overview .po-project-documents div > span { display: block; }
+.product-overview .po-project-documents strong { font-size: 13px; line-height: 1.5; }
+.product-overview .po-project-documents div > span { margin-top: 3px; font-size: 12px; line-height: 1.5; color: #536858; }
+.product-overview .po-guide-result { padding: 18px; background: #183d32; color: #f0f5e9; border-radius: 6px; }
+.product-overview .po-guide-result strong { font-size: 13px; }
+.product-overview .po-guide-result p { margin: 9px 0; font-size: 12px; line-height: 1.7; color: #d2dfcb; }
+.product-overview .po-guide-result small { display: block; font-size: 11px; color: #c0d0bb; line-height: 1.6; }
+.product-overview .po-stage { display: inline-block; width: fit-content; max-width: 100%; padding: 4px 8px; border: 1px solid #bdcdb7; border-radius: 4px; color: #31563c; background: #e8efe2; font-size: 10px; font-weight: 600; line-height: 1.6; letter-spacing: .2px; }
+.product-overview .po-stage-planned { color: #625535; border-color: #d6cdb6; background: #f4efe1; }
+.product-overview .po-origin, .product-overview .po-use-cases, .product-overview .po-audiences, .product-overview .po-analytics-extension { width: 100%; max-width: 1380px; margin-inline: auto; }
+.product-overview .po-origin { display: grid; grid-template-columns: .55fr 1.45fr; gap: 36px; padding: 35px 0 43px; border-top: 1px solid var(--po-border); border-bottom: 1px solid var(--po-border); }
+.product-overview .po-origin h2 { font: 400 clamp(24px, 2.4vw, 34px)/1.3 Georgia, serif; letter-spacing: -.6px; margin-bottom: 15px; }
+.product-overview .po-origin h2 span { color: #55704f; }
+.product-overview .po-origin p:not(.po-eyebrow) { max-width: 760px; font-size: 13px; line-height: 1.85; color: #526657; }
+.product-overview .po-use-cases, .product-overview .po-audiences { padding: 39px 0 44px; }
+.product-overview .po-section-description { max-width: 750px; margin-top: 14px; font-size: 12px; line-height: 1.8; color: #536858; }
+.product-overview .po-use-case-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; margin-top: 26px; }
+.product-overview .po-use-case-grid article { padding-top: 17px; border-top: 2px solid #b7c8b0; min-width: 0; }
+.product-overview .po-case-number { color: #5a7159; font-size: 10px; letter-spacing: .6px; font-weight: 650; }
+.product-overview .po-use-case-grid h3 { margin: 12px 0 9px; font-size: 15px; line-height: 1.5; }
+.product-overview .po-use-case-grid p { color: #536858; font-size: 12px; line-height: 1.8; }
+.product-overview .po-home-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.product-overview .po-home-steps li { padding-inline: 22px; }
+.product-overview .po-home-steps .po-stage { margin-top: 14px; }
+.product-overview .po-workflow-note { margin-top: 28px; padding-top: 17px; border-top: 1px solid var(--po-border); font-size: 11px; line-height: 1.8; color: #536858; }
+.product-overview .po-audiences { border-top: 1px solid var(--po-border); }
+.product-overview .po-audience-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-top: 27px; }
+.product-overview .po-audience-grid article { min-width: 0; padding: 25px; border: 1px solid var(--po-border); border-radius: 6px; background: #f1f4ec; }
+.product-overview .po-audience-grid h3 { margin: 16px 0 11px; font-size: 17px; line-height: 1.4; }
+.product-overview .po-audience-grid p { font-size: 13px; line-height: 1.8; color: #526657; }
+.product-overview .po-audience-grid .po-insurance-card { background: #f4f2e9; }
+.product-overview .po-audience-grid .po-insurance-boundary { margin-top: 14px; padding-top: 13px; border-top: 1px solid #ddd6c4; font-size: 11px; line-height: 1.8; color: #665c43; }
+.product-overview .po-analytics-extension { display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; border-top: 1px solid var(--po-border); padding: 30px 0 45px; }
+.product-overview .po-analytics-extension h2 { margin: 12px 0 10px; font-size: 19px; line-height: 1.5; font-weight: 550; }
+.product-overview .po-analytics-extension p:not(.po-eyebrow) { max-width: 760px; font-size: 12px; line-height: 1.8; color: #536858; }
+@media (max-width: 1050px) {
+  .product-overview .po-home-steps, .product-overview .po-use-case-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 25px; }
+  .product-overview .po-home-steps li { padding: 0; border-left: 0; }
+  .product-overview .po-origin { grid-template-columns: 1fr; gap: 18px; }
+}
+@media (max-width: 760px) {
+  .product-overview .po-project-guide { max-width: 570px; }
+  .product-overview .po-project-guide h2 { font-size: 31px; }
+  .product-overview .po-home-steps { grid-template-columns: 1fr; }
+  .product-overview .po-home-steps li, .product-overview .po-home-steps li:first-child, .product-overview .po-home-steps li:last-child { padding: 0 0 0 48px; }
+  .product-overview .po-audience-grid, .product-overview .po-analytics-extension { grid-template-columns: 1fr; }
+  .product-overview .po-analytics-extension .po-button { justify-self: start; }
+  .product-overview .po-origin, .product-overview .po-use-cases, .product-overview .po-audiences { padding-block: 30px; }
+}
+@media (max-width: 430px) {
+  .product-overview .po-use-case-grid { grid-template-columns: 1fr; }
+  .product-overview .po-audience-grid article { padding: 20px; }
+  .product-overview .po-hero-actions { align-items: stretch; flex-direction: column; }
+}

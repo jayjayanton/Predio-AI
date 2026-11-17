@@ -1,103 +1,118 @@
 # PredioAI
 
-**Territorial intelligence for real estate decisions in Quito.**
+**Property and architectural-plan intelligence for improving homes.**
 
-PredioAI brings municipal cadastral records, parcel mapping and urban-planning information into one workspace for real estate firms, developers and architecture teams. The current product helps users **discover parcels, understand their characteristics, compare a small selection and review the official IRM** before a more detailed professional evaluation.
+PredioAI began with a practical question: **how can someone understand their home and prepare work on it using the property record, existing drawings and municipal information?** Painting a room, replacing a floor, repairing or reorganizing a space, remodeling, reconstructing and expanding a house are central use cases, not an add-on to a land-search product.
 
-The next product stage is an **explainable scoring engine and unsupervised segmentation**. These capabilities are being planned; the application does not yet generate scores, investment recommendations or model-derived rankings.
+The intended platform connects **predio + architectural PDF/CAD + relevant IRM information → structured evidence → interactive drawings → reviewed measurements and reports**. It is for ordinary homeowners as well as architects, remodeling contractors and construction teams. Real estate discovery is a complementary application of the same property context. A potential insurance/peritaje extension would connect plans with evidence of actual damage to support professional reporting; it is not implemented.
 
-[Open the application](https://jayjayanton.github.io/Predio-AI/) · [Deployment guide](DEPLOYMENT.md)
+**Public-facing message:** “Entiende tu casa. Planea su transformación.”
 
-![PredioAI overview — territorial intelligence for real estate teams in Quito](docs/images/predioai-overview.jpg)
+**Working pilot, not a completed measurement engine.** Cadastral lookup, document inspection and selectable vector geometry exist. Calibrated architectural measurements, corrections with recalculation and exportable technical reports are the next core architectural milestones. Explainable parcel scoring and unsupervised segmentation remain planned on a parallel analytics track.
+
+[Open the application](https://jayjayanton.github.io/Predio-AI/) · [Architectural methodology and product scope](docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md) · [Deployment guide](DEPLOYMENT.md)
 
 ## Product status and navigation
 
-**Status: working pilot.** The interface is in Spanish and the initial geographic scope is Quito's Distrito Metropolitano. Municipal connectivity and document quality affect the evidence available for each property.
+The interface is in Spanish and the initial municipal-data scope is Quito's Distrito Metropolitano. Municipal connectivity, document type and drawing quality affect what can be inspected.
 
 | Section | Purpose |
 | --- | --- |
-| **Inicio** | Product overview, current workflow and proposed pilot with an industry team |
-| **Explorar** | Filter cadastral records, browse the map, select parcels and open their complete property sheet |
-| **Ficha predial** | Look up a predio, inspect its cadastral information, consult the IRM and access the experimental project/document workflow |
-| **Selección** | Compare up to four saved parcels and download their descriptive attributes as CSV |
-| **Analítica** | Clearly labeled roadmap for future scoring and unsupervised segmentation; no active scores |
+| **Inicio** | Homeowner-first product overview, everyday interventions, actual capabilities and future uses |
+| **Planos y remodelación** | Entry to the existing predio-linked project, activity, document and geometry-review workflow |
+| **Ficha predial** | Look up a predio, inspect its cadastral information and continue to IRM review or the document workflow |
+| **Explorar** | Find cadastral records, browse the map and open a property sheet |
+| **Selección** | Compare up to four saved parcels and download descriptive attributes as CSV |
+| **Analítica** | Roadmap for future parcel scoring and unsupervised segmentation; no active scores |
 
-The central workflow is **explore → select → open the property sheet → review the IRM**. A parcel can also be queried directly by **número de predio** or **clave catastral**.
+The architectural journey is **identify the property → select the work → supply plans and relevant IRM → inspect/explore geometry → review evidence**. Verified measurements and technical report export are planned, not completed steps. The current UI requires a property lookup before advancing to the project/document screen; stand-alone document analysis is a future usability improvement.
+
+## One product foundation, multiple applications
+
+| Audience | Intended job | Scope |
+| --- | --- | --- |
+| Homeowners | Understand a project and prepare painting, flooring, repair, renovation, reorganization, reconstruction or expansion | The originating use case; inspected geometry is available, verified quantities are pending |
+| Architects and construction/remodeling firms | Review drawings remotely and prepare traceable intervention measurements and client reports | Document inspection exists; calibrated takeoff and technical exports are planned |
+| Real estate firms and developers | Discover and compare parcels and review their municipal context | Existing discovery and comparison tools; scoring and segmentation are planned |
+| Insurers and loss-assessment professionals | Associate damage evidence with building elements and prepare reviewed reports for clients | Potential future extension; no damage-assessment or claims engine exists |
+
+The common asset is the property's linked evidence, not a different product for every audience. Start with an understandable homeowner task; expose professional detail progressively. Do not advertise automatic prices, materials, professional certification or elimination of every site visit.
+
+### Future insurance example
+
+For a wall affected by an earthquake, a possible workflow would link the documented wall to dated photographs, observations and verified dimensions; record the observed extent and missing evidence; then let an authorized professional review an evidence-linked report before sharing it with the client. Plans alone do not reveal the damage that occurred. Hidden damage, structural safety, causation, policy coverage and compensation are not conclusions to generate automatically. This extension requires separate validation, consent/access controls and professional review before release.
 
 ## What works today
+
+### Architectural document workspace
+
+The existing project workflow accepts PDF/DXF drawings, a building type and repair/maintenance/remodeling/structural/expansion activities. It exposes extracted document evidence and a vector-geometry viewer with page selection, zoom, layer visibility and multiple-element selection. A selected polyline is not automatically a recognized wall, a measured room or an editable construction design.
+
+Project documents are submitted to the FastAPI `/api/documents/analyze` endpoint and processed in memory. This is separate from the browser-only developer IRM parser described below. The current project flow requests an IRM for remodeling, structural modification and expansion; that UI requirement is not a claim that all everyday tasks have identical municipal requirements.
+
+The on-screen preliminary report summarizes document inspection and unresolved measurements. Verified scale, wall heights, opening deductions, architectural classification, corrections/recalculation and traceable measurement exports remain future work. The system does not automatically estimate material requirements, construction costs, market prices or regulatory compliance.
 
 ### Geographic discovery
 
 - Search by land-area range, cadastral urban/rural classification and multiple parishes, including a shortcut for the valleys.
 - Add optional filters for minimum frontage, zonal administration, ownership regime and a single **maximum construction-to-land percentage from 0 to 100**. A blank percentage leaves that filter inactive. This ratio uses `area_const / area_terre`; it is not COS or building-footprint coverage.
-- Apply the filters to the municipal ArcGIS query before counting and pagination. Administration and ownership choices come from published distinct field values.
+- Apply filters to the municipal query before counting and pagination. Administration and ownership choices come from published distinct values.
 - Browse compact results, sort by identifier or land area, and choose **50/100 records per page in Lista** or **100/200 in Iconos**.
-- Select a result from its card or polygon, inspect its information and open **Ficha predial**. Map selection remains synchronized with the result list.
-- Change the basemap between streets, OSM, topographic and satellite views. Nearby parcel outlines and source context remain available.
+- Select a card or polygon, inspect its information and open **Ficha predial**. Map selection remains synchronized with the result list.
+- Switch streets, OSM, topographic and satellite basemaps. Nearby parcel outlines and source context remain available.
 
-The map loads a bounded overlay of **up to 1,000 matching cadastral features**, independently of the current card page. An explicit message identifies partial coverage. The result count is the municipal query count, not a count of properties offered for sale.
+The map loads a bounded overlay of **up to 1,000 matching cadastral features**, independently of the current card page. A message identifies partial coverage. The count is a municipal query count, not properties offered for sale.
 
 ### Property information and comparison
 
-The property sheet shows cadastral identification, parish, land and construction areas, ownership regime and the valuation information returned by the service. It distinguishes an individual **propiedad horizontal (PH)** unit from its shared **lote matriz**. Cadastral valuations and zonal AIVA references are presented with their source context; they are not market appraisals.
+The property sheet shows cadastral identification, parish, land and construction areas, ownership regime and returned valuation information. It distinguishes an individual **propiedad horizontal (PH)** unit from its shared **lote matriz**. Cadastral valuations and zonal AIVA references are not market appraisals or contractor costs.
 
-**Selección** stores up to four descriptive property snapshots in the current browser's `localStorage`. Users can remove individual records, compare the same fields across parcels, reopen a property for a fresh lookup and download a UTF-8 CSV. PH attributed area is kept separate from the parent-lot area.
+**Selección** stores up to four descriptive snapshots in the current browser's `localStorage`. Users can remove records, compare fields, reopen a property for a fresh lookup and download a UTF-8 CSV. PH attributed area stays separate from parent-lot area.
 
-This is browser-local storage, not an account, shared team workspace or permanent project database. Uploaded documents and owner details are not included. When browser storage is unavailable, the selection remains in application memory for the active page session.
+This is browser-local storage, not an account, shared team workspace or permanent project database. Uploaded documents and owner details are not included. When storage is unavailable, the selection remains in application memory for the active page session.
 
 ### Assisted IRM review
 
 1. Open the selected property's IRM workflow.
 2. Copy its predio number and open the official municipal portal.
 3. Complete the municipal CAPTCHA manually and obtain the official PDF.
-4. Select that PDF in PredioAI and review the extracted fields and document evidence.
-5. Confirm the relevant values before using the available theoretical capacity calculations.
+4. Select that PDF in PredioAI and review extracted fields and evidence.
+5. Confirm relevant values before using available theoretical capacity calculations.
 
-**The developer IRM workflow parses the PDF locally in the browser using PDF.js.** It does not upload this file to Render or call `/api/irm/extract`. The selected file, extracted fields and images are ephemeral application state: they are cleared on page reload or when the loaded property changes. Previous session-stored IRM extractions are not restored.
+**The developer IRM workflow parses the PDF locally using PDF.js.** It does not upload this file to Render or call `/api/irm/extract`. File, fields and images are ephemeral: cleared on reload or property change. Previous session-stored extractions are not restored.
 
-The browser parser accepts PDFs up to **15 MB / 100 pages**. It extracts recognizable text and document evidence as **unverified candidates**; a detected predio number that conflicts with the selected property is rejected. Scanned documents may need OCR, which is not implemented in this workflow.
+The browser parser accepts PDFs up to **15 MB / 100 pages**. Recognizable text and evidence are **unverified candidates**; a detected predio number conflicting with the selected property is rejected. Scanned documents may need OCR, which is not implemented in this workflow.
 
-The review includes available IRM/PUGS context, documented conditions and preliminary COS-based calculations after confirmation. A rectangular residential simulator is explicitly conceptual. These outputs do not authorize construction, establish permitted housing density or certify subdivision. PH calculations require particular care: the parent-lot area is never substituted for the unit's attributed cadastral area.
+Review includes available IRM/PUGS context, documented conditions and preliminary COS calculations after confirmation. The rectangular residential simulator is conceptual. These outputs do not authorize construction, establish permitted density or certify subdivision. In PH, the parent-lot area is never substituted for the unit's attributed area.
 
 ### Optional spatial zoning review
 
-After cadastral discovery, users can request a preliminary PUGS review of the **current results page**. The frontend sends the already retrieved parcel geometries in batches of at most **100 per request**, including when the page contains 200 results.
+After discovery, users can request preliminary PUGS review of the **current results page**. Retrieved geometries are sent in batches of at most **100 per request**, including a 200-result page.
 
-`POST /api/pugs/spatial-screen` retrieves PUGS geometry by fixed geographic tiles, reuses a **15-minute process-local memory cache**, and intersects the polygons using a Shapely `STRtree` in **EPSG:32717**. Requests are geographically bounded; this is not a persistent whole-city zoning database.
+`POST /api/pugs/spatial-screen` retrieves PUGS geometry by fixed tiles, reuses a **15-minute process-local memory cache**, and intersects polygons using a Shapely `STRtree` in **EPSG:32717**. This is bounded retrieval, not a persistent whole-city zoning database.
 
-The response distinguishes `single_zone`, `multiple_zones`, `no_intersection`, `unavailable` and `ambiguous`. Failed or incomplete upstream responses are not treated as negative eligibility decisions. VU/VB/VM labels are displayed only when explicit codes appear in the examined source fields; missing codes do not imply prohibition. The housing-evidence filter applies to the current page, not all of Quito.
+The response distinguishes `single_zone`, `multiple_zones`, `no_intersection`, `unavailable` and `ambiguous`. Incomplete responses are not negative eligibility decisions. VU/VB/VM labels require explicit codes in examined fields; missing codes do not imply prohibition. The evidence filter applies to the current page, not all of Quito.
 
-### Experimental architectural document workspace
+## Development priorities
 
-The project/document workflow remains available for PDF/DXF extraction and selectable geometry inspection. **This is separate from the browser-only developer IRM parser:** project documents are submitted to the FastAPI `/api/documents/analyze` endpoint and processed in memory.
-
-The current workspace exposes extraction evidence and document geometry. Verified scale, architectural measurements and traceable exports remain later work. It does not automatically estimate materials, construction costs or regulatory compliance. See the [architectural methodology](docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md) for the separate measurement-development direction.
-
-## Next stage: analytics grounded in evidence
-
-| Direction | Intended outcome | Current status |
+| Direction | Intended outcome | Status |
 | --- | --- | --- |
-| Explainable scoring | Compare parcels under explicit project criteria, weights and constraints, with visible source quality and missing data | Planned |
-| Unsupervised segmentation | Explore groups of parcels with similar observed characteristics and assess the usefulness and stability of those groups | Planned |
-| Industry pilot | Define a real search case with a real estate team, review a parcel selection and evaluate the usefulness of the evidence | Proposed |
-| Architectural measurements | Validate units, scale and selected PDF/CAD elements before deriving reviewable measurements | Separate later development |
+| Architectural measurement engine | Validate units/scale, associate selected elements and compute traceable lengths/surfaces with correction and recalculation | Next core architectural milestone |
+| Reviewed project reports | Export evidence, measurements, formulas, missing inputs and review status | Planned; not the existing inspection summary |
+| Homeowner/professional pilot | Test a painting, flooring or renovation task against manually verified references | Proposed |
+| Explainable parcel scoring | Compare parcels under explicit criteria, weights, constraints and data-quality indicators | Parallel planned analytics track |
+| Unsupervised segmentation | Explore and validate groups of parcels with similar characteristics | Parallel planned analytics track |
+| Insurance damage-documentation support | Link actual-condition evidence and plans for a professional's report | Potential extension; not implemented |
 
-The planned analytics must preserve the difference between observed data, calculated indicators and expert judgment. Similarity between parcels does not establish profitability; a future score must not conceal data gaps or substitute for due diligence.
+Any claim of reduced time, cost or site visits is a **hypothesis to validate**, not a measured outcome. Record document adequacy, measurement error, corrections and the visits still required. Similarity between parcels does not establish profitability, construction feasibility or damage severity.
 
 ## Design and UX
 
-The interface uses a warm ivory workspace, forest/teal accents and a compact persistent navigation. The introductory illustration is explicitly conceptual rather than a representation of an actual cadastral record.
+Retain the ivory/forest visual system and existing GIS/document workflows. The homepage now leads with household interventions and interactive plans rather than lot acquisition. It distinguishes working geometry inspection, future verified measurements and potential insurance use. A document-workflow card replaces the territorial illustration as the main homepage visual; it contains no invented parcel or measurement results.
 
-Implemented interaction improvements include:
+Existing interaction improvements remain: map-to-property navigation, four-parcel CSV comparison, progressively disclosed filters, compact results, loading/error/empty states, responsive layouts, accessible control labels, keyboard focus and reduced-motion support. Parcel popups remain available without the unwanted black rectangular map focus outline.
 
-- A clear route from a selected map result to its complete property sheet and IRM review.
-- A four-parcel comparison selection with CSV export and browser-local persistence.
-- Distinct primary and secondary actions, progressively disclosed filters and compact result rows.
-- Clear loading, failure and empty-result messages, source labels and a visible boundary between current tools and planned analytics.
-- Responsive layouts, accessible control labels, keyboard focus, comparison-table semantics and reduced-motion support.
-- Parcel information on selection without the unwanted black rectangular map focus outline.
-
-Run the frontend validation commands below before releasing interface changes. A passing build does not verify live municipal service availability.
+Validate before release. Passing CI does not verify municipal service availability, a drawing's scale or its correspondence with current conditions.
 
 ## Architecture
 
@@ -117,16 +132,16 @@ Run the frontend validation commands below before releasing interface changes. A
 frontend/       React application, browser IRM parsing, comparison and tests
 backend/        FastAPI services, spatial/document analysis and tests
 automation/     Optional local IRM desktop assistant
-docs/           Methodology and product screenshots
+docs/           Architectural methodology, product scope and screenshots
 .github/        Validation and GitHub Pages workflows
 render.yaml     Existing Render backend configuration
 ```
 
 ## Run locally
 
-**Requirements:** Node.js 20+ and Python 3.11+. Use the existing `main` branch of this repository.
+**Requirements:** Node.js 20+ and Python 3.11+. Use the existing `main` branch.
 
-In one terminal, start the backend:
+In one terminal:
 
 ```powershell
 cd backend
@@ -136,7 +151,7 @@ python -m uvicorn app.main:app --reload
 
 API documentation: [http://localhost:8000/docs](http://localhost:8000/docs).
 
-In a separate terminal, start the frontend:
+In another terminal:
 
 ```powershell
 cd frontend
@@ -144,15 +159,15 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). The frontend defaults to the local API; copy `frontend/.env.example` to `frontend/.env.local` if an override is needed. For a sample lookup, choose **Número de predio** and enter `627739`; the returned record depends on the live municipal service.
+Open [http://localhost:5173](http://localhost:5173). The frontend defaults to the local API; copy `frontend/.env.example` to `frontend/.env.local` for an override. Sample lookup: **Número de predio**, `627739`; results depend on the live municipal service.
 
 | Variable | Purpose | Default / production setting |
 | --- | --- | --- |
 | `VITE_API_URL` | Frontend API origin, read at build time | Local: `http://localhost:8000`; deployed: `https://predioai-api.onrender.com` |
-| `CORS_ORIGINS` | Comma-separated permitted frontend origins | Local: `http://localhost:5173`; Render: `https://jayjayanton.github.io` |
-| `QUITO_ARCGIS_URL` | Backend cadastral layer URL; a trailing `/query` is accepted | Municipal `predios_a_2024/FeatureServer/0` |
+| `CORS_ORIGINS` | Permitted frontend origins | Local: `http://localhost:5173`; Render: `https://jayjayanton.github.io` |
+| `QUITO_ARCGIS_URL` | Backend cadastral layer; trailing `/query` accepted | Municipal `predios_a_2024/FeatureServer/0` |
 
-The explorer also queries the configured municipal ArcGIS service directly from the browser. Changing the backend's `QUITO_ARCGIS_URL` does not reconfigure the explorer's frontend source.
+The explorer queries its municipal ArcGIS source directly. Changing backend `QUITO_ARCGIS_URL` does not reconfigure that frontend source.
 
 ## API overview
 
@@ -160,17 +175,17 @@ The explorer also queries the configured municipal ArcGIS service directly from 
 | --- | --- | --- |
 | GET | `/api/health` | Backend health |
 | GET | `/api/municipal/fields` | Published cadastral field metadata |
-| GET | `/api/predios/{identifier_type}/{identifier}` | GeoJSON property lookup by `clave_cata` or `n_predio` |
+| GET | `/api/predios/{identifier_type}/{identifier}` | GeoJSON lookup by `clave_cata` or `n_predio` |
 | GET | `/api/property-details/{identifier_type}/{identifier}` | Structured property details |
 | GET | `/api/predios/by-cadastral-key/{cadastral_key}` | Legacy cadastral-key lookup |
-| GET | `/api/pugs/{identifier_type}/{identifier}` | Full-polygon PUGS query for one cadastral property |
-| POST | `/api/pugs/spatial-screen` | Spatial screening of up to 100 supplied parcel polygons per request |
-| POST | `/api/pugs/screen` | Compatibility endpoint for up to 20 predio identifiers; not used by the advanced explorer |
-| POST | `/api/blueprints/inspect` | Basic PDF inspection: metadata and drawing/text counts |
-| POST | `/api/documents/analyze` | Experimental project PDF/DXF and conditional IRM extraction |
-| POST | `/api/irm/extract` | Backend IRM extraction endpoint; not used by the browser-based developer IRM workflow |
+| GET | `/api/pugs/{identifier_type}/{identifier}` | Full-polygon PUGS query for one property |
+| POST | `/api/pugs/spatial-screen` | Screen up to 100 supplied parcel polygons |
+| POST | `/api/pugs/screen` | Compatibility endpoint for up to 20 identifiers; not used by advanced explorer |
+| POST | `/api/blueprints/inspect` | Basic PDF metadata and drawing/text counts |
+| POST | `/api/documents/analyze` | Experimental PDF/DXF and conditional IRM extraction |
+| POST | `/api/irm/extract` | Backend IRM extraction; not used by browser developer IRM workflow |
 
-Document endpoints enforce a **15 MB per-file limit**. Basic PDF inspection also limits documents to **100 pages**. Document extraction returns evidence, not verified measurements, certification or completed reports.
+Document endpoints enforce a **15 MB per-file limit**. Basic PDF inspection also limits documents to **100 pages**. Extraction is evidence, not verified measurements, certification or completed technical reports.
 
 ## Validation and deployment
 
@@ -188,17 +203,17 @@ Backend, from `backend/`:
 python -m pytest tests -q
 ```
 
-Frontend tests cover selection normalization, persistence input validation and CSV export behavior. Backend tests cover API, document and spatial-processing behavior. Browser review should additionally check navigation, map/list selection, opening a property, comparison, responsive layouts and failed municipal requests.
+Frontend tests cover selection normalization, persistence validation, CSV export and product-positioning guards. The positioning checks are content regression checks, not end-to-end drawing tests. Backend tests cover API, document and spatial processing. Browser review should check homepage actions, navigation, map/list selection, opening a property, comparison, responsive layouts and failed municipal requests.
 
-The CI workflow runs backend tests and frontend tests/build. The Pages workflow tests and builds the frontend, then deploys on a push to **`main`** or manual dispatch. Its backend test job is separate; frontend publication is not proof that the API or upstream municipal services are healthy.
+CI runs backend tests and frontend tests/build. The Pages workflow tests/builds the frontend and deploys on pushes to **`main`** or manual dispatch. Its backend test job is separate; publication is not proof that the API or upstream municipal services are healthy.
 
-The production frontend uses Vite's `/Predio-AI/` base path. `VITE_API_URL` is baked into that build. The existing Render service uses `render.yaml`; GitHub Pages cannot run FastAPI. A sleeping backend can make the first lookup slower. See [DEPLOYMENT.md](DEPLOYMENT.md) for hosting configuration.
+Production uses Vite's `/Predio-AI/` base path. `VITE_API_URL` is baked into that build. Render uses `render.yaml`; GitHub Pages cannot run FastAPI. A sleeping backend can slow the first lookup. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ### Optional desktop IRM assistant
 
-The manual portal workflow works without additional software. An experimental desktop option sends the selected predio number to a local bridge at `127.0.0.1:8765`, opens Chromium and waits for the user's CAPTCHA and report navigation. PDF import back into PredioAI remains manual.
+The manual portal workflow needs no additional software. The experimental assistant sends the selected predio number to a local bridge at `127.0.0.1:8765`, opens Chromium and waits for manual CAPTCHA/report navigation. Import back into PredioAI remains manual.
 
-For Windows, run `automation/setup_windows.bat` to install the local dependencies and configure the bridge. For a manual installation from the repository root:
+On Windows, `automation/setup_windows.bat` installs dependencies and configures the bridge. Manual installation from the repository root:
 
 ```powershell
 py -m pip install -r automation/requirements.txt
@@ -206,26 +221,27 @@ py -m playwright install chromium
 py automation/irm_bridge.py
 ```
 
-Playwright is an **optional desktop dependency**, not a requirement of the Render backend. Browser local-network permissions may affect the bridge. Refer to [automation/README.md](automation/README.md) for setup and operational limitations.
+Playwright is optional desktop software, not a Render backend requirement. Browser local-network permissions may affect the bridge. See [automation/README.md](automation/README.md).
 
 ## Sources and interpretation
 
-| Source | What it contributes | Interpretation |
+| Source | Contribution | Interpretation |
 | --- | --- | --- |
-| [Quito cadastral attributes, 2024](https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_a_2024/FeatureServer/0) | Identification, areas, frontage, ownership, recorded use and cadastral valuations | Historical published attributes; not proof of current condition, availability or ownership due diligence |
-| [Parcel geometry, February 2026](https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_2026_feb/FeatureServer/5) | Newer reference geometry where a valid match is available | A cadastral boundary, not a surveyed building footprint; original geometry is retained when needed |
-| [Municipal AIVA service](https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmc/valoracion_del_suelo/MapServer) | Zonal land reference values | Not transaction prices or a commercial property appraisal; point-based lookup has limits for parcels crossing zones |
-| [Official IRM portal](https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf) | User-obtained official urban-planning document | Extracted fields need review; an IRM is not a construction permit |
-| [PUGS 2024, layer 60](https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmot/plan_de_uso_y_gestion_del_suelo_2024/MapServer/60) | Zoning and buildability evidence | Spatial intersections and explicit codes are preliminary; current rules, exceptions and the IRM require verification |
+| [Quito cadastral attributes, 2024](https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_a_2024/FeatureServer/0) | Identification, areas, frontage, ownership, recorded use and valuations | Historical attributes; not proof of current condition, availability or ownership due diligence |
+| [Parcel geometry, February 2026](https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_2026_feb/FeatureServer/5) | Reference geometry where matched | Cadastral boundary, not surveyed dwelling/room geometry; original geometry retained when needed |
+| [Municipal AIVA](https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmc/valoracion_del_suelo/MapServer) | Zonal land reference values | Not transaction prices or commercial appraisals; point-based lookup has limits |
+| [Official IRM portal](https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf) | User-obtained urban-planning document | Extracted fields require review; not a construction permit |
+| [PUGS 2024, layer 60](https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmot/plan_de_uso_y_gestion_del_suelo_2024/MapServer/60) | Zoning/buildability evidence | Intersections and codes are preliminary; current rules, exceptions and IRM require verification |
 
-Additional methodological constraints:
+Additional constraints:
 
-- Administrative parish type, cadastral urban/rural classification and PUGS zoning are different concepts.
-- PH attributed area (`area_ter_1`) and the parent lot (`area_terre`) must remain separate in comparisons and calculations.
-- Deed and registration dates are not construction dates. Recorded construction area does not prove a permit or establish legality.
-- Basic and maximum buildability are different; discrepancies between the IRM and PUGS are surfaced for review rather than silently reconciled.
-- Missing data, failed requests and ambiguous intersections must remain visible. Absence of an explicit housing code is not a prohibition.
-- Users need authorization to process architectural documents. Shared projects, authentication, durable document storage and access controls are not implemented.
-- Source dates are distinct from consultation dates. Municipal-data and basemap reuse terms must be checked for the intended commercial use.
+- Administrative parish type, cadastral urban/rural class and PUGS zoning are different concepts.
+- PH attributed area (`area_ter_1`) and parent lot (`area_terre`) remain separate.
+- Deed/registration dates are not construction dates; recorded area does not establish permits or legality.
+- Basic and maximum buildability differ; surface conflicts for review rather than silently reconcile them.
+- Missing data, failed requests and ambiguous intersections stay visible. No explicit housing code is not a prohibition.
+- Users need authorization to process drawings. Authentication, shared projects, durable document storage and access controls are not implemented.
+- Plans describe documented design, not necessarily today's building or observed disaster damage.
+- Source dates differ from consultation dates. Check municipal-data and basemap reuse terms before commercial use.
 
-**PredioAI · Quito, Ecuador · Product pilot**
+**PredioAI · Vivienda, planos y proyectos · Quito, Ecuador · Product pilot**
