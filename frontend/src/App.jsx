@@ -112,6 +112,12 @@ export default function App() {
   const [exploreError,setExploreError]=useState('');
   const [exploreOffset,setExploreOffset]=useState(0);
   const [exploreQueryKey,setExploreQueryKey]=useState('');
+  const [advancedRows,setAdvancedRows]=useState({});
+  const [advancedBusy,setAdvancedBusy]=useState(false);
+  const [advancedProgress,setAdvancedProgress]=useState('');
+  const [advancedError,setAdvancedError]=useState('');
+  const [advancedFilter,setAdvancedFilter]=useState('all');
+  const [advancedOpen,setAdvancedOpen]=useState(false);
   const [pugsData, setPugsData] = useState(null);
   const [pugsLoading, setPugsLoading] = useState(false);
   const [pugsError, setPugsError] = useState('');
@@ -488,6 +494,69 @@ export default function App() {
     window.addEventListener('pointercancel',finish);
   }
 
+  // VU/VB/VM evidence only. Numeric unidad_viv values are NOT mapped to
+  // dwelling codes: official PUGS/IRM verification is still required.
+  function getPugsHousingEvidence(result) {
+    if(!result || !['single_zone','multiple_zones'].includes(result.status))
+      return {code:'PENDIENTE',detail:'Clasificación no disponible'};
+    const zones=result.zones||[];
+    const found=new Set();
+    for(const z of zones){
+      for(const value of [z.cod_edi_es,z.unidad_viv]){
+        const raw=String(value||'').toUpperCase();
+        const matches=raw.match(/(^|[^A-Z])(VU|VB|VM)(?=$|[^A-Z])/g)||[];
+        for(const token of matches){
+          const code=token.match(/VU|VB|VM/);
+          if(code)found.add(code[0]);
+        }
+      }
+    }
+    const codes=[...found];
+    if(codes.length===1)return {code:codes[0],detail:zones.length>1?'Varias zonas PUGS: revisar intersección':'Código PUGS preliminar'};
+    if(codes.length>1)return {code:'MIXTO',detail:'Códigos diferentes en zonas intersectadas'};
+    return {code:'SIN_CODIGO',detail:'Sin VU/VB/VM explícito en campos examinados'};
+  }
+
+  async function screenAdvancedPugs() {
+    const ids=[...new Set(exploreResults.map(p=>String(p.n_predio||'')).filter(id=>/^\\d+$/.test(id)))];
+    if(!ids.length)return;
+    setAdvancedBusy(true);
+    setAdvancedError('');
+    setAdvancedRows({});
+    setAdvancedFilter('all');
+    let done=0;
+    try{
+      const rows={};
+      for(let i=0;i<ids.length;i+=20){
+        const group=ids.slice(i,i+20);
+        setAdvancedProgress(`Cruce PUGS: ${done} de ${ids.length} predios de esta página`);
+        const response=await fetch(`${API}/api/pugs/screen`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({predios:group})
+        });
+        if(!response.ok)throw new Error('Servicio PUGS no disponible (HTTP '+response.status+').');
+        const payload=await response.json();
+        for(const item of payload.results||[])rows[String(item.predio)]={...item,...getPugsHousingEvidence(item)};
+        done+=group.length;
+        setAdvancedRows({...rows});
+      }
+      setAdvancedProgress(`Análisis preliminar completo: ${done} de ${ids.length} predios de esta página.`);
+    }catch(error){
+      setAdvancedError(error.message||'No se pudo analizar PUGS.');
+      setAdvancedProgress(`Cruce parcial: ${done} de ${ids.length} predios; los restantes siguen pendientes.`);
+    }finally{
+      setAdvancedBusy(false);
+    }
+  }
+
+  const visibleExploreResults=advancedFilter==='all'
+    ? exploreResults
+    : exploreResults.filter(p=>advancedRows[String(p.n_predio)]?.code===advancedFilter);
+  const visibleExploreIds=new Set(visibleExploreResults.map(p=>String(p.n_predio)));
+  const visibleExploreGeometries=advancedFilter==='all'||!exploreGeometries
+    ? exploreGeometries
+    : {...exploreGeometries,features:exploreGeometries.features.filter(f=>visibleExploreIds.has(String(f.properties?.n_predio)))};
+
   function clearGISExploration() {
     setExploreSelected(null);
     setExploreResults([]);
@@ -496,12 +565,14 @@ export default function App() {
     setExploreOffset(0);
     setExploreQueryKey('');
     setExploreError('');
+    setAdvancedRows({});setAdvancedProgress('');setAdvancedError('');setAdvancedFilter('all');
     // Keep chosen filters so the user can refine rather than re-enter them.
     requestAnimationFrame(()=>document.getElementById('predio-query-selector')?.scrollIntoView({behavior:'smooth',block:'start'}));
   }
 
   async function exploreParcels(offset=0, sort=exploreSort) {
     setExploreError('');
+    setAdvancedRows({});setAdvancedProgress('');setAdvancedError('');setAdvancedFilter('all');
     setExploreGeometries(null);
     setExploreSelected(null);
     const min=Number(searchAreaMin), max=Number(searchAreaMax);
