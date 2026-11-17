@@ -1405,3 +1405,34 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .predio-page-size { display:flex; align-items:center; gap:6px; font-size:11px; }
 .predio-page-size select { min-width:66px; padding:6px; font-size:12px; }
 .gis-ratio-field .note { display:block; margin:5px 0 0; font-size:11px; font-weight:400; }
+
+/* Compact, progressively disclosed cadastral search above the GIS map. */
+.development-search-criteria { padding:14px 18px; }
+.gis-search-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.gis-search-heading h2 { margin:0; font-size:17px; }
+.gis-edit-search { padding:7px 12px; font-size:12px; min-height:32px; }
+.gis-search-summary { display:flex; flex-wrap:wrap; align-items:center; gap:6px 13px; padding:9px 0 2px; color:#bed4d1; font-size:12px; }
+.gis-search-summary strong { color:#e8f7f4; }
+.gis-search-summary span { white-space:normal; }
+.gis-search-form { margin-top:8px; }
+.gis-search-intro { margin:4px 0 9px; font-size:11px; }
+.development-search-criteria .development-filter-grid { gap:9px 13px; margin-bottom:9px; }
+.development-search-criteria .development-filter-grid > label { margin:0; }
+.development-search-criteria .development-filter-grid input,
+.development-search-criteria .development-filter-grid select { min-height:34px; }
+.development-filter-grid .gis-optional-filters {
+  display:block;
+  padding:0;
+  margin:3px 0;
+  border:1px solid #385056;
+}
+.gis-optional-filters > summary { cursor:pointer; padding:9px 12px; font-size:12px; font-weight:650; color:#dbeae7; }
+.gis-optional-filters > summary span { font-weight:400; font-size:11px; color:#9ebfba; margin-left:6px; }
+.gis-optional-filters > summary:focus-visible { outline:2px solid #20b7aa; outline-offset:-2px; }
+.gis-optional-filters .gis-optional-grid { padding:6px 12px 12px; }
+.development-search-criteria .parish-selector { margin:0; }
+.development-search-criteria .parish-selector > details > summary { padding:7px 10px; }
+@media(max-width:650px) {
+  .development-search-criteria { padding:12px; }
+  .gis-search-heading h2 { font-size:15px; }
+}
