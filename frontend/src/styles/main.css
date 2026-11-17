@@ -361,3 +361,24 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .parish-selector-option:hover { background:#203c41; }
 .parish-selector .parish-selector-checkbox { appearance:auto; width:17px; height:17px; min-width:17px; flex:0 0 17px; margin:0; accent-color:#20b7aa; }
 @media(max-width:480px) { .parish-selector { padding:10px; } .parish-selector-actions { gap:6px; } .parish-selector .parish-action { font-size:11px; padding:7px 9px; min-height:34px; } }
+
+/* GIS-first property reel: scrollable selectable parcel cards. */
+.predio-reel-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:18px 0 10px; }
+.predio-reel-heading strong { color:#eef9f8; font-size:15px; }
+.predio-reel-heading .note { margin:5px 0 0; }
+.predio-reel-controls { display:flex; gap:6px; flex-shrink:0; }
+.predio-reel-controls button { min-width:38px; min-height:38px; padding:5px 10px; font-size:24px; line-height:1; }
+.predio-results-reel { display:flex; gap:12px; padding:4px 2px 15px; overflow-x:auto; overscroll-behavior-x:contain; scroll-snap-type:x mandatory; scrollbar-width:thin; scrollbar-color:#347d78 #163137; }
+.predio-reel-card { appearance:none; display:flex; flex-direction:column; align-items:stretch; text-align:left; flex:0 0 220px; width:220px; min-height:178px; gap:9px; padding:15px; border-radius:12px; border:1px solid #375a5e; background:#173039; color:#eaf6f4; cursor:pointer; scroll-snap-align:start; box-shadow:none; transition:border-color .16s,background .16s,transform .16s; }
+.predio-reel-card:hover { border-color:#2bd2c3; background:#1d3b42; transform:translateY(-2px); }
+.predio-reel-card.selected { border:2px solid #ffbf47; background:#25413e; padding:14px; }
+.predio-reel-card:focus-visible { outline:3px solid #20b7aa; outline-offset:2px; }
+.predio-reel-card-top { display:flex; justify-content:space-between; gap:8px; align-items:center; font-size:13px; font-weight:750; }
+.predio-reel-index { color:#8bbfba; font-size:11px; font-weight:500; }
+.predio-reel-parish { color:#b7d0cd; font-size:13px; }
+.predio-reel-area { font-size:24px; font-weight:800; letter-spacing:-.5px; }
+.predio-reel-area small { font-size:13px; font-weight:500; color:#b6cac7; }
+.predio-reel-metadata { font-size:11px; color:#a5c2be; }
+.predio-reel-status { margin-top:auto; font-size:12px; font-weight:650; color:#42d6c3; }
+.predio-reel-card.selected .predio-reel-status { color:#ffd17c; }
+@media(max-width:600px) { .predio-reel-heading { flex-wrap:wrap; } .predio-reel-card { flex-basis:78vw; width:78vw; max-width:250px; } }
