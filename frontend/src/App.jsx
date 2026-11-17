@@ -617,6 +617,11 @@ export default function App() {
         </div>
         <p className="note">{audience === 'developer' ? 'Busque un terreno, consulte su IRM y explore qué tipo de vivienda podría desarrollar.' : 'Consulte su predio y revise planos para mantenimiento y remodelaciones.'}</p>
       </section>
+      <nav className="workflow-nav" aria-label="Etapas del proyecto">
+        <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
+        <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
+        {audience === 'remodeler' && <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>}
+      </nav>
       {audience === 'developer' && <section className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
         <h2>Exploración de terrenos · Criterios de selección</h2>
         <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. La búsqueda preliminar consulta directamente el catastro GIS por superficie, clasificación catastral y parroquia. PUGS, ocupación y tipo de vivienda se revisan después para cada predio.</p>
@@ -678,14 +683,17 @@ export default function App() {
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
           ? <p className="error" role="alert">Indique un rango de superficies válido, con mínimo menor o igual al máximo.</p>
           : <p className="note">Perfil seleccionado: {searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'} · {Number(searchAreaMin).toLocaleString('es-EC')}–{Number(searchAreaMax).toLocaleString('es-EC')} m². Para analizar un predio concreto, utilice la consulta catastral y su IRM.</p>}
+        <details className="advanced-landcover">
+          <summary>Análisis avanzado · Cobertura del suelo <span className="advanced-status">Próximamente</span></summary>
+          <div className="advanced-landcover-content">
+            <p>El análisis de cobertura del suelo permitirá explorar vegetación, áreas construidas, suelo descubierto y otras coberturas mediante capas GIS verificadas.</p>
+            <p>Este módulo aún no filtra predios ni modifica los resultados catastrales. Se incorporará cuando se defina y valide la capa de cobertura, su resolución y fecha de referencia.</p>
+          </div>
+        </details>
       </section>}
       {/* MAIN LAYOUT */}
 
-      <nav className="workflow-nav" aria-label="Etapas del proyecto">
-        <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
-        <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
-        {audience === 'remodeler' && <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>}
-      </nav>
+
       {step === 'property' && (      <main className={'layout dashboard-layout'+(detailsCollapsed?' details-collapsed':'')}
         style={{'--details-width':(detailsCollapsed?54:detailsWidth)+'px','--results-width':(resultsCollapsed?54:resultsWidth)+'px'}}>
 
