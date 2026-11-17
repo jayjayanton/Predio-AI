@@ -119,7 +119,7 @@ export default function App() {
     document.title = `PredioAI | ${titles[page]}`;
     window.scrollTo({top: 0, behavior: 'auto'});
     document.getElementById('main-content')?.focus({preventScroll: true});
-  }, [page]);
+  }, [page, step]);
 
   useEffect(() => {
     try { localStorage.setItem(SELECTION_KEY, JSON.stringify(savedParcels)); setStorageAvailable(true); }
