@@ -85,7 +85,7 @@ test('CSV preserves missing values, official-versus-PDF source and manual status
  assert.equal(rows.length,3);assert.equal(rows[0].length,12);
  assert.deepEqual(rows[1].slice(0,10),['627739','0012345678','CUMBAYÁ','PROPIEDAD HORIZONTAL','URBANO','2400','','0','',savedAt]);
  assert.match(rows[1][10],/Catastro municipal/);
- assert.match(rows[2][10],/PDF importado/);
+ assert.match(rows[2][10],/Archivo importado/);
  assert.equal(rows[2][5],'');assert.equal(rows[2][11],'Pendiente');
 });
 test('CSV ordinary parcel does not imply attributed PH area',()=>{
