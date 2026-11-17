@@ -417,6 +417,10 @@ export default function App() {
   // Cadastral discovery: query real municipal attributes, never infer PUGS
   // classifications from cadastral land-use labels. Results are paginated.
   const CADASTRE_SEARCH='https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_a_2024/FeatureServer/0/query';
+  const DMQ_PARISHES = {
+    urban: [["BELISARIO QUEVEDO","Belisario Quevedo"],["CARCELEN","Carcelén"],["CENTRO HISTORICO","Centro Histórico"],["CHILIBULO","Chilibulo"],["CHILLOGALLO","Chillogallo"],["CHIMBACALLE","Chimbacalle"],["COCHAPAMBA","Cochapamba"],["COMITE DEL PUEBLO","Comité del Pueblo"],["COTOCOLLAO","Cotocollao"],["EL CONDADO","El Condado"],["GUAMANI","Guamaní"],["INAQUITO","Iñaquito"],["ITCHIMBIA","Itchimbía"],["JIPIJAPA","Jipijapa"],["KENNEDY","Kennedy"],["LA ARGELIA","La Argelia"],["LA CONCEPCION","La Concepción"],["LA ECUATORIANA","La Ecuatoriana"],["LA FERROVIARIA","La Ferroviaria"],["LA LIBERTAD","La Libertad"],["LA MAGDALENA","La Magdalena"],["LA MENA","La Mena"],["MARISCAL SUCRE","Mariscal Sucre"],["PONCEANO","Ponceano"],["PUENGASI","Puengasí"],["QUITUMBE","Quitumbe"],["RUMIPAMBA","Rumipamba"],["SAN BARTOLO","San Bartolo"],["SAN ISIDRO DEL INCA","San Isidro del Inca"],["SAN JUAN","San Juan"],["SOLANDA","Solanda"],["TURUBAMBA","Turubamba"]],
+    rural: [["ALANGASI","Alangasí"],["AMAGUANA","Amaguaña"],["ATAHUALPA","Atahualpa"],["CALACALI","Calacalí"],["CALDERON","Calderón"],["CHAVEZPAMBA","Chavezpamba"],["CHECA","Checa"],["CONOCOTO","Conocoto"],["CUMBAYA","Cumbayá"],["EL QUINCHE","El Quinche"],["GUALEA","Gualea"],["GUANGOPOLO","Guangopolo"],["GUAYLLABAMBA","Guayllabamba"],["LA MERCED","La Merced"],["LLANO CHICO","Llano Chico"],["LLOA","Lloa"],["NANEGAL","Nanegal"],["NANEGALITO","Nanegalito"],["NAYON","Nayón"],["NONO","Nono"],["PACTO","Pacto"],["PERUCHO","Perucho"],["PIFO","Pifo"],["PINTAG","Píntag"],["POMASQUI","Pomasqui"],["PUELLARO","Puéllaro"],["PUEMBO","Puembo"],["SAN ANTONIO DE PICHINCHA","San Antonio de Pichincha"],["SAN JOSE DE MINAS","San José de Minas"],["TABABELA","Tababela"],["TUMBACO","Tumbaco"],["YARUQUI","Yaruquí"],["ZAMBIZA","Zámbiza"]]
+  };
   const VALLEY_PARISHES=['CUMBAYA','TUMBACO','PUEMBO','PIFO','TABABELA','YARUQUI','CHECA','EL QUINCHE','GUAYLLABAMBA','NAYON','ZAMBIZA'];
   async function exploreParcels(offset=0) {
     setExploreError('');
@@ -582,7 +586,12 @@ export default function App() {
             <select value={searchParish} onChange={e=>setSearchParish(e.target.value)}>
               <option value="all">Todo el DMQ</option>
               <option value="valley">Valles orientales (parroquias seleccionadas)</option>
-              {['CUMBAYA','TUMBACO','PUEMBO','PIFO','TABABELA','YARUQUI','CHECA','EL QUINCHE','GUAYLLABAMBA','NAYON','ZAMBIZA'].map(p=><option key={p} value={p}>{p}</option>)}
+              <optgroup label="Parroquias urbanas (32)">
+                {DMQ_PARISHES.urban.map(([value,label])=><option key={value} value={value}>{label}</option>)}
+              </optgroup>
+              <optgroup label="Parroquias rurales (33)">
+                {DMQ_PARISHES.rural.map(([value,label])=><option key={value} value={value}>{label}</option>)}
+              </optgroup>
             </select>
           </label>
         </div>
