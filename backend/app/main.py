@@ -372,7 +372,7 @@ async def inspect_blueprint(
 from typing import Literal
 from fastapi import Form
 from .document_analysis import analyze_document
-from .work_activities import validate_activities
+from .work_activities import requires_irm, validate_activities
 
 
 @app.post("/api/documents/analyze")
@@ -393,8 +393,8 @@ async def analyze_project_documents(
         selected_activities = validate_activities(work_type, activities)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    if work_type in {"remodel", "structural", "expansion"} and irm is None:
-        raise HTTPException(status_code=422, detail="IRM required for remodel, structural, or expansion review")
+    if requires_irm(work_type, activities) and irm is None:
+        raise HTTPException(status_code=422, detail="IRM required for the selected remodeling, structural, or expansion activities")
     if predio_number and (not predio_number.isdigit() or len(predio_number) > 25):
         raise HTTPException(status_code=422, detail="Invalid predio number")
 

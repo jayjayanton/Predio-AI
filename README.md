@@ -10,13 +10,13 @@ The intended platform connects **predio + architectural PDF/CAD + relevant IRM i
 
 **Working pilot, not a completed measurement engine.** Cadastral lookup, document inspection and selectable vector geometry exist. Calibrated architectural measurements, corrections with recalculation and exportable technical reports are the next core architectural milestones. Explainable parcel scoring and unsupervised segmentation remain planned on a parallel analytics track.
 
-[Open the application](https://jayjayanton.github.io/Predio-AI/) · [Architectural methodology and product scope](docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md) · [Deployment guide](DEPLOYMENT.md)
+[Open the application](https://jayjayanton.github.io/Predio-AI/) · [Architectural methodology and product scope](docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md) · [Pilot presentation and real-document validation](docs/PILOT_VALIDATION.md) · [Deployment guide](DEPLOYMENT.md)
 
 ## UX focus and straightforward navigation
 
 The public entry now answers a single question: **what does PredioAI help you do?** It is an experimental architectural-plan and municipal-context review tool for planning a household intervention—not a project-management platform, supplier finder, construction contractor, budget generator, or software that performs the renovation. The product does not currently generate verified architectural measurements or export finished takeoffs.
 
-The first screen offers **two explicit paths**: **Analizar planos** for a home improvement task (currently requiring a predio lookup first), or **Mi predio** for cadastral/municipal information. **Explorar mapa** is a separate GIS discovery tool. **Selección** preserves the existing parcel shortlist. **Analítica** is accessible from the expanded complementary/future section of the homepage and through its existing hash route, without competing with primary tasks in the header.
+The first screen offers **two explicit paths**: **Analizar planos** opens document inspection directly for a home improvement task, while **Mi predio** provides cadastral/municipal information. Linking a predio is optional for document inspection and remains available from the plan workspace. **Explorar mapa** is a separate GIS discovery tool. **Selección** preserves the existing parcel portfolio. **Analítica** is accessible from the expanded complementary/future section of the homepage and through its existing hash route, without competing with primary tasks in the header.
 
 Consumer-facing tasks are painting, flooring, repair, remodeling, reorganization and expansion. Existing document geometry inspection is not the same as wall recognition, calibrated measurements, quotes, contractor selection, materials procurement or managing building works. A working interpretation/calibration/measurement pipeline and reviewed reports are separate milestones. The guidance for obtaining municipal copies remains owner-led; PredioAI does not submit the request.
 
@@ -35,13 +35,13 @@ The interface is in Spanish and the initial municipal-data scope is Quito's Dist
 | Section | Purpose |
 | --- | --- |
 | **Inicio** | One clear proposition, two choices (plans or property), what's implemented, what's not, and everyday use cases |
-| **Analizar planos** | Entry to the existing predio-linked project, activity, document and geometry-review workflow |
+| **Analizar planos** | Choose an activity, inspect an authorized PDF/DXF and explore geometry; link cadastral context optionally |
 | **Mi predio** | Look up a predio, inspect its cadastral information and continue to IRM review or the document workflow |
 | **Explorar mapa** | Find cadastral records, browse the map and open a property sheet |
 | **Selección** | Manage up to 100 predios, import labelled IDs from PDF/CSV/DOCX/XLSX or pasted list, open each for IRM, compare four at a time, export CSV |
 | **Analítica (secondary)** | Roadmap for future parcel scoring and unsupervised segmentation, linked under complementary capabilities; no active scores |
 
-The architectural journey is **identify the property → select the work → supply plans and relevant IRM → inspect/explore geometry → review evidence**. Verified measurements and technical report export are planned, not completed steps. The current UI requires a property lookup before advancing to the project/document screen; stand-alone document analysis is a future usability improvement.
+The architectural journey is **select the work → supply plans and relevant IRM → inspect/explore geometry → review the document summary**, with optional property linking. Opening or reloading `#planos` enters the same document workspace. After a successful inspection, the drawing stays visible; the user opens **Resumen documental** explicitly. File errors appear beside the upload controls, unsupported/empty/oversized files are rejected before sending, and changed inputs invalidate an in-flight analysis. Verified measurements and technical report export are planned, not completed steps.
 
 ## One product foundation, multiple applications
 
@@ -64,9 +64,9 @@ For a wall affected by an earthquake, a possible workflow would link the documen
 
 The existing project workflow accepts PDF/DXF drawings, a building type and repair/maintenance/remodeling/structural/expansion activities. It exposes extracted document evidence and a vector-geometry viewer with page selection, zoom, layer visibility and multiple-element selection. A selected polyline is not automatically a recognized wall, a measured room or an editable construction design.
 
-Project documents are submitted to the FastAPI `/api/documents/analyze` endpoint and processed in memory. This is separate from the browser-only developer IRM parser described below. The current project flow requests an IRM for remodeling, structural modification and expansion; that UI requirement is not a claim that all everyday tasks have identical municipal requirements.
+Project documents are submitted to the FastAPI `/api/documents/analyze` endpoint and processed in memory. This is separate from the browser-only developer IRM parser described below. Repair, maintenance and a remodeling request containing **only `replace_floor`** can be inspected without an IRM. Other remodeling activities, mixed flooring/remodeling requests, structural modification and expansion retain the pilot's IRM prerequisite. This software rule applies to preliminary document inspection; it does not establish permit requirements or verify that a proposed intervention is nonstructural.
 
-The on-screen preliminary report summarizes document inspection and unresolved measurements. Verified scale, wall heights, opening deductions, architectural classification, corrections/recalculation and traceable measurement exports remain future work. The system does not automatically estimate material requirements, construction costs, market prices or regulatory compliance.
+The on-screen **document summary** describes inspection evidence and unresolved measurements. It identifies when no predio is linked. Verified scale, wall heights, opening deductions, architectural classification, corrections/recalculation and traceable measurement exports remain future work. The system does not automatically estimate material requirements, construction costs, market prices or regulatory compliance. Validation against an authorized real architectural PDF/CAD and independently checked dimensions remains pending.
 
 ### Geographic discovery
 
@@ -126,7 +126,7 @@ Any claim of reduced time, cost or site visits is a **hypothesis to validate**, 
 
 Retain the ivory/forest visual system and existing GIS/document workflows. The homepage now leads with household interventions and interactive plans rather than lot acquisition. It distinguishes working geometry inspection, future verified measurements and potential insurance use. A document-workflow card replaces the territorial illustration as the main homepage visual; it contains no invented parcel or measurement results.
 
-Existing interaction improvements remain: map-to-property navigation, four-parcel CSV comparison, progressively disclosed filters, compact results, loading/error/empty states, responsive layouts, accessible control labels, keyboard focus and reduced-motion support. Parcel popups remain available without the unwanted black rectangular map focus outline.
+Existing interaction improvements remain: map-to-property navigation, a 100-predio local portfolio with four-property comparison, progressively disclosed filters, compact results, loading/error/empty states, responsive layouts, accessible control labels, keyboard focus and reduced-motion support. Parcel popups remain available without the unwanted black rectangular map focus outline. Document inspection now opens directly and keeps the vector viewer visible; dragging the background works alongside element selection.
 
 Validate before release. Passing CI does not verify municipal service availability, a drawing's scale or its correspondence with current conditions.
 
@@ -180,6 +180,7 @@ Open [http://localhost:5173](http://localhost:5173). The frontend defaults to th
 | Variable | Purpose | Default / production setting |
 | --- | --- | --- |
 | `VITE_API_URL` | Frontend API origin, read at build time | Local: `http://localhost:8000`; deployed: `https://predioai-api.onrender.com` |
+| `VITE_BASE_PATH` | Frontend asset base, read at build time | Production default: `/Predio-AI/`; use `/` for root hosting |
 | `CORS_ORIGINS` | Permitted frontend origins | Local: `http://localhost:5173`; Render: `https://jayjayanton.github.io` |
 | `QUITO_ARCGIS_URL` | Backend cadastral layer; trailing `/query` accepted | Municipal `predios_a_2024/FeatureServer/0` |
 
@@ -219,11 +220,11 @@ Backend, from `backend/`:
 python -m pytest tests -q
 ```
 
-Frontend tests cover selection normalization, persistence validation, CSV export and product-positioning guards. The positioning checks are content regression checks, not end-to-end drawing tests. Backend tests cover API, document and spatial processing. Browser review should check homepage actions, navigation, map/list selection, opening a property, comparison, responsive layouts and failed municipal requests.
+Frontend tests cover selection normalization, persistence validation, CSV export, direct-plan routing, upload validation, conditional IRM requirements and product-positioning guards. The positioning checks are content regression checks, not end-to-end drawing tests. Backend tests cover API, document and spatial processing, including the isolated-flooring exception and mixed-activity prerequisites. Browser review should check homepage actions, direct `#planos` reload, navigation, upload errors, drawing interaction, map/list selection, opening a property, comparison, responsive layouts and failed municipal requests.
 
 CI runs backend tests and frontend tests/build. The Pages workflow tests/builds the frontend and deploys on pushes to **`main`** or manual dispatch. Its backend test job is separate; publication is not proof that the API or upstream municipal services are healthy.
 
-Production uses Vite's `/Predio-AI/` base path. `VITE_API_URL` is baked into that build. Render uses `render.yaml`; GitHub Pages cannot run FastAPI. A sleeping backend can slow the first lookup. See [DEPLOYMENT.md](DEPLOYMENT.md).
+The existing Pages project demonstration uses Vite's `/Predio-AI/` base path. `VITE_BASE_PATH=/` prepares a build for a root-domain frontend; `VITE_API_URL` is baked into either build. Render uses `render.yaml` for the existing backend; GitHub Pages cannot run FastAPI. A sleeping backend can slow the first lookup. The commercial-hosting path and domain procedure are documented in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ### Optional desktop IRM assistant
 

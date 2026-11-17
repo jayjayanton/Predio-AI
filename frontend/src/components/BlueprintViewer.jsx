@@ -65,7 +65,7 @@ export default function BlueprintViewer({ views = [] }) {
               onPointerUp={() => { drag.current = null; }}
               onPointerCancel={() => { drag.current = null; }}
             >
-              <rect x={x} y={y} width={viewWidth} height={viewHeight} fill="#fff" />
+              <rect x={x} y={y} width={viewWidth} height={viewHeight} fill="#fff" pointerEvents="none" />
               {visible.map(el => <polyline key={el.id}
                 points={el.points.map(p => p.join(',')).join(' ')}
                 fill="none" stroke={selected.includes(el.id) ? '#e65b25' : '#263747'}

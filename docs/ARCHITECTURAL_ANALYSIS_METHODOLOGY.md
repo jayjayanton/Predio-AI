@@ -48,14 +48,14 @@ PredioAI extracts information and derives measurements/quantities from verified 
 | Parcel scoring and unsupervised segmentation | Planned parallel analytics track |
 | Damage-evidence workflow for insurance/peritaje | Potential extension; not implemented |
 
-The current UI requires a predio lookup to advance to the document workspace. A future upload-first path may make cadastral linking optional; do not present that as current behavior.
+The current **Analizar planos** entry opens the document workspace directly. A cadastral lookup is optional context, with a visible unlinked state until a predio is selected. Inspection results remain in the viewer, and the documentary summary is opened separately. Repair, maintenance and an isolated floor-finish replacement can proceed without an IRM; other remodeling activities, mixed requests, structural modification and expansion retain the pilot's IRM prerequisite. These are software inspection requirements, not a determination of municipal permits.
 
 The developer IRM parser runs locally in the browser. The remodeling/project document workflow sends files to the backend for in-memory processing. Do not promise that all uploaded files stay on-device. Existing local IRM automation is optional desktop tooling, not automatic municipal retrieval by the hosted app.
 
 ## Core user journey
 
-1. **Identify the property.** Obtain the predio and cadastral context. Separate the lot, building, PH unit and individual room; they are not interchangeable geometries.
-2. **Define the intervention.** Start with plain-language tasks: paint, change flooring, repair, remodel/reorganize, reconstruct or expand. Escalate technical review for structural changes and extensions.
+1. **Define the intervention.** Start with plain-language tasks: paint, change flooring, repair, remodel/reorganize, reconstruct or expand. Escalate technical review for structural changes and extensions.
+2. **Link property context when available.** A document can be inspected without a municipal lookup. When linked, obtain the predio/cadastral context and confirm the drawing corresponds to it. Separate the lot, building, PH unit and individual room; they are not interchangeable geometries.
 3. **Provide documents.** Upload authorized PDF or DXF drawings and relevant IRM. For DWG, require authorized conversion to DXF. Plans are already digital when vector PDF/CAD is provided; the job is parsing/structuring, not assuming they need a newly trained vision model.
 4. **Inspect before inferring.** Determine available text, vector geometry, pages/layers and explicit dimensions. A raster scan needs a distinct validated extraction path. An IRM provides urban-planning context, not room dimensions.
 5. **Explore interactively.** Use the existing viewer to zoom, show/hide layers and select geometry. Future semantic associations connect these elements to walls, rooms, floors or openings; selection alone is not recognition.

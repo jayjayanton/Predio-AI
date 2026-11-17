@@ -14,8 +14,8 @@ function ProjectGuide() {
     <h2 id="po-guide-title">Tu vivienda.<br /><em>Un proyecto con contexto.</em></h2>
     <p className="po-guide-intro">Conectar lo que sabes del inmueble con lo que muestran sus planos.</p>
     <ol className="po-project-documents">
-      <li><span className="po-file-label" aria-hidden="true">01</span><div><strong>El predio</strong><span>Ubicación y datos catastrales</span></div></li>
-      <li><span className="po-file-label" aria-hidden="true">02</span><div><strong>Tus planos PDF / DXF</strong><span>Texto y geometría disponibles</span></div></li>
+      <li><span className="po-file-label" aria-hidden="true">01</span><div><strong>Tus planos PDF / DXF</strong><span>Elige una actividad y revisa el archivo</span></div></li>
+      <li><span className="po-file-label" aria-hidden="true">02</span><div><strong>El predio, cuando lo necesites</strong><span>Ubicación y datos catastrales como contexto</span></div></li>
       <li><span className="po-file-label" aria-hidden="true">03</span><div><strong>El IRM, cuando corresponda</strong><span>Información urbanística para contrastar</span></div></li>
     </ol>
     <div className="po-guide-result"><strong>Un espacio para explorar y revisar</strong><p>Seleccionar geometría · mostrar capas · acercar el plano</p><small>Visor experimental. Unidades y escala aún sin verificar.</small></div>
@@ -34,7 +34,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
           <button type="button" className="po-button po-button-secondary" onClick={onConsult}>Consultar mi predio <Arrow diagonal/></button>
         </div>
         <p className="po-hero-footnote">Para propietarios, arquitectos independientes y pequeños equipos de remodelación o construcción.</p>
-        <p className="po-release-note"><strong>Prototipo actual:</strong> consulta catastral, IRM asistido e inspección interactiva de planos PDF/DXF. <strong>En desarrollo:</strong> medidas arquitectónicas verificadas y reportes exportables.</p>
+        <p className="po-release-note"><strong>Prototipo actual:</strong> consulta catastral, IRM asistido e inspección interactiva de planos PDF/DXF. <strong>En desarrollo:</strong> medidas arquitectónicas verificadas y reportes exportables. La validación con planos reales sigue pendiente.</p>
       </div>
       <ProjectGuide/>
     </section>
@@ -46,7 +46,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
         <article className="po-choice po-choice-main">
           <div className="po-choice-top"><span className="po-choice-icon" aria-hidden="true">▧</span><span className="po-stage">Flujo experimental disponible</span></div>
           <h3>Quiero revisar los planos de mi casa</h3>
-          <p>Para una reforma, reparación, pintura, cambio de pisos o ampliación. Consulta primero tu predio y luego incorpora los planos autorizados. Explora su geometría y lo que el documento contiene.</p>
+          <p>Para una reforma, reparación, pintura, cambio de pisos o ampliación. Empieza con un plano autorizado y explora lo que contiene. Puedes agregar después la información del predio.</p>
           <p className="po-choice-note">La selección de líneas funciona; identificar muros y calcular superficies confiables sigue en desarrollo.</p>
           <button type="button" className="po-choice-action" onClick={onBlueprints}>Ir a Analizar planos <Arrow/></button>
         </article>
@@ -80,11 +80,11 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
     </section>
 
     <section className="po-workflow" aria-labelledby="po-workflow-title">
-      <div className="po-section-heading"><p className="po-eyebrow">CÓMO FUNCIONA EL PILOTO</p><h2 id="po-workflow-title">Tres pasos, sin confundir planos con obra.</h2></div>
+      <div className="po-section-heading"><p className="po-eyebrow">CÓMO FUNCIONA EL PILOTO</p><h2 id="po-workflow-title">Del plano a una revisión con contexto.</h2></div>
       <ol className="po-steps po-home-steps">
-        <li><span className="po-step-number">01</span><h3>Consulta tu predio</h3><p>Identifica la propiedad. No necesitas explorar el mapa de terrenos para iniciar este flujo.</p></li>
-        <li><span className="po-step-number">02</span><h3>Aporta los planos que tengas</h3><p>PDF o DXF autorizado; IRM cuando corresponda. La solicitud municipal la haces tú o tu representante.</p></li>
-        <li><span className="po-step-number">03</span><h3>Inspecciona la geometría</h3><p>Visualiza trazos, selecciona elementos y controla capas. La calibración y medición verificable es nuestro siguiente hito.</p></li>
+        <li><span className="po-step-number">01</span><h3>Elige la actividad y aporta tu plano</h3><p>PDF vectorial o DXF autorizado. Para pintura o cambio de acabado de piso puedes empezar sin consulta predial ni IRM.</p></li>
+        <li><span className="po-step-number">02</span><h3>Inspecciona la geometría</h3><p>Visualiza trazos, selecciona elementos y controla capas. Abre después el resumen documental para revisar qué se extrajo.</p></li>
+        <li><span className="po-step-number">03</span><h3>Completa el contexto de tu vivienda</h3><p>Vincula el predio y aporta el IRM cuando corresponda a la revisión. La solicitud de documentos municipales la haces tú o tu representante.</p></li>
       </ol>
       <p className="po-workflow-note"><strong>Estado del producto:</strong> inspección disponible, pero no es un sistema de diseño automático, gestión de obras, cotizaciones ni cálculo de materiales. Las cantidades confiables requieren comprobar escala, dimensiones y condiciones reales.</p>
     </section>

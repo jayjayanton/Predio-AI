@@ -1,4 +1,4 @@
-from app.work_activities import validate_activities
+from app.work_activities import requires_irm, validate_activities
 import pytest
 
 
@@ -20,3 +20,20 @@ def test_flooring_activity():
 def test_invalid_selection(work, activities):
     with pytest.raises(ValueError):
         validate_activities(work, activities)
+
+
+@pytest.mark.parametrize("work,activities,required", [
+    ("repair", ["repair_floor"], False),
+    ("maintenance", ["paint_walls", "paint_ceiling"], False),
+    ("remodel", ["replace_floor"], False),
+    ("remodel", ["remodel_bathroom"], True),
+    ("remodel", ["remodel_kitchen"], True),
+    ("remodel", ["change_layout"], True),
+    ("remodel", ["replace_floor", "change_layout"], True),
+    ("remodel", ["remodel_bathroom", "replace_floor"], True),
+    ("structural", ["modify_slab"], True),
+    ("expansion", ["add_floor"], True),
+])
+def test_document_irm_prerequisite(work, activities, required):
+    validate_activities(work, activities)
+    assert requires_irm(work, activities) is required
