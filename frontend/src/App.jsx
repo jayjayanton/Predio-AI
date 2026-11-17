@@ -150,6 +150,34 @@ export default function App() {
     setSavedParcels(current => current.map(p => p.n_predio === String(id)
       ? { ...p, irmReview: reviewed ? 'manual_reviewed' : 'pending' } : p));
   }
+  async function enrichImportedPredios(ids, onProgress = () => {}) {
+    const requested = [...new Set(ids.map(String))].filter(id => /^\d{1,25}$/.test(id)).slice(0, 10);
+    const found = new Map();
+    const failed = [];
+    for (let i = 0; i < requested.length; i++) {
+      const id = requested[i];
+      onProgress(`Consultando ficha municipal ${i + 1} de ${requested.length} · predio ${id}`);
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        let response;
+        try { response = await fetch(`${API}/api/predios/n_predio/${encodeURIComponent(id)}`, {signal: controller.signal}); }
+        finally { clearTimeout(timeout); }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const body = await response.json();
+        const attrs = body?.features?.[0]?.properties;
+        if (!attrs || String(attrs.n_predio) !== id) throw new Error('Identificador no confirmado');
+        found.set(id, attrs);
+      } catch (error) { failed.push(id); }
+    }
+    if (found.size) setSavedParcels(current => current.map(record => {
+      const attrs = found.get(record.n_predio);
+      return attrs ? selectionRecord({ ...record, ...attrs, n_predio: record.n_predio,
+        source: 'catastro', irmReview: record.irmReview }, record.savedAt) : record;
+    }));
+    onProgress('');
+    return {updated: found.size, failed: failed.length, failedIds: failed};
+  }
   const [developerIrm, setDeveloperIrm] = useState(null);
   const [irmExtraction, setIrmExtraction] = useState(null);
   const [irmExtracting, setIrmExtracting] = useState(false);
@@ -942,7 +970,7 @@ export default function App() {
 
       <main id="main-content" className="workspace-main" tabIndex={-1}>
       {page === 'home' && <ProductOverview onExplore={() => navigate('explore')} onConsult={() => navigate('property')} onBlueprints={() => navigate('blueprints')} onAnalytics={() => navigate('analytics')} />}
-      {page === 'selection' && <SelectionPage records={savedParcels} onExplore={() => navigate('explore')} onOpen={openExplorePredio} onRemove={id => { setSavedParcels(current => current.filter(p => p.n_predio !== id)); setSelectionNotice(`Predio ${id} retirado de la selección.`); }} onImport={importParcels} onIrmReview={setIrmReviewStatus} loading={loading} error={error} storageAvailable={storageAvailable} />}
+      {page === 'selection' && <SelectionPage records={savedParcels} onExplore={() => navigate('explore')} onOpen={openExplorePredio} onRemove={id => { setSavedParcels(current => current.filter(p => p.n_predio !== id)); setSelectionNotice(`Predio ${id} retirado de la selección.`); }} onImport={importParcels} onIrmReview={setIrmReviewStatus} onEnrich={enrichImportedPredios} loading={loading} error={error} storageAvailable={storageAvailable} />}
       {page === 'analytics' && <AnalyticsRoadmap onExplore={() => navigate('explore')} onSelection={() => navigate('selection')} />}
       {isWorkspace && <>
       {loading && <div className="lookup-progress" role="status">{slowLookup ? 'El servicio está iniciándose o consultando fuentes municipales. La ficha aparecerá al terminar.' : 'Consultando la ficha del predio…'}</div>}

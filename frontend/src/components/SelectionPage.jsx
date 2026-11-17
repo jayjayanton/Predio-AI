@@ -6,7 +6,7 @@ import '../styles/portfolio.css';
 const displayNumber = (value, suffix = '') => value == null || !Number.isFinite(Number(value)) ? 'Pendiente de consulta' : Number(value).toLocaleString('es-EC', { maximumFractionDigits: 2 }) + suffix;
 const isPH = p => (p.tipo_propi || '').trim().toUpperCase() === 'PROPIEDAD HORIZONTAL';
 
-export default function SelectionPage({ records, onExplore, onOpen, onRemove, onImport, onIrmReview, loading, error, storageAvailable }) {
+export default function SelectionPage({ records, onExplore, onOpen, onRemove, onImport, onIrmReview, onEnrich, loading, error, storageAvailable }) {
   const [comparison, setComparison] = useState([]);
   const [showCompare, setShowCompare] = useState(false);
   const [fileName, setFileName] = useState('');
@@ -14,6 +14,9 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
   const [chosen, setChosen] = useState([]);
   const [warnings, setWarnings] = useState([]);
   const [importing, setImporting] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichProgress, setEnrichProgress] = useState('');
+  const [enrichResult, setEnrichResult] = useState('');
   const [importError, setImportError] = useState('');
   const [importMessage, setImportMessage] = useState('');
   const [paste, setPaste] = useState('');
@@ -88,6 +91,18 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
     setCandidates([]); setChosen([]); setWarnings([]); setFileName('');
   }
 
+  async function fillMunicipalData() {
+    const ids = records.filter(p => p.source === 'pdf').slice(0, 10).map(p => p.n_predio);
+    if (!ids.length || enriching) return;
+    setEnriching(true); setEnrichResult(''); setEnrichProgress('');
+    try {
+      const result = await onEnrich(ids, setEnrichProgress);
+      setEnrichResult(`${result.updated} fichas completadas con datos municipales; ${result.failed} sin confirmar. Puedes reintentar las pendientes.`);
+    } catch (error) {
+      setEnrichResult('No se pudieron completar las consultas. Los datos existentes siguen guardados.');
+    } finally { setEnriching(false); setEnrichProgress(''); }
+  }
+
   function toggleCompare(id, checked) {
     setComparison(old => checked ? (old.includes(id) || old.length >= COMPARISON_LIMIT ? old : [...old, id]) : old.filter(x => x !== id));
   }
@@ -98,7 +113,9 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
       <div><span className="eyebrow">CARTERA DE PROYECTOS</span><h1 id="selection-title">Tus predios, en un solo lugar.</h1><p>Reúne hasta {SELECTION_LIMIT} predios para gestionarlos uno por uno. Compara hasta {COMPARISON_LIMIT} a la vez y consulta el IRM individualmente.</p></div>
       <button type="button" className="secondary" onClick={onExplore}>Explorar mapa ↗</button>
     </div>
-    <div className="selection-toolbar"><span>{records.length} de {SELECTION_LIMIT} predios · {storageAvailable ? 'Identificadores guardados en este navegador' : 'Solo durante esta sesión'}</span>{records.length > 0 && <button type="button" className="secondary" onClick={exportCSV}>Exportar cartera CSV ↓</button>}</div>
+    <div className="selection-toolbar"><span>{records.length} de {SELECTION_LIMIT} predios · {storageAvailable ? 'Identificadores guardados en este navegador' : 'Solo durante esta sesión'}</span><div className="portfolio-toolbar-actions">{records.some(p => p.source === 'pdf') && <button type="button" className="secondary" onClick={fillMunicipalData} disabled={enriching} aria-busy={enriching}>{enriching ? 'Consultando…' : 'Completar datos municipales · hasta 10'}</button>}{records.length > 0 && <button type="button" className="secondary" onClick={exportCSV}>Exportar cartera CSV ↓</button>}</div></div>
+    {enrichProgress && <p role="status" className="portfolio-notice">{enrichProgress}</p>}
+    {enrichResult && <p role="status" className="portfolio-notice">{enrichResult}</p>}
     <p className="portfolio-scope">No es una base de proyectos compartida: no se conservan los PDF, el texto extraído ni los IRM. Cada predio se abre para consultar la ficha municipal y cargar/revisar su IRM de forma independiente.</p>
 
     <section className="portfolio-import" aria-labelledby="portfolio-import-title">
@@ -108,7 +125,7 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
           <input aria-label="Seleccionar PDF con listado de predios" type="file" accept=".pdf,application/pdf" onChange={handlePdf} disabled={importing || remaining === 0}/>
         </label>
         <details><summary>También puedes pegar números de predio</summary><label htmlFor="portfolio-paste">Un número por línea</label><textarea id="portfolio-paste" rows={4} value={paste} onChange={e => setPaste(e.target.value)} placeholder={'123456\n987654\n456789'}/><button type="button" className="secondary" onClick={handlePaste}>Revisar lista</button></details>
-        <p className="note">PDF de texto, hasta 15 MB y 100 páginas. No es OCR: un escaneo sin texto seleccionable no produce identificadores. Las áreas, régimen y parroquia solo se completan tras consultar una ficha municipal, no se deducen del PDF.</p>
+        <p className="note">PDF de texto, hasta 15 MB y 100 páginas. No es OCR: un escaneo sin texto seleccionable no produce identificadores. Las áreas, régimen y parroquia se completan al consultar la ficha municipal, no se deducen del PDF. Después de importar, usa «Completar datos municipales» (hasta 10 por tanda) o abre cada ficha.</p>
       </div>
     </section>
     {importing && <p role="status">Leyendo PDF en este navegador…</p>}
