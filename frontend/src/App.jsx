@@ -99,7 +99,7 @@ export default function App() {
       .find(element=>element.dataset.predioId===String(exploreSelected));
     if(!card)return;
     // Scroll only the sidebar's card list, never the entire page/map.
-    const top=card.offsetTop-reel.offsetTop;
+    const top=card.getBoundingClientRect().top-reel.getBoundingClientRect().top+reel.scrollTop;
     reel.scrollTo({top:Math.max(0,top-reel.clientHeight/3),behavior:'smooth'});
   },[exploreSelected,exploreResults,reelColumns]);
 
