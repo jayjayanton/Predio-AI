@@ -1127,3 +1127,26 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .predio-info-popup strong { display:block; font-size:14px; margin-bottom:7px; }
 .predio-info-popup p { margin:4px 0; font-size:12px; line-height:1.4; }
 .predio-info-popup small { display:block; margin-top:8px; color:#58676c; font-size:10px; line-height:1.4; }
+
+/* Individual predio search can be cleared without entering IRM. */
+.individual-search-actions {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:9px;
+  margin:12px 0;
+}
+.individual-search-actions > button {
+  width:auto;
+  min-height:40px;
+  margin:0;
+  flex:1 1 140px;
+}
+.individual-search-actions > button.secondary {
+  border:1px solid #557278;
+  border-radius:8px;
+  background:#1b353c;
+  color:#deeeec;
+  padding:10px 13px;
+}
+.individual-search-actions > button.secondary:hover { border-color:#36c9b7; background:#24464b; }
