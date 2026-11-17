@@ -2165,11 +2165,12 @@ export default function App() {
                 <div className="document-upload">
                   <label htmlFor="blueprint-upload"><strong>1. Adjuntar planos arquitectónicos (PDF, DXF o DWG) · requerido</strong></label>
                   <input key={`blueprint-${documentInputVersion}`} id="blueprint-upload" className="file-input"
-                    type="file" accept="application/pdf,.pdf,.dxf,application/dxf,.dwg,image/vnd.dwg,application/acad"
+                    type="file"
                     onChange={(event) => selectDocument(event, 'blueprint')}
                   />
                   {pdf && <p className="note">Plano seleccionado: {pdf.name}</p>}
                   <p className="note">PDF, DXF o DWG · máximo 15 MB. El DWG se convierte en el servidor para inspeccionar la geometría compatible; la vista puede ser parcial. Los PDF escaneados pueden carecer de texto y líneas seleccionables; el reconocimiento de imágenes está pendiente.</p>
+                  <p className="note">En iPhone: pulsa «Elegir archivo» y luego «Explorar» para buscar el DWG en Archivos. Si lo tienes en otra aplicación, guárdalo primero en Archivos. El selector muestra todos los archivos para evitar que iOS oculte los DWG; PredioAI valida el formato después de seleccionarlo.</p>
                 </div>
 
                 {irmRequired && (
