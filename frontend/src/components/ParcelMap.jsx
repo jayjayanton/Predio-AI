@@ -133,7 +133,7 @@ function geometryAreaM2(geometry) {
     rings.slice(1).reduce((holes,ring)=>holes+Math.abs(L.GeometryUtil.geodesicArea(ring.map(([lng,lat])=>L.latLng(lat,lng)))),0),0);
 }
 
-function VisibleParcels({enabled,criteria,highlightMatches}) {
+function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
   const map=useMap();
   const [features,setFeatures]=useState(null);
   const [status,setStatus]=useState('');
@@ -248,7 +248,7 @@ function VisibleParcels({enabled,criteria,highlightMatches}) {
   const matchIds=new Set((areaMatches||[]).map(f=>String(f.properties?.predio??f.id??'')));
   const highlight=Boolean(highlightMatches&&validRange&&!advanced);
   return <>
-    {features?.features?.length>0&&<GeoJSON className="predio-nearby-interactive"
+    {features?.features?.length>0&&<GeoJSON interactive={!queryActive} className="predio-nearby-interactive"
       key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
       style={feature=>{
         const id=String(feature.properties?.predio??feature.id??'');
@@ -336,7 +336,12 @@ function SearchResultsLayer({results,selected,onSelect}) {
       onEachFeature={(feature,layer)=>{
         const id=String(feature.properties?.n_predio||'');
         layer.bindTooltip('Predio '+id);
-        layer.on('click',()=>onSelect?.(id));
+        layer.on('click',event=>{
+          // A blue GIS result always becomes the active card immediately.
+          // Stop the same click reaching nearby cadastral layers below it.
+          L.DomEvent.stopPropagation(event);
+          onSelect?.(id);
+        });
       }}/>
     <div className="leaflet-bottom leaflet-right" style={{pointerEvents:'none',marginBottom:42}}>
       <div className="leaflet-control" style={{background:'#10262be8',color:'#eaf2f1',padding:'8px 10px',fontSize:12,borderRadius:8,margin:10}}>
@@ -435,7 +440,7 @@ export default function ParcelMap({ data, criteria, searchResults, selectedSearc
           maxZoom={19}
         />
 
-        <VisibleParcels enabled={showNearbyParcels} criteria={criteria} highlightMatches={highlightMatches}/>
+        <VisibleParcels enabled={showNearbyParcels} criteria={criteria} highlightMatches={highlightMatches} queryActive={Boolean(searchResults?.features?.length)}/>
         <SearchResultsLayer results={searchResults} selected={selectedSearchPredio} onSelect={onSelectSearchPredio}/>
 
         {/* Municipal cadastral polygons */}
