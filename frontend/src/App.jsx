@@ -587,7 +587,14 @@ export default function App() {
         <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. Los filtros urbanísticos se verifican provisionalmente contra PUGS.</p>
         <div className="development-filter-grid">
           <label>Clasificación del suelo
-            <select value={searchLandClass} onChange={e=>setSearchLandClass(e.target.value)}>
+            <select value={searchLandClass} onChange={e=>{
+              const next=e.target.value;
+              setSearchLandClass(next);
+              if(next!=='all'){
+                const allowed=new Set(DMQ_PARISHES[next].map(([code])=>code));
+                setSearchParishes(previous=>previous.filter(code=>allowed.has(code)));
+              }
+            }}>
               <option value="all">Urbano y rural</option>
               <option value="urban">Suelo urbano</option>
               <option value="rural">Suelo rural</option>
@@ -622,12 +629,15 @@ export default function App() {
             <legend>Parroquias / sectores ({searchParishes.length || 'todas'})</legend>
             <details><summary>Seleccionar múltiples parroquias</summary>
               <div className="parish-selector-actions">
-                <button type="button" onClick={()=>setSearchParishes([])} className="parish-action" aria-label="Deseleccionar todas las parroquias">Deseleccionar todas</button>
-                <button type="button" onClick={()=>setSearchParishes([...new Set([...searchParishes,...VALLEY_PARISHES])])} className="parish-action">Agregar valles</button>
-                <button type="button" onClick={()=>setSearchParishes([...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].map(x=>x[0]))} className="parish-action">Seleccionar 65</button>
+                <button type="button" onClick={()=>setSearchParishes([])} className="parish-action">Deseleccionar todas</button>
+                {searchLandClass!=='urban'&&<button type="button" onClick={()=>setSearchParishes(old=>[...new Set([...old,...VALLEY_PARISHES])])} className="parish-action">Agregar valles</button>}
+                <button type="button" onClick={()=>setSearchParishes((searchLandClass==='all'?[...DMQ_PARISHES.urban,...DMQ_PARISHES.rural]:DMQ_PARISHES[searchLandClass]).map(x=>x[0]))} className="parish-action">
+                  Seleccionar {searchLandClass==='all'?'65':searchLandClass==='urban'?'32':'33'}
+                </button>
               </div>
+              <p className="note">Se muestran parroquias administrativas {searchLandClass==='urban'?'urbanas':searchLandClass==='rural'?'rurales':'urbanas y rurales'}. La clasificación PUGS del suelo se verifica por predio: una parroquia rural puede contener suelo urbano y viceversa.</p>
               <div className="parish-selector-list">
-                {['urban','rural'].map(type=><div key={type} className="parish-selector-group"><strong>{type==='urban'?'Urbanas (32)':'Rurales (33)'}</strong>
+                {(searchLandClass==='all'?['urban','rural']:[searchLandClass]).map(type=><div key={type} className="parish-selector-group"><strong>{type==='urban'?'Urbanas (32)':'Rurales (33)'}</strong>
                   {DMQ_PARISHES[type].map(([value,label])=><label key={value} className="parish-selector-option">
                     <input type="checkbox" className="parish-selector-checkbox" checked={searchParishes.includes(value)} onChange={e=>setSearchParishes(old=>e.target.checked?[...old,value]:old.filter(x=>x!==value))}/>{label}
                   </label>)}
