@@ -1,0 +1,16 @@
+/* Scoped copy/entry guidance only. No GIS, document parser or viewer behavior changes. */
+.product-overview .po-core-audiences { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.product-overview .po-plan-request { max-width: 1380px; margin-inline: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding-block: 32px; border-bottom: 1px solid var(--po-border); align-items: start; }
+.product-overview .po-plan-request h2 { margin: 12px 0 14px; font: 400 clamp(24px, 2.4vw, 32px)/1.3 Georgia, serif; color: var(--po-ink); }
+.product-overview .po-plan-request p:not(.po-eyebrow) { color: #526657; font-size: 13px; line-height: 1.85; }
+.product-overview .po-request-details { min-width: 0; border: 1px solid var(--po-border); border-radius: 6px; background: #f1f4ec; }
+.product-overview .po-request-details summary, .product-overview .po-secondary-audiences > summary { cursor: pointer; padding: 16px 18px; color: var(--po-ink); font-size: 13px; font-weight: 600; line-height: 1.6; }
+.product-overview .po-request-details > div { padding: 0 18px 18px; }
+.product-overview .po-request-details p + p { margin-top: 13px; }
+.product-overview .po-request-link { display: inline-block; padding-block: 12px; color: #22563e; font-size: 13px; line-height: 1.7; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.product-overview .po-request-details .po-request-note { margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--po-border); font-size: 11px; }
+.product-overview .po-secondary-audiences { margin-top: 25px; border-top: 1px solid var(--po-border); border-bottom: 1px solid var(--po-border); }
+.product-overview .po-secondary-audiences .po-audience-grid { margin: 0 0 20px; }
+.product-overview .po-request-details summary:focus-visible, .product-overview .po-secondary-audiences > summary:focus-visible, .product-overview .po-request-link:focus-visible { outline: 3px solid #467f60; outline-offset: 4px; }
+@media (max-width: 1000px) { .product-overview .po-core-audiences { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .product-overview .po-plan-request { grid-template-columns: 1fr; gap: 22px; padding-block: 28px; } }

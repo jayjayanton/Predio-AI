@@ -1,6 +1,7 @@
 import React from 'react';
 import '../styles/overview.css';
 import '../styles/positioning.css';
+import '../styles/homeowner-focus.css';
 
 function Arrow({ diagonal = false }) {
   return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={diagonal ? 'M6 18 18 6M6 6h12v12' : 'M4 12h15m-6-6 6 6-6 6'} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -8,7 +9,7 @@ function Arrow({ diagonal = false }) {
 
 const steps = [
   { number: '01', title: 'Ubica tu inmueble', text: 'Consulta el número de predio o la clave catastral. Conoce el terreno y distingue sus datos de los de la vivienda.', status: 'En el piloto' },
-  { number: '02', title: 'Reúne planos e información', text: 'Adjunta planos PDF o CAD en formato DXF y el IRM cuando corresponda al flujo. La inspección extrae la información disponible para revisarla.', status: 'En el piloto' },
+  { number: '02', title: 'Reúne planos e información', text: 'Adjunta planos PDF o CAD en formato DXF y el IRM cuando corresponda al flujo. Tú aportas los documentos que estás autorizado a utilizar.', status: 'En el piloto' },
   { number: '03', title: 'Explora el plano', text: 'Selecciona geometría, activa u oculta capas y cambia la vista. El visor no identifica automáticamente cada muro o habitación.', status: 'Visor experimental' },
   { number: '04', title: 'Valida medidas y documenta', text: 'La siguiente etapa permitirá confirmar escala y dimensiones, corregir selecciones y generar reportes de las superficies de intervención.', status: 'Próximo desarrollo', planned: true },
 ];
@@ -38,7 +39,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
           <button type="button" className="po-button po-button-primary" onClick={onBlueprints}>Iniciar mi proyecto <Arrow /></button>
           <button type="button" className="po-button po-button-secondary" onClick={onConsult}>Consultar mi predio <Arrow diagonal /></button>
         </div>
-        <p className="po-hero-footnote">Para personas que quieren mejorar su hogar y profesionales que les ayudan a hacerlo.</p>
+        <p className="po-hero-footnote">Para propietarios de vivienda, arquitectos independientes, estudios pequeños y empresas de remodelación y construcción.</p>
         <p className="po-release-note">Hoy: consulta predial e inspección interactiva de geometría. Próxima etapa: mediciones verificadas y reportes técnicos exportables.</p>
       </div>
       <ProjectGuide />
@@ -46,7 +47,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
 
     <section className="po-origin" aria-labelledby="po-origin-title">
       <p className="po-eyebrow">ASÍ NACIÓ LA IDEA</p>
-      <div><h2 id="po-origin-title">No empezó con la venta de terrenos.<br /><span>Empezó con una casa que queríamos mejorar.</span></h2><p>¿Qué información necesito para pintar, cambiar pisos, reparar un muro o ampliar un espacio? La idea es convertir planos y documentos en información que puedas explorar y, con medidas verificadas, usar para preparar una intervención. El catastro aporta contexto; el proyecto de la vivienda es el centro.</p></div>
+      <div><h2 id="po-origin-title">Todo empieza con una vivienda.<br /><span>Y una mejora que quieres hacer realidad.</span></h2><p>¿Qué información necesito para pintar, cambiar pisos, reparar un muro o ampliar un espacio? La idea es convertir planos y documentos en información que puedas explorar y, con medidas verificadas, usar para preparar una intervención. El catastro aporta contexto; el proyecto de la vivienda es el centro.</p></div>
     </section>
 
     <section className="po-use-cases" aria-labelledby="po-use-cases-title">
@@ -61,11 +62,22 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
     </section>
 
     <section className="po-workflow" aria-labelledby="po-workflow-title">
-      <div className="po-section-heading"><p className="po-eyebrow">DEL PREDIO AL PLANO Y A LA INTERVENCIÓN</p><h2 id="po-workflow-title">Una base común. <span>Distintas formas de usarla.</span></h2></div>
+      <div className="po-section-heading"><p className="po-eyebrow">DEL PREDIO AL PLANO Y A LA INTERVENCIÓN</p><h2 id="po-workflow-title">Tu proyecto. <span>La información para prepararlo.</span></h2></div>
       <ol className="po-steps po-home-steps">{steps.map(step => <li key={step.number}>
         <span className="po-step-number" aria-hidden="true">{step.number}</span><h3>{step.title}</h3><p>{step.text}</p><span className={`po-stage${step.planned ? ' po-stage-planned' : ''}`}>{step.status}</span>
       </li>)}</ol>
       <p className="po-workflow-note">En este piloto, consulta primero el predio para continuar a Proyecto y planos. PDF vectorial y DXF permiten inspeccionar geometría disponible; un escaneo puede requerir procesamiento adicional. DWG requiere conversión previa a DXF.</p>
+    </section>
+
+    <section className="po-plan-request" aria-labelledby="po-plan-request-title">
+      <div><p className="po-eyebrow">ANTES DE EMPEZAR</p><h2 id="po-plan-request-title">¿Todavía no tienes tus planos?</h2><p>Revisa los documentos de tu vivienda o consulta al profesional que los elaboró. Si necesitas una copia municipal, identifica primero qué dependencia conserva el expediente. Tú o tu representante autorizado realizan la solicitud; PredioAI no la presenta por ti.</p></div>
+      <details className="po-request-details"><summary>Cómo preparar tus documentos</summary>
+        <div><p><strong>Solicitud municipal.</strong> Quito publica un trámite para copias de documentos bajo custodia de Gestión Documental y Archivos. Consulta allí si tu expediente está disponible o qué dependencia debes contactar. No es una descarga automática de planos por número de predio.</p>
+        <a className="po-request-link" href="https://pam.quito.gob.ec/MDMQ_Tramites/Operativas/FrmFichaTramite?codtt=240" target="_blank" rel="noopener noreferrer">Consultar requisitos oficiales de copias documentales ↗</a>
+        <p><strong>Qué conviene reunir.</strong> Plantas, cortes, elevaciones, cuadro de áreas y revisiones disponibles. Confirma con el custodio qué archivos puede entregar: no se garantiza un CAD original ni un plano completo o actualizado de cada vivienda.</p>
+        <p><strong>Cuando tengas el archivo.</strong> Aporta una copia que estés autorizado a procesar. Un PDF vectorial o DXF permite inspeccionar geometría; un PDF escaneado necesita otro tratamiento y no garantiza mediciones. No cargues aquí cédulas, contraseñas ni documentos ajenos al análisis del proyecto.</p>
+        <p className="po-request-note">Los planos describen lo documentado, no necesariamente el estado actual de la casa. Los requisitos y la disponibilidad se confirman con la entidad responsable. El enlace es una guía, no un trámite gestionado por PredioAI.</p></div>
+      </details>
     </section>
 
     <section className="po-product-path" aria-labelledby="po-product-path-title">
@@ -90,17 +102,20 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
     </section>
 
     <section className="po-audiences" aria-labelledby="po-audiences-title">
-      <div className="po-section-heading"><p className="po-eyebrow">UNA PLATAFORMA, VARIOS CONTEXTOS</p><h2 id="po-audiences-title">Empieza en tu hogar. <span>Puede crecer con tu trabajo.</span></h2></div>
-      <div className="po-audience-grid">
-        <article><span className="po-stage">El origen</span><h3>Personas y hogares</h3><p>Entender qué se quiere cambiar y reunir la información para hablar del proyecto con mayor claridad, desde una pintura hasta una ampliación.</p></article>
-        <article><span className="po-stage">Uso profesional</span><h3>Arquitectura y construcción</h3><p>Revisar documentos a distancia y preparar intervenciones para clientes. La próxima etapa suma mediciones y reportes trazables, con revisión profesional.</p></article>
-        <article><span className="po-stage">Herramientas del piloto</span><h3>Inmobiliarias y desarrolladores</h3><p>Explorar predios, comparar alternativas y revisar su contexto urbanístico. Es una aplicación de la plataforma, no su única razón de ser.</p><button type="button" className="po-pilot-link" onClick={onExplore}>Explorar predios <Arrow /></button></article>
-        <article className="po-insurance-card"><span className="po-stage po-stage-planned">Posible extensión · no implementada</span><h3>Seguros y peritajes</h3><p>Vincular en el futuro planos, fotografías y observaciones de una afectación —por ejemplo, un muro dañado por un sismo— para apoyar al profesional que evalúa su alcance y prepara un informe para el cliente.</p><p className="po-insurance-boundary">Un plano describe el diseño, no el daño ocurrido. Esta extensión necesitaría evidencia del estado real y validación profesional; no determinaría por sí sola seguridad estructural, cobertura o indemnización.</p></article>
+      <div className="po-section-heading"><p className="po-eyebrow">NUESTRO FOCO</p><h2 id="po-audiences-title">Para tu hogar. <span>Y quienes trabajan contigo.</span></h2></div>
+      <div className="po-audience-grid po-core-audiences">
+        <article><span className="po-stage">Tu vivienda</span><h3>Propietarios y hogares</h3><p>Entender el trabajo que quieres hacer, reunir los planos y conocer qué información falta antes de pintar, cambiar pisos, remodelar o ampliar.</p></article>
+        <article><span className="po-stage">Tu práctica profesional</span><h3>Arquitectos independientes y estudios pequeños</h3><p>Explorar documentos con tus clientes y preparar una revisión ordenada. La próxima etapa busca facilitar mediciones verificadas y reportes, sin sustituir tu criterio profesional.</p></article>
+        <article><span className="po-stage">Tus proyectos de obra</span><h3>Empresas de remodelación y construcción</h3><p>Conectar el encargo del propietario con la información de los planos. El objetivo es reducir trabajo repetitivo al preparar superficies y alcances; los materiales y precios siguen a cargo de tu equipo.</p></article>
       </div>
+      <details className="po-secondary-audiences"><summary>Aplicaciones complementarias y futuras</summary><div className="po-audience-grid">
+        <article><span className="po-stage">Herramientas complementarias del piloto</span><h3>Inmobiliarias y desarrolladores</h3><p>La búsqueda y comparación de predios siguen disponibles para revisar alternativas y su contexto municipal. No son el centro del piloto de remodelación.</p><button type="button" className="po-pilot-link" onClick={onExplore}>Explorar predios <Arrow /></button></article>
+        <article className="po-insurance-card"><span className="po-stage po-stage-planned">Posible extensión · no implementada</span><h3>Seguros y peritajes</h3><p>Una posible etapa posterior conectaría planos y evidencia de afectaciones para apoyar informes revisados por profesionales. No es una capacidad del piloto actual.</p><p className="po-insurance-boundary">Un plano describe el diseño, no el daño ocurrido. Esta extensión necesitaría evidencia del estado real y validación profesional; no determinaría por sí sola seguridad estructural, cobertura o indemnización.</p></article>
+      </div></details>
     </section>
 
     <section className="po-pilot" aria-labelledby="po-pilot-title">
-      <div className="po-pilot-intro"><p className="po-eyebrow">VALIDAR CON PROYECTOS REALES</p><h2 id="po-pilot-title">Una vivienda. Un trabajo concreto.<br />Un resultado que podamos comprobar.</h2><p>El piloto propuesto parte de planos autorizados y una intervención definida con su propietario y un profesional. Compararíamos el trabajo manual con el flujo digital para comprobar utilidad, precisión y tiempo.</p></div>
+      <div className="po-pilot-intro"><p className="po-eyebrow">VALIDAR CON PROYECTOS REALES</p><h2 id="po-pilot-title">Una vivienda. Un trabajo concreto.<br />Un resultado que podamos comprobar.</h2><p>El piloto propuesto parte de planos autorizados y una intervención definida con su propietario, un arquitecto o una pequeña empresa de remodelación. Compararíamos el trabajo manual con el flujo digital para comprobar utilidad, precisión y tiempo.</p></div>
       <div className="po-pilot-plan"><h3>Qué queremos demostrar</h3><ul><li>Que una persona entiende el proyecto y los datos que faltan.</li><li>Que las futuras mediciones coinciden con referencias verificadas.</li><li>Que el flujo reduce trabajo repetitivo y permite identificar qué visitas siguen siendo necesarias.</li></ul><button type="button" className="po-pilot-link" onClick={onBlueprints}>Comenzar por mi proyecto <Arrow /></button></div>
     </section>
 
