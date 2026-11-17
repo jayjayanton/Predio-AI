@@ -462,3 +462,32 @@ async def pugs_for_predio(identifier_type: str, identifier: str):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except MunicipalError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+# Exploratory PUGS screening: bounded batch, not a citywide zoning count.
+from pydantic import BaseModel, Field
+import asyncio
+
+class PugsScreenRequest(BaseModel):
+    predios: list[str] = Field(min_length=1, max_length=20)
+
+@app.post("/api/pugs/screen")
+async def screen_pugs(request: PugsScreenRequest):
+    """Screen up to 20 explicitly supplied cadastral predios against PUGS.
+    Results are per-parcel evidence; callers must not infer a DMQ-wide count.
+    """
+    sem = asyncio.Semaphore(4)
+    async def inspect(predio):
+        if not predio.isdigit() or len(predio) > 25:
+            return {"predio": predio, "status": "invalid", "zones": []}
+        async with sem:
+            try:
+                data = await lookup_pugs(predio, "n_predio")
+                return {"predio": predio, "status": data.get("status"), "zones": data.get("zones", []),
+                        "source": data.get("source"), "scope_warning": data.get("scope_warning")}
+            except (MunicipalError, ValueError) as exc:
+                return {"predio": predio, "status": "unavailable", "zones": [], "error": str(exc)}
+    unique = list(dict.fromkeys(request.predios))
+    return {"results": await asyncio.gather(*(inspect(p) for p in unique)),
+            "screened": len(unique), "scope": "supplied_predios_only",
+            "regulatory_approval": False}
