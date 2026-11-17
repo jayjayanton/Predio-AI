@@ -15,7 +15,7 @@ import SelectionPage from './components/SelectionPage.jsx';
 import AnalyticsRoadmap from './components/AnalyticsRoadmap.jsx';
 import { SELECTION_KEY, SELECTION_LIMIT, parseSelection, selectionRecord } from './selection.js';
 
-const ROUTES = { inicio: 'home', explorar: 'explore', predio: 'property', seleccion: 'selection', analitica: 'analytics' };
+const ROUTES = { inicio: 'home', explorar: 'explore', predio: 'property', planos: 'blueprints', seleccion: 'selection', analitica: 'analytics' };
 const pageFromHash = () => ROUTES[window.location.hash.slice(1)] || 'home';
 const routeForPage = page => Object.keys(ROUTES).find(key => ROUTES[key] === page) || 'inicio';
 const scrollBehavior = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
@@ -88,7 +88,7 @@ export default function App() {
   const individualRunId = React.useRef(0);
   const exploreRunId = React.useRef(0);
   const irmRunId = React.useRef(0);
-  const isWorkspace = page === 'explore' || page === 'property';
+  const isWorkspace = page === 'explore' || page === 'property' || page === 'blueprints';
 
   function navigate(next) {
     if (next === page) return;
@@ -99,6 +99,7 @@ export default function App() {
     setPage(next);
     if (next === 'explore') { setAudience('explorer'); setStep('property'); }
     if (next === 'property' && audience === 'explorer') { setAudience('developer'); setStep('property'); }
+    if (next === 'blueprints') { setAudience('remodeler'); setStep('property'); }
     window.location.hash = routeForPage(next);
   }
 
@@ -109,13 +110,14 @@ export default function App() {
       setPage(next);
       if (next === 'explore') { setAudience('explorer'); setStep('property'); }
       if (next === 'property') setAudience(current => current === 'explorer' ? 'developer' : current);
+      if (next === 'blueprints') { setAudience('remodeler'); setStep('property'); }
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
   useEffect(() => {
-    const titles = { home: 'Inteligencia territorial para decidir', explore: 'Explorar predios', property: 'Ficha predial', selection: 'Mi selección', analytics: 'Próxima etapa: analítica' };
+    const titles = { home: 'Inteligencia territorial para decidir', explore: 'Explorar predios', property: 'Ficha predial', blueprints: 'Planos y remodelación', selection: 'Mi selección', analytics: 'Próxima etapa: analítica' };
     document.title = `PredioAI | ${titles[page]}`;
     window.scrollTo({top: 0, behavior: 'auto'});
     document.getElementById('main-content')?.focus({preventScroll: true});
@@ -923,13 +925,13 @@ export default function App() {
           <span><strong>Predio<span>AI</span></strong><small>INTELIGENCIA TERRITORIAL</small></span>
         </button>
         <nav className="primary-nav" aria-label="Navegación principal">
-          {[['home','Inicio'],['explore','Explorar'],['property','Ficha predial'],['selection','Selección'],['analytics','Analítica']].map(([key,label]) => <button key={key} type="button" className={page === key ? 'active' : ''} aria-current={page === key ? 'page' : undefined} onClick={() => navigate(key)}>{label}{key === 'selection' && <span className="nav-count">{savedParcels.length}</span>}{key === 'analytics' && <span className="nav-soon">Próxima etapa</span>}</button>)}
+          {[['home','Inicio'],['explore','Explorar'],['property','Ficha predial'],['blueprints','Planos y remodelación'],['selection','Selección'],['analytics','Analítica']].map(([key,label]) => <button key={key} type="button" className={page === key ? 'active' : ''} aria-current={page === key ? 'page' : undefined} onClick={() => navigate(key)}>{label}{key === 'selection' && <span className="nav-count">{savedParcels.length}</span>}{key === 'analytics' && <span className="nav-soon">Próxima etapa</span>}</button>)}
         </nav>
         <div className="header-context"><span>Quito, Ecuador</span><span className="version">Versión piloto</span></div>
       </header>
 
       <main id="main-content" className="workspace-main" tabIndex={-1}>
-      {page === 'home' && <ProductOverview onExplore={() => navigate('explore')} onConsult={() => navigate('property')} onAnalytics={() => navigate('analytics')} />}
+      {page === 'home' && <ProductOverview onExplore={() => navigate('explore')} onConsult={() => navigate('property')} onBlueprints={() => navigate('blueprints')} onAnalytics={() => navigate('analytics')} />}
       {page === 'selection' && <SelectionPage records={savedParcels} onExplore={() => navigate('explore')} onOpen={openExplorePredio} onRemove={id => { setSavedParcels(current => current.filter(p => p.n_predio !== id)); setSelectionNotice(`Predio ${id} retirado de la selección.`); }} loading={loading} error={error} storageAvailable={storageAvailable} />}
       {page === 'analytics' && <AnalyticsRoadmap onExplore={() => navigate('explore')} onSelection={() => navigate('selection')} />}
       {isWorkspace && <>
@@ -943,6 +945,7 @@ export default function App() {
         <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''} onClick={() => { setAudience('developer'); setStep('property'); }}>Desarrollo inmobiliario</button>
         <button type="button" aria-pressed={audience === 'remodeler'} className={audience === 'remodeler' ? 'active' : ''} onClick={() => { setAudience('remodeler'); setStep('property'); }}>Remodelación y planos</button>
       </div>}
+      {page === 'blueprints' && <section className="blueprint-intro" aria-label="Análisis remoto de planos" style={{padding:'1.25rem',marginBottom:'1rem',border:'1px solid #cdd8ce',borderRadius:'12px',background:'#f4f7f0'}}><p style={{fontSize:'.75rem',letterSpacing:'.1em',fontWeight:700,color:'#416a51'}}>ARQUITECTURA · REMODELACIÓN · AMPLIACIONES</p><h1 style={{margin:'.35rem 0'}}>Mediciones preliminares, sin empezar por una visita.</h1><p>Vincula un predio y revisa planos PDF para preparar reparaciones, remodelaciones o ampliaciones. El prototipo inspecciona documentos; la selección y medición validada de muros, superficies y ambientes es una próxima capacidad. Los planos no sustituyen la verificación de condiciones reales ni la visita profesional cuando sea necesaria.</p><p><strong>Flujo:</strong> consultar predio → proyecto y planos → revisar medidas → informe preliminar. Introduce un número de predio para activar el siguiente paso.</p></section>}
       {audience !== 'explorer' && <nav className="workflow-nav" aria-label="Etapas del proyecto">
         <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
         <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
