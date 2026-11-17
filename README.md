@@ -149,7 +149,9 @@ The PDF inspection endpoint currently accepts PDFs up to **15 MB** and up to **1
 
 ## Spatial PUGS batch enrichment
 
-The explorer's staged method is **ArcGIS cadastre → map/cards → optional PUGS tile retrieval → indexed spatial intersection → provisional evidence**. Initial GIS discovery never waits on zoning lookups.
+The explorer's staged method is **ArcGIS cadastre → map/cards → optional PUGS tile retrieval → indexed spatial intersection → provisional evidence**.
+
+**Map versus sidebar pagination:** The map now retains polygons across card pages, loading up to 1,000 matching cadastral features for a bounded interactive overlay while cards use 20-per-page Lista or 50-per-page Iconos. Clicking a polygon automatically navigates to its corresponding results page and selects its card. Queries exceeding 1,000 matches display an explicit partial-map warning; users must narrow their filters for complete polygon coverage. The initial geometry preload can take additional time and should be replaced by a viewport-based indexed service if citywide coverage is needed. Initial GIS discovery never waits on zoning lookups.
 
 The endpoint `POST /api/pugs/spatial-screen` accepts a GeoJSON-like array of at most **100** cadastral features (the current UI passes the 50 properties on the displayed page). Every feature must have `properties.n_predio` and Polygon/MultiPolygon geometry in EPSG:4326. Up to 90 fixed ~0.025-degree spatial tiles may be touched per request. It queries the official PUGS 2024 layer only for those tiles and deduplicates zone features by `OBJECTID`. Results contain overlap areas/percentages and explicit statuses: `single_zone`, `multiple_zones`, `no_intersection`, `unavailable` or `ambiguous`.
 
