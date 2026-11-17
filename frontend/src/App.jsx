@@ -488,15 +488,34 @@ export default function App() {
       setExploreCount(Number(counts.count||0));
       setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
       if((results.features||[]).length)requestAnimationFrame(()=>document.getElementById('predio-map-reel')?.scrollIntoView({behavior:'smooth',block:'nearest'}));
-      // ArcGIS JSON rings are converted to GeoJSON for map preview only.
-      // Esri outer rings are clockwise; preserve holes when available.
-      const geometries=(results.features||[]).filter(f=>f.geometry?.rings?.length).map(f=>{
-        const rings=f.geometry.rings;
-        const outer=[],holes=[];
-        const signed=ring=>ring.reduce((sum,p,i)=>{const q=ring[(i+1)%ring.length];return sum+p[0]*q[1]-q[0]*p[1];},0);
-        for(const ring of rings){if(signed(ring)<0)outer.push([ring]);else holes.push(ring);}
-        if(outer.length===1)outer[0].push(...holes);
-        return {type:'Feature',properties:f.attributes||{},geometry:{type:'MultiPolygon',coordinates:outer}};
+      // Convert ArcGIS rings to GeoJSON. Ring orientation is not guaranteed
+      // for all municipal records; never discard a feature solely because its
+      // outer ring is counterclockwise. Assign holes by containment.
+      const pointInRing=(point,ring)=>{
+        let inside=false;
+        for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+          const [xi,yi]=ring[i],[xj,yj]=ring[j];
+          if((yi>point[1])!==(yj>point[1]) && point[0]<(xj-xi)*(point[1]-yi)/(yj-yi)+xi)inside=!inside;
+        }
+        return inside;
+      };
+      const geometries=(results.features||[]).flatMap(f=>{
+        const rings=(f.geometry?.rings||[]).filter(r=>Array.isArray(r)&&r.length>=4);
+        if(!rings.length)return [];
+        const signed=ring=>ring.reduce((acc,p,i)=>{
+          const q=ring[(i+1)%ring.length];return acc+p[0]*q[1]-q[0]*p[1];
+        },0);
+        const records=rings.map(ring=>({ring,area:Math.abs(signed(ring))})).sort((a,b)=>b.area-a.area);
+        const polygons=[];
+        for(const item of records){
+          // The largest containing shell holds each interior ring; other rings
+          // are independent shells (including counterclockwise outer rings).
+          const container=polygons.find(poly=>pointInRing(item.ring[0],poly[0]));
+          if(container)container.push(item.ring);
+          else polygons.push([item.ring]);
+        }
+        return [{type:'Feature',properties:f.attributes||{},
+          geometry:{type:'MultiPolygon',coordinates:polygons}}];
       });
       setExploreGeometries({type:'FeatureCollection',features:geometries});
       setExploreOffset(offset);
@@ -1255,8 +1274,8 @@ export default function App() {
             </label>
             <div className="predio-card-view" role="group" aria-label="Distribución de tarjetas">
               <span>Vista</span>
-              <button type="button" className={reelColumns===1?'active':''} aria-pressed={reelColumns===1} onClick={()=>setReelColumns(1)}>1 columna</button>
-              <button type="button" className={reelColumns===2?'active':''} aria-pressed={reelColumns===2} onClick={()=>setReelColumns(2)}>2 columnas</button>
+              <button type="button" className={reelColumns===1?'active':''} aria-pressed={reelColumns===1} onClick={()=>setReelColumns(1)}><span aria-hidden="true">☰ </span>Lista</button>
+              <button type="button" className={reelColumns===2?'active':''} aria-pressed={reelColumns===2} onClick={()=>setReelColumns(2)}><span aria-hidden="true">▦ </span>Iconos</button>
             </div>
           </div>
           <nav className="predio-reel-pagination" aria-label="Navegar páginas de predios">
