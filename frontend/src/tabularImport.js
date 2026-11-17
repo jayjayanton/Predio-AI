@@ -159,9 +159,11 @@ export function candidatesFromColumn(rows,headerRow,column) {
   for(let i=headerRow+1;i<rows.length;i++){
     const raw=String(rows[i]?.[column]??'').trim();
     if(!raw)continue;
-    const cleaned=raw.replace(/\s/g,'');
-    // Leading zeros are preserved. No currency, decimal, scientific notation,
-    // dates or formulas can be silently converted into a predio identifier.
+    const compact=raw.replace(/\s/g,'');
+    // Excel numeric identifiers may be rendered as 539245.0 or 539245.000.
+    // Only strip a fractional part consisting entirely of zeros. Never round
+    // real decimals, parse scientific notation or remove leading zeros.
+    const cleaned=compact.replace(/^(\d{3,15})\.0+$/, '$1');
     if(!/^\d{3,15}$/.test(cleaned)){if(invalid.length<8)invalid.push({row:i+1,value:raw.slice(0,35)});continue;}
     if(seen.has(cleaned))continue;
     seen.add(cleaned);candidates.push({n_predio:cleaned,row:i+1});
