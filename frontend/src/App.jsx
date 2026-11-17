@@ -1268,6 +1268,10 @@ export default function App() {
           <div className="predio-reel-heading">
             <div>
               <strong>Explorar predios</strong>
+              <div className="predio-selection-controls">
+                <span className="predio-selection-indicator">{exploreSelected?'Seleccionado: '+exploreSelected:'Ningún predio seleccionado'}</span>
+                {exploreSelected&&<button type="button" className="predio-clear-selection" onClick={()=>setExploreSelected(null)}>Quitar selección</button>}
+              </div>
               <p className="note">Ordene los predios por superficie y seleccione una tarjeta para ubicarla en el mapa. PUGS pendiente.</p>
             </div>
             <label className="predio-reel-sort">Ordenar por
