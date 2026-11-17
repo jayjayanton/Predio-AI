@@ -454,6 +454,7 @@ export default function App() {
       ]);
       setExploreCount(Number(counts.count||0));
       setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
+      if((results.features||[]).length)requestAnimationFrame(()=>document.getElementById('predio-map-reel')?.scrollIntoView({behavior:'smooth',block:'nearest'}));
       // ArcGIS JSON rings are converted to GeoJSON for map preview only.
       // Esri outer rings are clockwise; preserve holes when available.
       const geometries=(results.features||[]).filter(f=>f.geometry?.rings?.length).map(f=>{
@@ -617,6 +618,7 @@ export default function App() {
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
          {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass].join('|')&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
+          <button type="button" className="secondary" style={{margin:'10px 0'}} onClick={()=>document.getElementById('predio-map-reel')?.scrollIntoView({behavior:'smooth',block:'center'})}>Ver tarjetas y polígonos en el mapa</button>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
           <div style={{display:'flex',gap:10,marginTop:10}}>
             <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0} onClick={()=>exploreParcels(Math.max(0,exploreOffset-50))}>Anterior</button>
