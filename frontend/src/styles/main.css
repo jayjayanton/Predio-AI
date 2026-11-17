@@ -342,3 +342,22 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .development-filter-grid label { display:flex; flex-direction:column; gap:7px; font-size:12px; font-weight:650; min-width:0; }
 .development-filter-grid select,.development-filter-grid input { width:100%; min-width:0; box-sizing:border-box; border-radius:7px; border:1px solid #54767b; background:#18373e; color:#f2faf9; padding:11px; font-size:14px; min-height:44px; }
 @media(max-width:600px) { .development-search-criteria { margin:12px 10px; padding:14px; } .development-filter-grid { grid-template-columns:1fr; } }
+
+
+/* DMQ multi-parish picker: PredioAI's dark teal visual system */
+.parish-selector { min-width:0; grid-column:1 / -1; margin:0; padding:12px 14px; border:1px solid #385056; border-radius:10px; background:#14272d; color:#dcebea; }
+.parish-selector legend { padding:0 7px; color:#bcd0d0; font-size:13px; font-weight:650; }
+.parish-selector summary { cursor:pointer; padding:9px 4px; color:#eaf2f1; font-size:13px; font-weight:650; }
+.parish-selector summary:hover { color:#35d2c2; }
+.parish-selector-actions { display:flex; flex-wrap:wrap; gap:7px; margin:10px 0 13px; }
+.parish-selector .parish-action { appearance:none; width:auto; min-height:34px; flex:0 0 auto; padding:7px 11px; border:1px solid #3b6266; border-radius:8px; background:#1c3439; color:#dcebea; font-size:12px; font-weight:650; line-height:1.25; box-shadow:none; transition:background .15s,border-color .15s,color .15s; }
+.parish-selector .parish-action:hover { background:#25454b; border-color:#20b7aa; color:#fff; }
+.parish-selector .parish-action:active { background:#1c5b58; }
+.parish-selector .parish-action:focus-visible { outline:2px solid #20b7aa; outline-offset:2px; }
+.parish-selector-list { max-height:240px; overflow-y:auto; overscroll-behavior:contain; border-top:1px solid #2a4347; padding-top:8px; }
+.parish-selector-group + .parish-selector-group { margin-top:12px; }
+.parish-selector-group > strong { display:block; margin:5px 0; color:#7fc7c0; font-size:11px; letter-spacing:.5px; }
+.parish-selector .parish-selector-option { display:flex; align-items:center; gap:10px; min-height:36px; padding:6px 8px; border-radius:6px; color:#d7e5e5; font-size:13px; font-weight:400; letter-spacing:0; cursor:pointer; }
+.parish-selector-option:hover { background:#203c41; }
+.parish-selector .parish-selector-checkbox { appearance:auto; width:17px; height:17px; min-width:17px; flex:0 0 17px; margin:0; accent-color:#20b7aa; }
+@media(max-width:480px) { .parish-selector { padding:10px; } .parish-selector-actions { gap:6px; } .parish-selector .parish-action { font-size:11px; padding:7px 9px; min-height:34px; } }
