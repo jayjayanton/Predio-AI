@@ -1009,3 +1009,68 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
   overflow-wrap:anywhere;
 }
 .predio-icon-hint { color:#ffd17c; font-size:10px; }
+
+/* Baseball-card flip: never expand the grid cell or change map/sidebar height. */
+.dashboard-layout .predio-map-reel .predio-results-reel.icon-grid {
+  grid-template-columns:repeat(auto-fill,minmax(100px,1fr));
+  grid-auto-rows:132px;
+  align-items:stretch;
+}
+.dashboard-layout .predio-map-reel .predio-results-reel.icon-grid .predio-reel-card,
+.dashboard-layout .predio-map-reel .predio-results-reel.icon-grid .predio-reel-card.is-flipped {
+  position:relative;
+  grid-column:auto;
+  width:100%;
+  height:132px;
+  min-height:0;
+  max-height:132px;
+  padding:0;
+  display:block;
+  border:1px solid #375a5e;
+  overflow:hidden;
+  background:#173039;
+  perspective:750px;
+}
+.dashboard-layout .predio-map-reel .predio-results-reel.icon-grid .predio-reel-card.is-flipped {
+  border-color:#ffbf47;
+  background:#23423e;
+}
+.predio-flip-inner {
+  position:relative;
+  display:block;
+  height:100%;
+  width:100%;
+  transform-style:preserve-3d;
+  transition:transform 420ms ease-in-out;
+}
+.icon-grid .predio-reel-card.is-flipped .predio-flip-inner { transform:rotateY(180deg); }
+.predio-flip-front,.predio-flip-back {
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:6px;
+  padding:8px 5px;
+  text-align:center;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+}
+.predio-flip-back {
+  transform:rotateY(180deg);
+  font-size:10px;
+  line-height:1.3;
+  color:#d8efea;
+  gap:5px;
+}
+.predio-flip-back .predio-flip-title {
+  max-width:100%;
+  color:#ffda89;
+  font-size:11px;
+  font-weight:750;
+  overflow-wrap:anywhere;
+}
+@media(prefers-reduced-motion:reduce) {
+  .predio-flip-inner { transition:none; }
+}
