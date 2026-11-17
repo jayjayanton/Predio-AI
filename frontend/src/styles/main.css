@@ -1154,3 +1154,26 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 /* Stack individual predio actions vertically: clear search stays below IRM. */
 .individual-search-actions { flex-direction:column; align-items:stretch; }
 .individual-search-actions > button { flex:0 0 auto; width:100%; }
+
+/* A dedicated reset action for the cadastral exploration results (not IRM). */
+.predio-new-query {
+  width:100%;
+  flex:0 0 auto;
+  min-height:38px;
+  margin:0 0 12px;
+  padding:9px 12px;
+  border:1px solid #41a99e;
+  border-radius:9px;
+  background:#1c4444;
+  color:#e8fff9;
+  font-size:12px;
+  font-weight:700;
+  text-align:center;
+}
+.predio-new-query:hover:not(:disabled) {
+  background:#28605a;
+  border-color:#5ed3c5;
+}
+.predio-new-query:focus-visible { outline:2px solid #7bf5e2; outline-offset:2px; }
+.predio-new-query:disabled { opacity:.55; cursor:not-allowed; }
+#predio-query-selector { scroll-margin-top:16px; }
