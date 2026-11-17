@@ -89,6 +89,7 @@ export default function App() {
   const [resultsWidth,setResultsWidth]=useState(350);
   const [exploreGeometries,setExploreGeometries]=useState(null);
   const [exploreSelected,setExploreSelected]=useState(null);
+  const toggleExplorePredio=id=>setExploreSelected(current=>current===String(id)?null:String(id));
   const [exploreCount,setExploreCount]=useState(null);
   const [exploreBusy,setExploreBusy]=useState(false);
   const [exploreError,setExploreError]=useState('');
@@ -483,7 +484,7 @@ export default function App() {
       };
       const [counts,results]=await Promise.all([
         query({returnCountOnly:'true',returnGeometry:'false'}),
-        query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
+        query({outFields:'n_predio,clave_cata,parroquia,area_terre,area_const,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
       ]);
       setExploreCount(Number(counts.count||0));
       setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
@@ -1240,7 +1241,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={data} searchResults={exploreGeometries} selectedSearchPredio={exploreSelected} onSelectSearchPredio={setExploreSelected} />
+          <ParcelMap data={data} searchResults={exploreGeometries} selectedSearchPredio={exploreSelected} onSelectSearchPredio={toggleExplorePredio} />
           <div className="map-bottom">
             <span>
               Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
@@ -1300,22 +1301,40 @@ export default function App() {
               const id=String(p.n_predio);
               const active=exploreSelected===id;
               const hasGeometry=Boolean(exploreGeometries?.features?.some(f=>String(f.properties?.n_predio)===id));
+              const landArea=p.area_terre===null||p.area_terre===undefined?null:Number(p.area_terre);
+              const builtArea=p.area_const===null||p.area_const===undefined?null:Number(p.area_const);
+              const validLand=landArea!==null&&Number.isFinite(landArea)&&landArea>0;
+              const validBuilt=builtArea!==null&&Number.isFinite(builtArea)&&builtArea>=0;
+              const fmt=value=>Number(value).toLocaleString('es-EC',{maximumFractionDigits:2});
+              const ratio=validLand&&validBuilt?100*builtArea/landArea:null;
               return <button type="button" key={id+'-'+i}
-                className={'predio-reel-card'+(active?' selected':'')}
+                className={'predio-reel-card'+(active?' selected':'')+(reelColumns===2&&active?' icon-expanded':'')}
                 aria-pressed={active}
-                aria-label={`Predio ${id}, ${p.parroquia||'sin parroquia'}, ${Number.isFinite(Number(p.area_terre))?Number(p.area_terre).toLocaleString('es-EC'):'superficie no disponible'} metros cuadrados. ${hasGeometry?'Ubicar polígono en mapa':'Sin geometría disponible'}`}
+                aria-expanded={reelColumns===2?active:undefined}
+                aria-label={`Predio ${id}, ${p.parroquia||'sin parroquia'}, ${validLand?fmt(landArea):'superficie no disponible'} metros cuadrados de terreno. ${hasGeometry?'Ubicar polígono en mapa':'Sin geometría disponible'}`}
                 title={`Predio ${id} · ${p.parroquia||'Sin parroquia'}`}
-                onClick={()=>setExploreSelected(id)}>
+                onClick={()=>toggleExplorePredio(id)}>
                 {reelColumns===2 ? <>
                   <span className="predio-icon-symbol" aria-hidden="true">▧</span>
                   <span className="predio-icon-id">Predio {id}</span>
-                  <span className="predio-icon-area">{Number.isFinite(Number(p.area_terre))?Number(p.area_terre).toLocaleString('es-EC'):'—'} m²</span>
+                  <span className="predio-icon-area">{validLand?fmt(landArea):'—'} m²</span>
+                  {active&&<span className="predio-icon-expanded-details">
+                    <span>{p.parroquia||'Parroquia no indicada'}</span>
+                    <span>Construcción: {validBuilt?fmt(builtArea)+' m²':'No disponible'}</span>
+                    <span>Terreno: {validLand?fmt(landArea)+' m²':'No disponible'}</span>
+                    <span>{ratio!==null?`Construcción / terreno: ${ratio.toLocaleString('es-EC',{maximumFractionDigits:1})}%`:'Relación: sin datos'}</span>
+                    <span className="predio-icon-hint">Clic nuevamente para deseleccionar</span>
+                  </span>}
                 </> : <>
                   <span className="predio-reel-card-top"><span>Predio {id}</span><span className="predio-reel-index">{exploreOffset+i+1}</span></span>
                   <span className="predio-reel-parish">{p.parroquia||'Parroquia no indicada'}</span>
-                  <span className="predio-reel-area">{Number.isFinite(Number(p.area_terre))?Number(p.area_terre).toLocaleString('es-EC'):'—'} <small>m²</small></span>
+                  <span className="predio-reel-area">{validLand?fmt(landArea):'—'} <small>m² de terreno</small></span>
+                  <span className="predio-reel-area-comparison">
+                    <span>Área construida <strong>{validBuilt?fmt(builtArea)+' m²':'No disponible'}</strong></span>
+                    <span>Construcción / terreno <strong>{ratio!==null?ratio.toLocaleString('es-EC',{maximumFractionDigits:1})+'%':'No disponible'}</strong></span>
+                  </span>
                   <span className="predio-reel-metadata">{hasGeometry?'Polígono disponible':'Geometría no disponible'}</span>
-                  <span className="predio-reel-status">{active?'● Seleccionado en mapa':hasGeometry?'Ver en mapa':'Ver ficha catastral'}</span>
+                  <span className="predio-reel-status">{active?'● Seleccionado · clic para quitar':hasGeometry?'Ver en mapa':'Ver ficha catastral'}</span>
                 </>}
               </button>;
             })}
