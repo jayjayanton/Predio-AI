@@ -87,6 +87,7 @@ export default function App() {
   const [exploreBusy,setExploreBusy]=useState(false);
   const [exploreError,setExploreError]=useState('');
   const [exploreOffset,setExploreOffset]=useState(0);
+  const [exploreQueryKey,setExploreQueryKey]=useState('');
   const [pugsData, setPugsData] = useState(null);
   const [pugsLoading, setPugsLoading] = useState(false);
   const [pugsError, setPugsError] = useState('');
@@ -445,11 +446,12 @@ export default function App() {
       setExploreCount(Number(counts.count||0));
       setExploreResults((results.features||[]).map(x=>x.attributes||{}));
       setExploreOffset(offset);
+      setExploreQueryKey([searchAreaMin,searchAreaMax,searchParish,searchLandClass,searchHousingType,searchOccupation].join('|'));
     }catch(e){setExploreError('No se pudo completar la consulta municipal: '+e.message);setExploreResults([]);setExploreCount(null);}
     finally{setExploreBusy(false);}
   }
   async function openExplorePredio(predio) {
-    if(!/^\\d+$/.test(String(predio)))return;
+    if(!/^[0-9]+$/.test(String(predio)))return;
     setIdentifierType('n_predio');setIdentifier(String(predio));setError('');setLoading(true);
     try {
       const res=await fetch(`${API}/api/predios/n_predio/${encodeURIComponent(predio)}`);
@@ -586,7 +588,7 @@ export default function App() {
         </div>
         <button type="button" className="primary-action" disabled={exploreBusy} onClick={()=>exploreParcels(0)}>{exploreBusy?'Consultando catastro…':'Buscar predios que coinciden'}</button>
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
-        {exploreCount!==null&&<div className="explore-results" aria-live="polite">
+        {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,searchParish,searchLandClass,searchHousingType,searchOccupation].join('|')&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
           <details open><summary>Ver predios encontrados ({exploreResults.length} en esta página)</summary>
