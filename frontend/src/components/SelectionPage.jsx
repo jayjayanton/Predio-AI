@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { COMPARISON_LIMIT, SELECTION_LIMIT, selectionCSV } from '../selection.js';
 import { extractPredioCandidatesFromPdf } from '../predioPdfImport.js';
+import { readTabularFile, suggestedHeader, candidatesFromColumn } from '../tabularImport.js';
 import '../styles/portfolio.css';
 
 const displayNumber = (value, suffix = '') => value == null || !Number.isFinite(Number(value)) ? 'Pendiente de consulta' : Number(value).toLocaleString('es-EC', { maximumFractionDigits: 2 }) + suffix;
@@ -19,6 +20,11 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
   const [enrichResult, setEnrichResult] = useState('');
   const [importError, setImportError] = useState('');
   const [importMessage, setImportMessage] = useState('');
+  const [tabular, setTabular] = useState([]);
+  const [tabularSheet, setTabularSheet] = useState(0);
+  const [headerRow, setHeaderRow] = useState(0);
+  const [predioColumn, setPredioColumn] = useState(0);
+  const [tabularName, setTabularName] = useState('');
   const [paste, setPaste] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -75,6 +81,36 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
     } finally { setImporting(false); }
   }
 
+  function configureTable(sheets, sheetIndex) {
+    const sheet=sheets[sheetIndex];
+    const hint=suggestedHeader(sheet.rows);
+    setTabularSheet(sheetIndex);setHeaderRow(hint.row);setPredioColumn(hint.col);
+    setCandidates([]);setChosen([]);setImportError('');setImportMessage('');
+  }
+  async function handleTable(event) {
+    const file=event.target.files?.[0];
+    event.target.value='';
+    if(!file)return;
+    setImporting(true);setImportError('');setCandidates([]);setChosen([]);
+    try {
+      const sheets=await readTabularFile(file);
+      setTabular(sheets);setTabularName(file.name);configureTable(sheets,0);
+    } catch(error) {
+      setTabular([]);setTabularName('');
+      setImportError(error?.message||'No se pudo leer el archivo.');
+    } finally {setImporting(false);}
+  }
+  function previewColumn() {
+    const sheet=tabular[tabularSheet];
+    if(!sheet)return;
+    const result=candidatesFromColumn(sheet.rows,headerRow,predioColumn);
+    if(!result.candidates.length){
+      setImportError('No se detectaron predios válidos en esta columna. Revisa la fila de encabezados y la columna elegida.');
+      return;
+    }
+    reviewCandidates(result.candidates,tabularName+' · '+sheet.name,result.warnings);
+  }
+
   function handlePaste() {
     const lines = paste.split(/[\n,;]+/).map(t => t.trim()).filter(Boolean);
     const found = lines.map(t => ({ n_predio: t.match(/^(?:predio\s*[:#-]?\s*)?(\d{3,15})$/i)?.[1] || '' })).filter(t => t.n_predio);
@@ -88,7 +124,7 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
     if (!items.length) { setImportError('Selecciona al menos un predio para agregar.'); return; }
     const result = onImport(items);
     setImportMessage(`${result.added} agregados · ${result.duplicates} repetidos · ${result.full} sin espacio · ${result.rejected} inválidos.`);
-    setCandidates([]); setChosen([]); setWarnings([]); setFileName('');
+    setCandidates([]); setChosen([]); setWarnings([]); setFileName(''); setTabular([]); setTabularName('');
   }
 
   async function fillMunicipalData() {
@@ -119,16 +155,39 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
     <p className="portfolio-scope">No es una base de proyectos compartida: no se conservan los PDF, el texto extraído ni los IRM. Cada predio se abre para consultar la ficha municipal y cargar/revisar su IRM de forma independiente.</p>
 
     <section className="portfolio-import" aria-labelledby="portfolio-import-title">
-      <div><span className="eyebrow">IMPORTAR EN LOTE</span><h2 id="portfolio-import-title">¿Ya tienes una lista de predios en PDF?</h2><p>Selecciona un PDF con números de predio identificados. PredioAI lee el texto localmente, propone candidatos para revisión y guarda solo los identificadores que apruebes.</p></div>
+      <div><span className="eyebrow">IMPORTAR EN LOTE</span><h2 id="portfolio-import-title">Importa tu lista de predios</h2><p>Sube CSV, Word (.docx), Excel (.xlsx) o PDF. En archivos con tablas, elige la hoja, la fila de encabezados y la columna que contiene el número de predio. Revisa los resultados antes de guardarlos.</p></div>
       <div className="portfolio-import-controls">
+        <label className="portfolio-file-label">CSV / Word / Excel
+          <input aria-label="Seleccionar CSV Word o Excel con columna de predio" type="file" accept=".csv,text/csv,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleTable} disabled={importing || remaining === 0}/>
+        </label>
         <label className="portfolio-file-label">Seleccionar PDF
           <input aria-label="Seleccionar PDF con listado de predios" type="file" accept=".pdf,application/pdf" onChange={handlePdf} disabled={importing || remaining === 0}/>
         </label>
         <details><summary>También puedes pegar números de predio</summary><label htmlFor="portfolio-paste">Un número por línea</label><textarea id="portfolio-paste" rows={4} value={paste} onChange={e => setPaste(e.target.value)} placeholder={'123456\n987654\n456789'}/><button type="button" className="secondary" onClick={handlePaste}>Revisar lista</button></details>
-        <p className="note">PDF de texto, hasta 15 MB y 100 páginas. No es OCR: un escaneo sin texto seleccionable no produce identificadores. Las áreas, régimen y parroquia se completan al consultar la ficha municipal, no se deducen del PDF. Después de importar, usa «Completar datos municipales» (hasta 10 por tanda) o abre cada ficha.</p>
+        <p className="note">Archivos hasta 15 MB. PDF de texto: hasta 100 páginas. No es OCR: un escaneo sin texto seleccionable no produce identificadores. Las áreas, régimen y parroquia se completan al consultar la ficha municipal, no se deducen del PDF. Después de importar, usa «Completar datos municipales» (hasta 10 por tanda) o abre cada ficha.</p>
       </div>
     </section>
-    {importing && <p role="status">Leyendo PDF en este navegador…</p>}
+    {importing && <p role="status">Leyendo archivo en este navegador…</p>}
+    {tabular.length>0 && <section className="portfolio-table-config" aria-labelledby="portfolio-table-config-title">
+      <span className="eyebrow">IDENTIFICAR COLUMNA DE PREDIO</span>
+      <h3 id="portfolio-table-config-title">Configura la importación: {tabularName}</h3>
+      <p>Detectamos un posible encabezado automáticamente. Confirma la hoja, la fila y la columna: el archivo puede contener otros números (avalúos, impuestos o cédulas) que no son predios.</p>
+      <div className="portfolio-config-controls">
+        {tabular.length>1 && <label>Tabla u hoja<select value={tabularSheet} onChange={e=>configureTable(tabular,Number(e.target.value))}>{tabular.map((s,i)=><option key={i} value={i}>{s.name}</option>)}</select></label>}
+        <label>Fila de encabezados<select value={headerRow} onChange={e=>{setHeaderRow(Number(e.target.value));setPredioColumn(suggestedHeader([tabular[tabularSheet].rows[Number(e.target.value)]]).col);}}>
+          {tabular[tabularSheet].rows.slice(0,Math.min(30,tabular[tabularSheet].rows.length)).map((r,i)=><option key={i} value={i}>Fila {i+1}: {r.filter(Boolean).slice(0,3).join(' · ').slice(0,95)||'Sin texto'}</option>)}
+        </select></label>
+        <label>Columna del número de predio<select value={predioColumn} onChange={e=>setPredioColumn(Number(e.target.value))}>
+          {Array.from({length:Math.min(40,Math.max(1,...tabular[tabularSheet].rows.slice(0,Math.min(100,tabular[tabularSheet].rows.length)).map(r=>r.length)))},(_,i)=>
+            <option key={i} value={i}>Columna {i+1}: {String(tabular[tabularSheet].rows[headerRow]?.[i]||'Sin encabezado').slice(0,75)}</option>)}
+        </select></label>
+      </div>
+      <div className="portfolio-table-preview" role="region" aria-label="Vista previa de tabla importada" tabIndex={0}>
+        <table><thead><tr><th>Fila</th>{Array.from({length:Math.min(8,Math.max(1,...tabular[tabularSheet].rows.slice(0,15).map(r=>r.length)))},(_,i)=><th key={i} className={i===predioColumn?'portfolio-target-column':''}>Col. {i+1}</th>)}</tr></thead>
+        <tbody>{tabular[tabularSheet].rows.slice(Math.max(0,headerRow-1),Math.min(tabular[tabularSheet].rows.length,headerRow+7)).map((row,j)=><tr key={j}><th>{Math.max(0,headerRow-1)+j+1}</th>{Array.from({length:Math.min(8,Math.max(1,...tabular[tabularSheet].rows.slice(0,15).map(r=>r.length)))},(_,i)=><td key={i} className={i===predioColumn?'portfolio-target-column':''}>{String(row[i]??'').slice(0,80)}</td>)}</tr>)}</tbody></table>
+      </div>
+      <div className="portfolio-preview-actions"><button type="button" className="primary-action" onClick={previewColumn}>Extraer predios de esta columna →</button><button type="button" className="secondary" onClick={()=>{setTabular([]);setTabularName('');setCandidates([]);}}>Cancelar</button></div>
+    </section>}
     {importError && <p className="error" role="alert">{importError}</p>}
     {importMessage && <p className="portfolio-notice" role="status">{importMessage}</p>}
     {candidates.length > 0 && <section className="portfolio-preview" aria-label="Revisar predios extraídos antes de guardar">
@@ -137,7 +196,7 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
       {warnings.map((t, i) => <p key={i} className="note">{t}</p>)}
       <div className="portfolio-preview-grid">{candidates.map(p => {
         const exists = records.some(row => row.n_predio === p.n_predio);
-        return <label key={p.n_predio} className="portfolio-preview-item"><input type="checkbox" disabled={exists} checked={!exists && chosen.includes(p.n_predio)} onChange={e => setChosen(old => e.target.checked ? [...old, p.n_predio] : old.filter(id => id !== p.n_predio))}/><span><strong>{p.n_predio}</strong><small>{exists ? 'Ya guardado' : p.page ? `PDF · página ${p.page}` : 'Lista escrita'}{p.clave_cata ? ` · Clave: ${p.clave_cata}` : ''}</small></span></label>;
+        return <label key={p.n_predio} className="portfolio-preview-item"><input type="checkbox" disabled={exists} checked={!exists && chosen.includes(p.n_predio)} onChange={e => setChosen(old => e.target.checked ? [...old, p.n_predio] : old.filter(id => id !== p.n_predio))}/><span><strong>{p.n_predio}</strong><small>{exists ? 'Ya guardado' : p.page ? `PDF · página ${p.page}` : p.row ? `Fila ${p.row}` : 'Lista escrita'}{p.clave_cata ? ` · Clave: ${p.clave_cata}` : ''}</small></span></label>;
       })}</div>
       <div className="portfolio-preview-actions"><button type="button" className="primary-action" onClick={importApproved} disabled={!chosen.length || !remaining}>Agregar {Math.min(chosen.length,remaining)} a Selección</button><button type="button" className="secondary" onClick={() => {setCandidates([]);setChosen([]);setFileName('');}}>Cancelar</button></div>
     </section>}
