@@ -658,17 +658,19 @@ export default function App() {
             onClick={() => { setAudience('remodeler'); setStep('property'); setInspection(null); }}>Propietarios y remodeladores</button>
           <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''}
             onClick={() => { setAudience('developer'); setStep('property'); setInspection(null); }}>Nueva construcción y terrenos</button>
+          <button type="button" aria-pressed={audience === 'explorer'} className={audience === 'explorer' ? 'active' : ''}
+            onClick={() => { setAudience('explorer'); setStep('property'); setInspection(null); setData(null); }}>Explorar predios</button>
         </div>
-        <p className="note">{audience === 'developer' ? 'Busque un terreno, consulte su IRM y explore qué tipo de vivienda podría desarrollar.' : 'Consulte su predio y revise planos para mantenimiento y remodelaciones.'}</p>
+        <p className="note">{audience === 'explorer' ? 'Explore y compare predios por GIS. Después puede consultar su clasificación PUGS de forma progresiva.' : audience === 'developer' ? 'Consulte un predio concreto, su IRM y el potencial de construcción.' : 'Consulte su predio y revise planos para mantenimiento y remodelaciones.'}</p>
       </section>
-      <nav className="workflow-nav" aria-label="Etapas del proyecto">
+      {audience !== 'explorer' && <nav className="workflow-nav" aria-label="Etapas del proyecto">
         <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
         <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
         {audience === 'remodeler' && <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>}
-      </nav>
-      {audience === 'developer' && <section id="predio-query-selector" className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
-        <h2>Exploración de terrenos · Criterios de selección</h2>
-        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. La búsqueda preliminar consulta directamente el catastro GIS por superficie, clasificación catastral y parroquia. PUGS, ocupación y tipo de vivienda se revisan después para cada predio.</p>
+      </nav>}
+      {audience === 'explorer' && <section id="predio-query-selector" className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
+        <h2>Explorar predios · Selección GIS</h2>
+        <p className="note">Primero consulte directamente el catastro ArcGIS por área, clasificación catastral y parroquia. Luego, en Análisis avanzado, cruce los predios obtenidos con la cartografía PUGS. La búsqueda inicial nunca espera el análisis PUGS.</p>
         <div className="development-filter-grid">
           <label>Clasificación del suelo
             <select value={searchLandClass} onChange={e=>{
@@ -738,10 +740,10 @@ export default function App() {
       {/* MAIN LAYOUT */}
 
 
-      {step === 'property' && (      <main className={'layout dashboard-layout'+(detailsCollapsed?' details-collapsed':'')}
+      {step === 'property' && (      <main className={'layout dashboard-layout'+(detailsCollapsed?' details-collapsed':'')+(audience==='explorer'?' explorer-layout':'')}
         style={{'--details-width':(detailsCollapsed?54:detailsWidth)+'px','--results-width':(resultsCollapsed?54:resultsWidth)+'px'}}>
 
-        <aside className="sidebar details-sidebar">
+        {audience !== 'explorer' && <aside className="sidebar details-sidebar">
           <div className="sidebar-panel-tools">
             <button type="button" className="panel-collapse-button" aria-expanded={!detailsCollapsed}
               aria-label={detailsCollapsed?'Expandir información del predio':'Contraer información del predio'}
@@ -1168,11 +1170,11 @@ export default function App() {
 
 
           </div>
-        </aside>
-        <div className="panel-resize-handle details-resize-handle" role="separator" aria-label="Ajustar ancho del panel de información" aria-orientation="vertical"
+        </aside>}
+        {audience !== 'explorer' && <div className="panel-resize-handle details-resize-handle" role="separator" aria-label="Ajustar ancho del panel de información" aria-orientation="vertical"
           tabIndex={0} aria-valuemin={270} aria-valuemax={680} aria-valuenow={detailsWidth}
           onKeyDown={event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();setDetailsWidth(w=>Math.max(270,Math.min(680,w+(event.key==='ArrowRight'?20:-20))));}}}
-          onPointerDown={event=>startPanelResize(event,'details')} />
+          onPointerDown={event=>startPanelResize(event,'details')} />}
 
         {/* OPTIONAL PROFESSIONAL APPRAISAL CONTACT SHEET — BEGIN
             Placeholder contact only; never imply this person is verified.
@@ -1298,11 +1300,11 @@ export default function App() {
             </span>
           </div>
           </div>
-          {audience === 'developer' && !resultsCollapsed && <div className="panel-resize-handle results-resize-handle" role="separator" aria-label="Ajustar ancho del explorador" aria-orientation="vertical"
+          {audience === 'explorer' && !resultsCollapsed && <div className="panel-resize-handle results-resize-handle" role="separator" aria-label="Ajustar ancho del explorador" aria-orientation="vertical"
             tabIndex={0} aria-valuemin={270} aria-valuemax={680} aria-valuenow={resultsWidth}
             onKeyDown={event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();setResultsWidth(w=>Math.max(270,Math.min(680,w+(event.key==='ArrowLeft'?20:-20))));}}}
             onPointerDown={event=>startPanelResize(event,'results')} />}
-          {audience === 'developer' && <div className="predio-map-reel" id="predio-map-reel">
+          {audience === 'explorer' && <div className="predio-map-reel" id="predio-map-reel">
             <div className="results-panel-tools">
               <button type="button" className="panel-collapse-button" aria-expanded={!resultsCollapsed}
                 aria-label={resultsCollapsed?'Expandir explorador de predios':'Contraer explorador de predios'}
