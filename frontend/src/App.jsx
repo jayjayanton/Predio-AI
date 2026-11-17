@@ -622,7 +622,7 @@ export default function App() {
             <legend>Parroquias / sectores ({searchParishes.length || 'todas'})</legend>
             <details><summary>Seleccionar múltiples parroquias</summary>
               <div className="parish-selector-actions">
-                <button type="button" onClick={()=>setSearchParishes([])} className="parish-action">Todo el DMQ</button>
+                <button type="button" onClick={()=>setSearchParishes([])} className="parish-action" aria-label="Deseleccionar todas las parroquias">Deseleccionar todas</button>
                 <button type="button" onClick={()=>setSearchParishes([...new Set([...searchParishes,...VALLEY_PARISHES])])} className="parish-action">Agregar valles</button>
                 <button type="button" onClick={()=>setSearchParishes([...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].map(x=>x[0]))} className="parish-action">Seleccionar 65</button>
               </div>
