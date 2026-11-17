@@ -79,7 +79,6 @@ export default function App() {
   const [searchLandClass,setSearchLandClass]=useState('all');
   const [searchAreaMin,setSearchAreaMin]=useState('500');
   const [searchAreaMax,setSearchAreaMax]=useState('6000');
-  const [searchHousingType,setSearchHousingType]=useState('all');
   const [searchOccupation,setSearchOccupation]=useState('all');
   const [searchParishes,setSearchParishes]=useState([]);
   const [exploreResults,setExploreResults]=useState([]);
@@ -446,7 +445,7 @@ export default function App() {
       ]);
       setExploreCount(Number(counts.count||0));
       const candidates=(results.features||[]).map(x=>x.attributes||{});
-      const needsPugs=searchLandClass!=='all'||searchHousingType!=='all'||searchOccupation!=='all';
+      const needsPugs=searchLandClass!=='all'||searchOccupation!=='all';
       if(needsPugs){
         if (API.includes('localhost') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
           throw new Error('El filtro PUGS necesita un servidor público. La web publicada intenta conectarse a localhost:8000, que no está disponible desde este teléfono. Configure VITE_API_URL y despliegue el backend.');
@@ -479,19 +478,12 @@ export default function App() {
             const landCode=String(z.cod_clasif||'').trim().toUpperCase();
             const land=searchLandClass==='all'||(searchLandClass==='urban'?landCode==='SU':landCode==='SRU');
             if(!land)return false;
-            // The municipality publishes VU/VB/VM as housing assignment codes,
-            // not as a free-text occurrence in an unrelated zoning description.
-            // Unmapped codes are unknown, never a verified non-match.
-            // Housing designation is stored in unidad_viv, not cod_edi_es.
-            // Match the exact published code; never infer it from building-code text.
-            const housingCode=String(z.unidad_viv||'').trim().toUpperCase();
-            const housing=searchHousingType==='all'||housingCode===searchHousingType;
             // PUGS occupancy fields contain descriptive labels, not letters A/B/C/D.
             const occupancyLabels={A:'AISLADA',B:'PAREADA',C:'CONTINUA',D:'SOBRE LINEA DE FABRICA'};
             const normalized=x=>String(x||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().trim();
             const occupation=searchOccupation==='all'||[z.cod_ocu_ba,z.cod_ocu_gm].some(v=>normalized(v)===searchOccupation)
               ||[z.ocupa_ba,z.ocupa_gm].some(v=>normalized(v)===occupancyLabels[searchOccupation]);
-            return housing&&occupation;
+            return occupation;
           });
         });
         setExploreResults(matches);
@@ -501,7 +493,7 @@ export default function App() {
         setExplorePugsStatus('');
       }
       setExploreOffset(offset);
-      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchHousingType,searchOccupation].join('|'));
+      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchOccupation].join('|'));
     }catch(e){setExploreError('No se pudo completar la búsqueda: '+e.message);setExplorePugsStatus('');setExploreResults([]);setExploreCount(null);}
     finally{setExploreBusy(false);}
   }
@@ -599,7 +591,7 @@ export default function App() {
       </section>
       {audience === 'developer' && <section className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
         <h2>Exploración de terrenos · Criterios de selección</h2>
-        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. Los filtros urbanísticos se verifican provisionalmente contra PUGS.</p>
+        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. Los filtros de clasificación del suelo y ocupación se verifican provisionalmente con información geográfica PUGS. El tipo de vivienda se revisará después de obtener resultados preliminares.</p>
         <div className="development-filter-grid">
           <label>Clasificación del suelo
             <select value={searchLandClass} onChange={e=>{
@@ -621,14 +613,7 @@ export default function App() {
           <label>Superficie máxima (m²)
             <input type="number" min="1" step="1" value={searchAreaMax} onChange={e=>setSearchAreaMax(e.target.value)} />
           </label>
-          <label>Tipo de vivienda / asignación
-            <select value={searchHousingType} onChange={e=>setSearchHousingType(e.target.value)}>
-              <option value="all">Cualquier tipo / por verificar</option>
-              <option value="VU">VU — Vivienda unifamiliar</option>
-              <option value="VB">VB — Vivienda bifamiliar</option>
-              <option value="VM">VM — Vivienda multifamiliar</option>
-            </select>
-          </label>
+
           <label>Forma de ocupación
             <select value={searchOccupation} onChange={e=>setSearchOccupation(e.target.value)}>
               <option value="all">Todas / por verificar</option>
@@ -664,7 +649,7 @@ export default function App() {
         <button type="button" className="primary-action" disabled={exploreBusy} onClick={()=>exploreParcels(0)}>{exploreBusy?'Consultando catastro…':'Buscar predios que coinciden'}</button>
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
          {explorePugsStatus&&<p className="note" role="status">{explorePugsStatus}</p>}
-        {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchHousingType,searchOccupation].join('|')&&<div className="explore-results" aria-live="polite">
+        {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchOccupation].join('|')&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
           <details open><summary>Ver predios encontrados ({exploreResults.length} en esta página)</summary>
@@ -681,7 +666,7 @@ export default function App() {
         </div>}
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
           ? <p className="error" role="alert">Indique un rango de superficies válido, con mínimo menor o igual al máximo.</p>
-          : <p className="note">Perfil seleccionado: {searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'} · {Number(searchAreaMin).toLocaleString('es-EC')}–{Number(searchAreaMax).toLocaleString('es-EC')} m² · {searchHousingType==='all'?'Cualquier asignación de vivienda':searchHousingType} · Ocupación {searchOccupation==='all'?'sin restricción seleccionada':searchOccupation}. Para analizar un predio concreto, utilice la consulta catastral y su IRM.</p>}
+          : <p className="note">Perfil seleccionado: {searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'} · {Number(searchAreaMin).toLocaleString('es-EC')}–{Number(searchAreaMax).toLocaleString('es-EC')} m² · Ocupación {searchOccupation==='all'?'sin restricción seleccionada':searchOccupation}. Para analizar un predio concreto, utilice la consulta catastral y su IRM.</p>}
       </section>}
       {/* MAIN LAYOUT */}
 
