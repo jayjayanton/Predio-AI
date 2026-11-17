@@ -442,18 +442,27 @@ export default function ParcelMap({ data, criteria, searchResults, selectedSearc
 
         {data && (
           <GeoJSON
-            key={JSON.stringify(
-              data.features.map(
-                feature => feature.properties?.fid
-              )
-            )}
+            // The municipal layer does not consistently provide "fid".
+            // Key by the searched parcel's actual identifiers and geometry so
+            // switching between individual searches replaces the Leaflet layer.
+            key={JSON.stringify(data.features.map(feature=>[
+              feature.properties?.n_predio??feature.properties?.predio??feature.id,
+              feature.properties?.clave_cata,
+              feature.geometry
+            ]))}
             data={data}
             style={{
               color: COLORS.selected,
-              weight: 3,
+              weight: 4.5,
+              opacity: 1,
               fillColor: COLORS.selected,
-              fillOpacity:
-                basemap === 'satellite' ? 0.12 : 0.20
+              fillOpacity: basemap === 'satellite' ? 0.32 : 0.46
+            }}
+            onEachFeature={(feature,layer)=>{
+              const id=feature.properties?.n_predio??feature.properties?.predio;
+              if(id!=null)layer.bindTooltip('Predio seleccionado: '+String(id));
+              // Individual lookup is an explicit selection for either audience.
+              layer.bringToFront();
             }}
           />
         )}
