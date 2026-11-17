@@ -81,7 +81,7 @@ export default function App() {
   const [searchAreaMax,setSearchAreaMax]=useState('6000');
   const [searchHousingType,setSearchHousingType]=useState('all');
   const [searchOccupation,setSearchOccupation]=useState('all');
-  const [searchParish,setSearchParish]=useState('all');
+  const [searchParishes,setSearchParishes]=useState([]);
   const [exploreResults,setExploreResults]=useState([]);
   const [exploreCount,setExploreCount]=useState(null);
   const [exploreBusy,setExploreBusy]=useState(false);
@@ -430,9 +430,7 @@ export default function App() {
       setExploreError('Los filtros urbano/rural, VU/VB/VM y ocupación requieren el cruce PUGS. Seleccione «Todos» en esos filtros para consultar los resultados catastrales por área y parroquia.');return;
     }
     const areaWhere='area_terre >= '+min+' AND area_terre <= '+max;
-    const where=areaWhere+(searchParish==='all'?'':searchParish==='valley'
-      ?' AND ('+VALLEY_PARISHES.map(x=>"UPPER(parroquia) = '"+x+"'").join(' OR ')+')'
-      :" AND UPPER(parroquia) = '"+searchParish+"'");
+    const where=areaWhere+(searchParishes.length===0?'':' AND ('+searchParishes.map(x=>"UPPER(parroquia) = '"+x+"'").join(' OR ')+')');
     setExploreBusy(true);
     try {
       const query=async extra=>{
@@ -450,7 +448,7 @@ export default function App() {
       setExploreCount(Number(counts.count||0));
       setExploreResults((results.features||[]).map(x=>x.attributes||{}));
       setExploreOffset(offset);
-      setExploreQueryKey([searchAreaMin,searchAreaMax,searchParish,searchLandClass,searchHousingType,searchOccupation].join('|'));
+      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchHousingType,searchOccupation].join('|'));
     }catch(e){setExploreError('No se pudo completar la consulta municipal: '+e.message);setExploreResults([]);setExploreCount(null);}
     finally{setExploreBusy(false);}
   }
@@ -582,22 +580,27 @@ export default function App() {
           </label>
         </div>
         <div className="development-filter-grid">
-          <label>Parroquia / sector
-            <select value={searchParish} onChange={e=>setSearchParish(e.target.value)}>
-              <option value="all">Todo el DMQ</option>
-              <option value="valley">Valles orientales (parroquias seleccionadas)</option>
-              <optgroup label="Parroquias urbanas (32)">
-                {DMQ_PARISHES.urban.map(([value,label])=><option key={value} value={value}>{label}</option>)}
-              </optgroup>
-              <optgroup label="Parroquias rurales (33)">
-                {DMQ_PARISHES.rural.map(([value,label])=><option key={value} value={value}>{label}</option>)}
-              </optgroup>
-            </select>
-          </label>
+          <fieldset style={{border:'1px solid #607d83',borderRadius:10,padding:12,gridColumn:'1 / -1'}}>
+            <legend>Parroquias / sectores ({searchParishes.length || 'todas'})</legend>
+            <details><summary style={{cursor:'pointer'}}>Seleccionar múltiples parroquias</summary>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'12px 0'}}>
+                <button type="button" onClick={()=>setSearchParishes([])}>Todo el DMQ</button>
+                <button type="button" onClick={()=>setSearchParishes([...new Set([...searchParishes,...VALLEY_PARISHES])])}>Agregar valles</button>
+                <button type="button" onClick={()=>setSearchParishes([...DMQ_PARISHES.urban,...DMQ_PARISHES.rural].map(x=>x[0]))}>Seleccionar 65</button>
+              </div>
+              <div style={{maxHeight:240,overflowY:'auto'}}>
+                {['urban','rural'].map(type=><div key={type}><strong>{type==='urban'?'Urbanas (32)':'Rurales (33)'}</strong>
+                  {DMQ_PARISHES[type].map(([value,label])=><label key={value} style={{display:'flex',alignItems:'center',gap:8,padding:5}}>
+                    <input type="checkbox" checked={searchParishes.includes(value)} onChange={e=>setSearchParishes(old=>e.target.checked?[...old,value]:old.filter(x=>x!==value))}/>{label}
+                  </label>)}
+                </div>)}
+              </div>
+            </details>
+          </fieldset>
         </div>
         <button type="button" className="primary-action" disabled={exploreBusy} onClick={()=>exploreParcels(0)}>{exploreBusy?'Consultando catastro…':'Buscar predios que coinciden'}</button>
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
-        {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,searchParish,searchLandClass,searchHousingType,searchOccupation].join('|')&&<div className="explore-results" aria-live="polite">
+        {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchHousingType,searchOccupation].join('|')&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
           <details open><summary>Ver predios encontrados ({exploreResults.length} en esta página)</summary>
