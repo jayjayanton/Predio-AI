@@ -129,6 +129,21 @@ dd { margin: 0; color: var(--ink); text-align: right; overflow-wrap: anywhere; }
 .secondary:hover:not(:disabled) { background:var(--surface-hover); border-color:var(--accent); }
 .inspection { margin-top: 12px; }
 .inspection p { margin: 4px 0; }
+.blueprint-intro { padding: 24px 28px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.blueprint-intro h1 { margin: 8px 0 12px; font: 400 clamp(26px, 3vw, 38px)/1.2 Georgia, serif; }
+.blueprint-intro > p { max-width: 820px; line-height: 1.75; }
+.blueprint-intro .note { margin-top: 10px; }
+.plan-property-return { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px 28px; background: var(--accent-soft); }
+.plan-property-return p { margin: 0; flex: 1 1 340px; font-size: 13px; line-height: 1.7; }
+.project-controls .irm-guide > summary { cursor: pointer; font-weight: 650; font-size: 13px; padding: 8px 0; }
+.project-controls .irm-guide > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+.document-privacy { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 14px; }
+.project-controls .error { overflow-wrap: anywhere; }
+.project-controls .file-input { width: 100%; max-width: 100%; box-sizing: border-box; }
+.inspection-result-header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding-bottom: 16px; }
+.inspection-result-header p { flex: 1 1 250px; margin: 0; font-size: 13px; line-height: 1.7; }
+#drawing-workspace { scroll-margin-top: 100px; }
+.drawing-workspace .empty p { max-width: 520px; margin: 14px auto 0; line-height: 1.7; }
 .error { color: var(--danger); font-size: 12px; }
 /* ---------------------------------------------------------
    10. LEAFLET MAP

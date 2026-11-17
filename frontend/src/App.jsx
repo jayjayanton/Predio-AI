@@ -1,7 +1,7 @@
 const WORK_ACTIVITIES = {
   repair: [['repair_wall','Reparar muro'],['repair_floor','Reparar piso'],['repair_roof','Reparar techo'],['repair_leak','Reparar filtración']],
   maintenance: [['paint_walls','Pintar paredes'],['paint_ceiling','Pintar techo'],['waterproof','Impermeabilizar'],['renew_finishes','Renovar acabados']],
-  remodel: [['replace_floor','Reemplazar piso'],['remodel_bathroom','Remodelar baño'],['remodel_kitchen','Remodelar cocina'],['change_layout','Cambiar distribución']],
+  remodel: [['replace_floor','Cambiar acabado de piso'],['remodel_bathroom','Remodelar baño'],['remodel_kitchen','Remodelar cocina'],['change_layout','Cambiar distribución']],
   structural: [['modify_structural_wall','Modificar muro estructural'],['modify_slab','Modificar losa']],
   expansion: [['expand_room','Ampliar habitación'],['new_space','Construir nuevo espacio'],['add_floor','Añadir piso']],
 };
@@ -14,6 +14,8 @@ import ProductOverview from './components/ProductOverview.jsx';
 import SelectionPage from './components/SelectionPage.jsx';
 import AnalyticsRoadmap from './components/AnalyticsRoadmap.jsx';
 import { SELECTION_KEY, SELECTION_LIMIT, parseSelection, selectionRecord, mergeSelection } from './selection.js';
+import { workspaceForPage, requiresIrm, documentValidationError } from './documentWorkflow.js';
+import { hasPartialExtraction, dwgConversionNotice } from './drawingExtraction.js';
 
 const ROUTES = { inicio: 'home', explorar: 'explore', predio: 'property', planos: 'blueprints', seleccion: 'selection', analitica: 'analytics' };
 const pageFromHash = () => ROUTES[window.location.hash.slice(1)] || 'home';
@@ -76,8 +78,8 @@ const formatArea = (value) =>
 export default function App() {
 
   const [page, setPage] = useState(pageFromHash);
-  const [step, setStep] = useState('property');
-  const [audience, setAudience] = useState(() => pageFromHash() === 'explore' ? 'explorer' : 'developer');
+  const [step, setStep] = useState(() => workspaceForPage(pageFromHash()).step);
+  const [audience, setAudience] = useState(() => workspaceForPage(pageFromHash()).audience);
   const [savedParcels, setSavedParcels] = useState(() => {
     try { return parseSelection(localStorage.getItem(SELECTION_KEY)); } catch { return []; }
   });
@@ -97,9 +99,8 @@ export default function App() {
     setLoading(false);
     setError('');
     setPage(next);
-    if (next === 'explore') { setAudience('explorer'); setStep('property'); }
-    if (next === 'property' && audience === 'explorer') { setAudience('developer'); setStep('property'); }
-    if (next === 'blueprints') { setAudience('remodeler'); setStep('property'); }
+    const workspace = workspaceForPage(next);
+    setAudience(workspace.audience); setStep(workspace.step);
     window.location.hash = routeForPage(next);
   }
 
@@ -108,16 +109,15 @@ export default function App() {
       const next = pageFromHash();
       individualController.current?.abort(); individualRunId.current++; setLoading(false); setSlowLookup(false);
       setPage(next);
-      if (next === 'explore') { setAudience('explorer'); setStep('property'); }
-      if (next === 'property') setAudience(current => current === 'explorer' ? 'developer' : current);
-      if (next === 'blueprints') { setAudience('remodeler'); setStep('property'); }
+      const workspace = workspaceForPage(next);
+      setAudience(workspace.audience); setStep(workspace.step);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
   useEffect(() => {
-    const titles = { home: 'Inteligencia territorial para decidir', explore: 'Explorar predios', property: 'Ficha predial', blueprints: 'Analizar planos', selection: 'Mi selección', analytics: 'Próxima etapa: analítica' };
+    const titles = { home: 'Entiende tus planos. Prepara tu reforma.', explore: 'Explorar predios', property: 'Mi predio', blueprints: 'Analizar planos', selection: 'Mi selección', analytics: 'Próxima etapa: analítica' };
     document.title = `PredioAI | ${titles[page]}`;
     window.scrollTo({top: 0, behavior: 'auto'});
     document.getElementById('main-content')?.focus({preventScroll: true});
@@ -351,14 +351,49 @@ export default function App() {
   const [buildingType, setBuildingType] = useState('house');
   const [workType, setWorkType] = useState('repair');
   const [activities, setActivities] = useState(['repair_wall']);
-  // IRM is needed for the preliminary expansion path; other work can
-  // still require municipal/professional review depending on its scope.
-  const irmRequired = ['remodel', 'structural', 'expansion'].includes(workType);
+  // These are document-inspection requirements, not a municipal permit decision.
+  const irmRequired = requiresIrm(workType, activities);
   // OPTIONAL WORKFLOW SELECTORS — END
   const [irmCopyStatus, setIrmCopyStatus] = useState('');
   const [irmBridgeBusy, setIrmBridgeBusy] = useState(false);
   const [inspection, setInspection] = useState(null);
+  const blueprintConversion = dwgConversionNotice(inspection?.blueprint);
   const [inspecting, setInspecting] = useState(false);
+  const [inspectionError, setInspectionError] = useState('');
+  const [documentInputVersion, setDocumentInputVersion] = useState(0);
+  const inspectionController = React.useRef(null);
+  const inspectionRunId = React.useRef(0);
+  const lastDocumentPredio = React.useRef(null);
+
+  // A late response must never attach an old drawing to a changed project.
+  useEffect(() => {
+    inspectionController.current?.abort();
+    inspectionRunId.current++;
+    setInspecting(false);
+    return () => inspectionController.current?.abort();
+  }, [pdf, irmPdf, buildingType, workType, activities, data, page]);
+
+  useEffect(() => {
+    const nextPredio = String(data?.features?.[0]?.properties?.n_predio || '');
+    if (!nextPredio) return;
+    const previousPredio = lastDocumentPredio.current;
+    lastDocumentPredio.current = nextPredio;
+    if (previousPredio && previousPredio !== nextPredio) {
+      setPdf(null); setIrmPdf(null); setInspection(null);
+      setDocumentInputVersion(version => version + 1);
+      setInspectionError('Cambiaste de predio. Adjunta los documentos que correspondan a la nueva propiedad.');
+    }
+  }, [data]);
+
+  function selectDocument(event, role) {
+    const file = event.target.files?.[0] || null;
+    const validationError = documentValidationError(file, role);
+    if (role === 'irm') setIrmPdf(validationError ? null : file);
+    else setPdf(validationError ? null : file);
+    setInspection(null);
+    setInspectionError(validationError);
+    if (validationError) event.target.value = '';
+  }
 
   // Copy the known predio number and open the official portal on a user click.
   // Browsers cannot prefill a separate site's form; CAPTCHA stays manual.
@@ -579,6 +614,9 @@ export default function App() {
     setIrmExtraction(null);
     setIrmConfirmed(false);
     setInspection(null);
+    setPdf(null); setIrmPdf(null); setInspectionError('');
+    lastDocumentPredio.current = null;
+    setDocumentInputVersion(version => version + 1);
     setIrmCopyStatus('');
   }
 
@@ -910,7 +948,7 @@ export default function App() {
   }
 
   // ==========================================================
-  // 4. INSPECT ARCHITECTURAL PDF
+  // 4. INSPECT ARCHITECTURAL DOCUMENT
   // ==========================================================
 
   // OPTIONAL DOCUMENT ANALYSIS V2 — BEGIN
@@ -918,9 +956,16 @@ export default function App() {
   // To revert, restore the original two-document inspection handler.
   async function inspect() {
     if (!pdf || !activities.length || (irmRequired && !irmPdf)) return;
+    inspectionController.current?.abort();
+    const controller = new AbortController();
+    inspectionController.current = controller;
+    const runId = ++inspectionRunId.current;
+    let timedOut = false;
+    const requestTimeout = /\.dwg$/i.test(pdf.name) ? 120000 : 90000;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, requestTimeout);
     setInspecting(true);
     setInspection(null);
-    setError('');
+    setInspectionError('');
     try {
       const form = new FormData();
       form.append('blueprint', pdf);
@@ -931,20 +976,27 @@ export default function App() {
       const predioNumber = properties?.n_predio || properties?.predio;
       if (predioNumber) form.append('predio_number', String(predioNumber));
       const response = await fetch(`${API}/api/documents/analyze`, {
-        method: 'POST', body: form
+        method: 'POST', body: form, signal: controller.signal
       });
-      const body = await response.json();
-      if (!response.ok) {
-        const detail = body.detail;
+      const body = await response.json().catch(() => null);
+      if (runId !== inspectionRunId.current) return;
+      if (!response.ok || !body?.blueprint) {
+        const detail = body?.detail;
         throw new Error(typeof detail === 'string'
-          ? detail : 'No se pudieron analizar los documentos');
+          ? detail : 'No se pudo inspeccionar el archivo. Revisa el formato e inténtalo de nuevo.');
       }
       setInspection(body);
-      setStep('report');
+      requestAnimationFrame(() => document.getElementById('drawing-workspace')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }));
     } catch (err) {
-      setError(err.message);
+      if (runId !== inspectionRunId.current || (controller.signal.aborted && !timedOut)) return;
+      setInspectionError(timedOut
+        ? 'El análisis está tardando más de lo previsto. El servicio puede estar iniciándose. Inténtalo de nuevo.'
+        : err.message === 'Failed to fetch'
+          ? 'No se pudo conectar al servicio de análisis. Comprueba tu conexión e inténtalo de nuevo.'
+          : err.message);
     } finally {
-      setInspecting(false);
+      clearTimeout(timeout);
+      if (runId === inspectionRunId.current) setInspecting(false);
     }
   }
   // OPTIONAL DOCUMENT ANALYSIS V2 — END
@@ -975,20 +1027,26 @@ export default function App() {
       {isWorkspace && <>
       {loading && <div className="lookup-progress" role="status">{slowLookup ? 'El servicio está iniciándose o consultando fuentes municipales. La ficha aparecerá al terminar.' : 'Consultando la ficha del predio…'}</div>}
       <div className="workspace-context-bar">
-        <div className="workspace-breadcrumb"><span>Espacio de trabajo</span><span aria-hidden="true">/</span><strong>{audience === 'explorer' ? 'Explorar predios' : properties ? `Predio ${properties.n_predio}` : 'Ficha predial'}</strong></div>
-        <span className="workspace-stage">{audience === 'explorer' ? '01 · Descubrir' : step === 'property' ? '02 · Conocer' : '03 · Revisar'}</span>
+        <div className="workspace-breadcrumb"><span>Espacio de trabajo</span><span aria-hidden="true">/</span><strong>{audience === 'explorer' ? 'Explorar predios' : properties ? `Predio ${properties.n_predio}` : audience === 'remodeler' ? 'Planos de mi vivienda' : 'Ficha predial'}</strong></div>
+        <span className="workspace-stage">{audience === 'explorer' ? 'Consulta territorial' : audience === 'remodeler' ? 'Inspección experimental' : 'Información municipal'}</span>
       </div>
-      {audience !== 'explorer' && <div className="workspace-mode-switch" role="group" aria-label="Tipo de revisión">
+      {page === 'property' && <div className="workspace-mode-switch" role="group" aria-label="Tipo de revisión">
         <span>Revisar para</span>
-        <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''} onClick={() => { setAudience('developer'); setStep('property'); }}>Desarrollo inmobiliario</button>
-        <button type="button" aria-pressed={audience === 'remodeler'} className={audience === 'remodeler' ? 'active' : ''} onClick={() => { setAudience('remodeler'); setStep('property'); }}>Remodelación y planos</button>
+        <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''} onClick={() => { setAudience('developer'); setStep('property'); }}>Información urbanística</button>
+        <button type="button" onClick={() => navigate('blueprints')}>Planos de mi vivienda →</button>
       </div>}
-      {page === 'blueprints' && <section className="blueprint-intro" aria-label="Análisis remoto de planos" style={{padding:'1.25rem',marginBottom:'1rem',border:'1px solid #cdd8ce',borderRadius:'12px',background:'#f4f7f0'}}><p style={{fontSize:'.75rem',letterSpacing:'.1em',fontWeight:700,color:'#416a51'}}>ARQUITECTURA · REMODELACIÓN · AMPLIACIONES</p><h1 style={{margin:'.35rem 0'}}>Revisa los planos de tu vivienda.</h1><p>Consulta primero el predio y después incorpora planos PDF o DXF que tengas autorización para utilizar. Puedes inspeccionar texto y geometría, seleccionar elementos y mostrar capas. La interpretación arquitectónica y las medidas verificadas todavía están en desarrollo. PredioAI no gestiona contratistas ni realiza la obra.</p><p><strong>Flujo:</strong> consultar predio → proyecto y planos → revisar medidas → informe preliminar. Introduce un número de predio para activar el siguiente paso; no es necesario buscar terrenos en el mapa.</p></section>}
+      {page === 'blueprints' && <section className="blueprint-intro" aria-label="Análisis de planos"><p className="eyebrow">TU VIVIENDA · TUS PLANOS</p><h1>Revisa los planos de tu vivienda.</h1><p>Empieza con un PDF, DXF o DWG autorizado. Explora sus líneas, páginas y capas; puedes vincular la información del predio cuando la necesites.</p><p className="note"><strong>Disponible hoy:</strong> inspección de documentos y geometría. Las medidas arquitectónicas verificadas y los informes exportables siguen en desarrollo.</p></section>}
       {audience !== 'explorer' && <nav className="workflow-nav" aria-label="Etapas del proyecto">
-        <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
-        <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
-        {audience === 'remodeler' && <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>}
+        {audience === 'developer' ? <>
+          <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
+          <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>2 · IRM y evaluación</button>
+        </> : <>
+          <button type="button" className={step === 'project' ? 'active' : ''} onClick={() => setStep('project')}>1 · Planos y actividades</button>
+          <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>2 · Resumen documental</button>
+          <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>{properties ? 'Ver predio vinculado' : 'Vincular predio (opcional)'}</button>
+        </>}
       </nav>}
+      {page === 'blueprints' && step === 'property' && <div className="plan-property-return"><p>Esta consulta agrega contexto municipal. Puedes inspeccionar tus planos aunque todavía no conozcas el número de predio.</p><button type="button" className="secondary" onClick={() => setStep('project')}>Continuar con mis planos →</button></div>}
       {audience === 'explorer' && <section id="predio-query-selector" className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
         <div className="gis-search-heading">
           <div><span className="eyebrow">BÚSQUEDA TERRITORIAL</span><h1>Encuentra el predio que estás buscando.</h1></div>
@@ -1996,9 +2054,9 @@ export default function App() {
           <button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button>
         </section>
       )}
-      {step === 'project' && properties && audience === 'remodeler' && (
+      {step === 'project' && audience === 'remodeler' && (
         <section className="workspace-page">
-          <div className="workspace-heading"><div><span className="eyebrow">PASO 2 · CONFIGURACIÓN</span><h1>Proyecto para predio {properties.n_predio || identifier}</h1><p className="note">Seleccione las actividades, adjunte planos e IRM y revise los elementos gráficos extraídos.</p></div><button type="button" className="secondary" onClick={() => setStep('property')}>← Volver al predio</button></div>
+          <div className="workspace-heading"><div><span className="eyebrow">PASO 1 · PLANOS Y ACTIVIDADES</span><h2>{properties ? `Planos del predio ${properties.n_predio}` : '¿Qué quieres revisar?'}</h2><p className="note">Elige una actividad, adjunta el plano y explora su contenido. {properties ? 'Comprueba que el archivo corresponda a esta propiedad.' : 'Aún no hay un predio vinculado; la inspección del archivo sigue disponible.'}</p></div><button type="button" className="secondary" onClick={() => setStep('property')}>{properties ? 'Ver predio vinculado' : 'Vincular predio'}</button></div>
           <div className="project-layout">
             <section className="project-controls">
                             {/* OPTIONAL DOCUMENTS & PDF SECTION — BEGIN
@@ -2018,16 +2076,16 @@ export default function App() {
                 {/* OPTIONAL WORK TYPE CONTROLS — BEGIN */}
                 <label htmlFor="building-type"><strong>Tipo de inmueble</strong></label>
                 <select id="building-type" value={buildingType}
-                  onChange={(event) => { setBuildingType(event.target.value); setInspection(null); }}>
+                  onChange={(event) => { setBuildingType(event.target.value); setInspection(null); setInspectionError(''); }}>
                   <option value="house">Casa</option>
                   <option value="apartment">Departamento</option>
                 </select>
 
                 <label htmlFor="work-type"><strong>¿Qué trabajo desea realizar?</strong></label>
                 <select id="work-type" value={workType}
-                  onChange={(event) => { const next = event.target.value; setWorkType(next); setActivities([WORK_ACTIVITIES[next][0][0]]); setInspection(null); }}>
+                  onChange={(event) => { const next = event.target.value; setWorkType(next); setActivities([WORK_ACTIVITIES[next][0][0]]); setInspection(null); setInspectionError(''); }}>
                   <option value="repair">Reparación (muro, techo, piso, etc.)</option>
-                  <option value="maintenance">Mantenimiento</option>
+                  <option value="maintenance">Pintura y mantenimiento</option>
                   <option value="remodel">Remodelación interior</option>
                   <option value="structural">Modificación estructural</option>
                   <option value="expansion">Ampliación o nueva construcción</option>
@@ -2042,6 +2100,7 @@ export default function App() {
                             ? [...current, id]
                             : current.filter(value => value !== id));
                           setInspection(null);
+                          setInspectionError('');
                         }} />
                       {' '}{label}
                     </label>
@@ -2051,7 +2110,7 @@ export default function App() {
                 <p className="note">
                   {irmRequired
                     ? 'Para este tipo de proyecto, PredioAI solicita el IRM antes de realizar el análisis preliminar. Esto no sustituye la revisión de los requisitos municipales aplicables.'
-                    : 'Para reparaciones y mantenimiento ordinario, PredioAI no solicita el IRM en esta etapa.'}
+                    : 'Para inspeccionar planos de reparación, mantenimiento o cambio de acabado de piso, este piloto no exige un IRM. Esto no determina los permisos que pueda requerir la obra.'}
                   {buildingType === 'apartment'
                     ? ' En departamentos también deben revisarse elementos comunes y reglas de propiedad horizontal cuando corresponda.'
                     : ''}
@@ -2059,12 +2118,12 @@ export default function App() {
                 {/* OPTIONAL WORK TYPE CONTROLS — END */}
 
                 {irmRequired && (
-                <div className="irm-guide" aria-label="Documentos para el análisis">
-                  <h3>Documentos para el análisis</h3>
+                <details className="irm-guide" aria-label="Documentos para el análisis">
+                  <summary>Cómo obtener el IRM para esta revisión</summary>
                   <p>Para el tipo de intervención seleccionado, prepare los siguientes documentos:</p>
                   <ol>
-                    <li><strong>Planos arquitectónicos</strong> en PDF o DXF — necesarios para analizar la geometría disponible.</li>
-                    <li><strong>Informe de Regulación Metropolitana (IRM)</strong> en PDF — requerido por el flujo de análisis preliminar de PredioAI para remodelaciones, modificaciones estructurales y ampliaciones.</li>
+                    <li><strong>Planos arquitectónicos</strong> en PDF, DXF o DWG — necesarios para analizar la geometría disponible.</li>
+                    <li><strong>Informe de Regulación Metropolitana (IRM)</strong> en PDF — este piloto lo solicita para otras remodelaciones, modificaciones estructurales y ampliaciones. El cambio de acabado de piso por sí solo permite inspeccionar el plano sin IRM.</li>
                   </ol>
                   <div className="irm-quick-access">
                     <span className="irm-quick-label">Número de predio seleccionado</span>
@@ -2072,19 +2131,20 @@ export default function App() {
                       <input aria-label="Número de predio para consulta IRM" readOnly
                         value={String(properties?.n_predio || properties?.predio || '')}
                         onFocus={event => event.target.select()} />
-                      <button type="button" className="secondary" onClick={copyIrmPredio}>
+                      <button type="button" className="secondary" disabled={!properties} onClick={copyIrmPredio}>
                         Copiar número
                       </button>
                     </div>
-                    <button type="button" className="secondary" disabled={irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consulta asistida en escritorio'}</button>
+                    {!properties && <p className="note">Vincula un predio para copiar su número, o consulta el portal oficial con el identificador que ya tengas.</p>}
                     <a className="irm-open-link"
                       href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf"
                       target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
                     {irmCopyStatus && <p className="note" role="status">{irmCopyStatus}</p>}
-                    <p className="note">Para rellenar automáticamente el predio, inicie el puente local y pulse «Consulta asistida en escritorio». Si no está instalado, use «Copiar número» y el enlace oficial. El CAPTCHA siempre se completa manualmente.</p>
+                    <p className="note">El CAPTCHA se completa manualmente en el portal municipal.</p>
                   </div>
                   <details className="irm-desktop-guide">
                     <summary>Alternativa experimental: consulta IRM asistida en computadora</summary>
+                    <button type="button" className="secondary" disabled={!properties || irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consulta asistida en escritorio'}</button>
                     <p>Si trabaja desde una computadora, puede ejecutar el prototipo local con Playwright. El programa abre Chromium, introduce el número de predio y espera a que usted complete el CAPTCHA. Después de verificar el informe, permite guardarlo como PDF.</p>
                     <p>Requiere instalar Python y Playwright en su equipo. No se ejecuta automáticamente desde esta página.</p>
                     <a href="https://github.com/jayjayanton/Predio-AI/blob/main/automation/README.md" target="_blank" rel="noopener noreferrer">Ver instrucciones de instalación y ejecución ↗</a>
@@ -2098,38 +2158,43 @@ export default function App() {
                     <li>Regrese a PredioAI y adjunte el archivo PDF en el campo IRM.</li>
                   </ol>
                   <p className="note">Si el portal no permite imprimir correctamente, pruebe desde un navegador de escritorio. PredioAI no descarga ni certifica documentos municipales automáticamente.</p>
-                </div>
+                </details>
 
                 )}
 
                 <div className="document-upload">
-                  <label htmlFor="blueprint-upload"><strong>1. Adjuntar planos arquitectónicos (PDF o DXF) · requerido</strong></label>
-                  <input id="blueprint-upload" className="file-input"
-                    type="file" accept="application/pdf,.pdf,.dxf,application/dxf"
-                    onChange={(event) => { setPdf(event.target.files?.[0] || null); setInspection(null); }}
+                  <label htmlFor="blueprint-upload"><strong>1. Adjuntar planos arquitectónicos (PDF, DXF o DWG) · requerido</strong></label>
+                  <input key={`blueprint-${documentInputVersion}`} id="blueprint-upload" className="file-input"
+                    type="file" accept="application/pdf,.pdf,.dxf,application/dxf,.dwg,image/vnd.dwg,application/acad"
+                    onChange={(event) => selectDocument(event, 'blueprint')}
                   />
                   {pdf && <p className="note">Plano seleccionado: {pdf.name}</p>}
-                  <p className="note">Los archivos DWG deben convertirse a DXF con autorización. Los planos escaneados pueden no contener geometría vectorial seleccionable.</p>
+                  <p className="note">PDF, DXF o DWG · máximo 15 MB. El DWG se convierte en el servidor para inspeccionar la geometría compatible; la vista puede ser parcial. Los PDF escaneados pueden carecer de texto y líneas seleccionables; el reconocimiento de imágenes está pendiente.</p>
                 </div>
 
                 {irmRequired && (
                 <div className="document-upload">
                   <label htmlFor="irm-upload"><strong>2. Adjuntar IRM oficial (PDF) · requerido</strong></label>
-                  <input id="irm-upload" className="file-input"
+                  <input key={`irm-${documentInputVersion}`} id="irm-upload" className="file-input"
                     type="file" accept="application/pdf,.pdf"
-                    onChange={(event) => { setIrmPdf(event.target.files?.[0] || null); setInspection(null); }}
+                    onChange={(event) => selectDocument(event, 'irm')}
                   />
                   {irmPdf && <p className="note">IRM seleccionado: {irmPdf.name}</p>}
                 </div>
 
                 )}
 
-                <button type="button" className="secondary"
+                <p className="note document-privacy">Al inspeccionar, el archivo se envía al servicio de análisis. Para convertir un DWG se crean copias temporales que se eliminan al terminar. Usa copias autorizadas sin datos personales innecesarios. Los archivos y resultados no se guardan como un proyecto permanente.</p>
+                <button type="button" className="primary-action"
                   disabled={!pdf || !activities.length || (irmRequired && !irmPdf) || inspecting}
                   onClick={inspect}
                 >
-                  {inspecting ? 'Inspeccionando documentos…' : 'Inspeccionar documentos'}
+                  {inspecting ? 'Inspeccionando documentos…' : 'Inspeccionar mi plano'}
                 </button>
+                {inspecting && <p className="note" role="status">Procesando el archivo. La primera consulta puede tardar mientras se inicia el servicio.</p>}
+                {inspectionError && <p className="error" role="alert">{inspectionError}</p>}
+                {!pdf && !inspectionError && <p className="note">Adjunta un plano para continuar.</p>}
+                {pdf && irmRequired && !irmPdf && <p className="note">Adjunta también el IRM para las actividades seleccionadas.</p>}
 
                 {inspection && (
                   <div className="inspection">
@@ -2167,26 +2232,28 @@ export default function App() {
 
 
             </section>
-            <section className="drawing-workspace" aria-label="Área de trabajo de planos">
+            <section id="drawing-workspace" className="drawing-workspace" aria-label="Área de trabajo de planos">
               <div className="section-heading">ESPACIO DE PLANOS <span>GEOMETRÍA SIN VERIFICAR</span></div>
+              {inspection && <div className="inspection-result-header"><p role="status"><strong>{blueprintConversion?.title || 'Archivo inspeccionado.'}</strong> {blueprintConversion?.detail || 'Revisa el dibujo y sus capas antes de abrir el resumen.'}</p><button type="button" className="secondary" onClick={() => setStep('report')}>Ver resumen documental →</button></div>}
               {inspection?.blueprint?.drawing_views?.length
                 ? <BlueprintViewer key={inspection.blueprint.filename} views={inspection.blueprint.drawing_views} />
-                : <div className="empty">Adjunte un plano PDF vectorial o DXF y pulse «Inspeccionar documentos» para explorar la geometría. Los planos escaneados no permiten esta selección.</div>}
+                : <div className="empty"><strong>{inspection ? 'No se encontró geometría vectorial seleccionable.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y contrasta el contenido con el archivo original.' : 'Adjunta un PDF, DXF o DWG y pulsa «Inspeccionar mi plano». Podrás acercar el dibujo, seleccionar líneas y mostrar u ocultar capas compatibles.'}</p><p className="note">La precisión con planos reales está pendiente de validación. No se muestran medidas en m² ni cantidades de obra.</p></div>}
             </section>
           </div>
         </section>
       )}
       {step === 'report' && inspection && audience === 'remodeler' && (
         <section className="report-page">
-          <span className="eyebrow">PASO 3 · RESULTADO PRELIMINAR</span>
-          <h1>Revisión documental del predio {properties?.n_predio || identifier}</h1>
+          <span className="eyebrow">PASO 2 · RESUMEN DOCUMENTAL</span>
+          <h2>{properties ? `Revisión documental del predio ${properties.n_predio}` : 'Revisión de los documentos aportados'}</h2>
+          {!properties && <p className="note">Sin vinculación catastral: este resumen corresponde únicamente a los archivos seleccionados.</p>}
           <p className="note">Este resumen no es un informe técnico certificado, un presupuesto ni una verificación de normativa.</p>
           <div className="report-grid">
-            <div className="property"><h2>Documentos revisados</h2><p>Plano: {inspection.blueprint?.filename || pdf?.name || 'Sin archivo'}</p><p>Formato: {inspection.blueprint?.format?.toUpperCase() || 'No disponible'}</p><p>IRM: {inspection.irm ? 'Adjuntado · campos candidatos sin verificar' : 'No adjuntado'}</p><p>Actividades: {inspection.activities?.map(a => a.label).join(', ') || 'No disponible'}</p></div>
-            <div className="property"><h2>Estado de mediciones</h2><p>Geometría: {inspection.blueprint?.drawing_views?.length || 0} vista(s) extraída(s)</p><p>Unidades y escala: sin verificar</p><p>Áreas, longitudes y costos: no disponibles</p><p>Conformidad municipal: no evaluada</p></div>
+            <div className="property"><h2>Documentos revisados</h2><p>Plano: {inspection.blueprint?.filename || pdf?.name || 'Sin archivo'}</p><p>Formato: {inspection.blueprint?.format?.toUpperCase() || 'No disponible'}</p>{blueprintConversion && <p><strong>{blueprintConversion.title}</strong> {blueprintConversion.detail}</p>}<p>IRM: {inspection.irm ? 'Adjuntado · campos candidatos sin verificar' : 'No adjuntado'}</p><p>Actividades: {inspection.activities?.map(a => a.label).join(', ') || 'No disponible'}</p></div>
+            <div className="property"><h2>Estado de mediciones</h2><p>Geometría: {inspection.blueprint?.drawing_views?.length || 0} vista(s) extraída(s)</p>{inspection.blueprint?.drawing_views?.some(view => hasPartialExtraction(view.extraction)) && <p><strong>Integridad de la vista: parcial.</strong> Consulta las omisiones indicadas en el visor.</p>}<p>Unidades y escala: sin verificar</p><p>Áreas, longitudes y costos: no disponibles</p><p>Conformidad municipal: no evaluada</p></div>
           </div>
           <p className="source-note">Fuentes: archivos proporcionados por el usuario; la información extraída es preliminar y requiere revisión profesional.</p>
-          <div className="report-actions"><button type="button" className="secondary" onClick={() => setStep('project')}>← Revisar planos</button><button type="button" className="secondary" onClick={() => setStep('property')}>Ver información catastral</button></div>
+          <div className="report-actions"><button type="button" className="secondary" onClick={() => setStep('project')}>← Revisar planos</button><button type="button" className="secondary" onClick={() => setStep('property')}>{properties ? 'Ver información catastral' : 'Vincular predio (opcional)'}</button></div>
         </section>
       )}
 
@@ -2221,7 +2288,7 @@ export default function App() {
 
       {/* FOOTER */}
 
-      <footer className="app-footer"><span><strong>PredioAI</strong> · Inteligencia territorial para decidir.</span><span>Quito · Versión piloto · Fuentes municipales identificadas</span></footer>
+      <footer className="app-footer"><span><strong>PredioAI</strong> · Planos y contexto para tu reforma.</span><span>Quito · Versión piloto · Fuentes municipales identificadas</span></footer>
 
     </div>
   );

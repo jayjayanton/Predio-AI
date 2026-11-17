@@ -6,8 +6,12 @@ measurements or wall/room classifications are inferred.
 from __future__ import annotations
 
 import math
+from collections import Counter
 
 MAX_PRIMITIVES = 3000
+MAX_DXF_VISITS = 100_000
+MAX_BLOCK_DEPTH = 8
+MAX_POLYLINE_POINTS = 10_000
 
 
 def _finite_pair(value):
@@ -55,29 +59,172 @@ def pdf_primitives(page):
     return items
 
 
-def dxf_primitives(model):
-    """Extract modelspace LINE and LWPOLYLINE geometry without unit inference."""
+def extract_dxf_primitives(model):
+    """Extract bounded straight geometry, retaining block-instance provenance.
+
+    Top-level geometry is retained first; ordinary block references then supply
+    transformed virtual entities without modifying the source document. Omission
+    counts describe observed entity instances, never percentage coverage.
+    """
+    from ezdxf.xclip import XClip
+
     items = []
-    for index, entity in enumerate(model):
-        if len(items) >= MAX_PRIMITIVES:
-            break
+    omitted = Counter()
+    pending_blocks = []
+    visited = 0
+    curved_polylines = 0
+    limit_reached = False
+    traversal_limit_reached = False
+    depth_limit_reached = False
+
+    class TraversalStopped(Exception):
+        pass
+
+    def take_visit():
+        nonlocal visited, traversal_limit_reached
+        if visited >= MAX_DXF_VISITS:
+            traversal_limit_reached = True
+            return False
+        visited += 1
+        return True
+
+    def original(entity):
+        return getattr(entity, "origin_of_copy", None) or entity
+
+    def handle(entity):
+        return original(entity).dxf.get("handle", "unassigned")
+
+    def effective_layer(entity, inherited="0"):
+        layer = entity.dxf.get("layer", "0")
+        return inherited if layer == "0" else layer
+
+    def emit(entity, path, block_path, inherited_layer):
+        nonlocal curved_polylines, limit_reached
         kind = entity.dxftype()
         points = None
         if kind == "LINE":
-            points = [_finite_pair(entity.dxf.start), _finite_pair(entity.dxf.end)]
+            vertices = [entity.dxf.start, entity.dxf.end]
         elif kind == "LWPOLYLINE":
-            points = [_finite_pair((x, y)) for x, y in entity.get_points("xy")]
+            if entity.has_arc:
+                curved_polylines += 1
+                omitted[kind] += 1
+                return
+            if len(entity) > MAX_POLYLINE_POINTS:
+                omitted[kind] += 1
+                return
+            # Respect OCS/extrusion instead of treating raw XY as world XY.
+            vertices = list(entity.vertices_in_wcs())
+        else:
+            omitted[kind] += 1
+            return
+        # This viewer supports planar XY drawings; do not silently project 3D.
+        if any(not math.isfinite(v.z) or abs(v.z) > 1e-7 for v in vertices):
+            omitted[kind] += 1
+            return
+        points = [_finite_pair(v) for v in vertices]
+        if kind == "LWPOLYLINE":
             if entity.closed and points:
                 points.append(points[0])
-        if points and len(points) >= 2 and all(points):
-            items.append({
-                "id": f"dxf-e{index}-{entity.dxf.handle}",
-                "kind": "line" if kind == "LINE" else "polyline",
-                "points": points, "page": 1,
-                "layer": entity.dxf.layer, "source": "dxf_modelspace",
-                "classification": "unclassified",
-            })
-    return items
+        if not points or len(points) < 2 or not all(points):
+            omitted[kind] += 1
+            return
+        if len(items) >= MAX_PRIMITIVES:
+            limit_reached = True
+            omitted[kind] += 1
+            return
+        items.append({
+            "id": path,
+            "kind": "line" if kind == "LINE" else "polyline",
+            "points": points, "page": 1,
+            "layer": effective_layer(entity, inherited_layer),
+            "source": "dxf_modelspace", "source_handle": handle(entity),
+            "block_path": block_path,
+            "classification": "unclassified",
+        })
+
+    def expand(insert, path, block_path=(), names=(), inherited_layer="0"):
+        nonlocal depth_limit_reached
+        name = insert.dxf.name
+        if len(names) >= MAX_BLOCK_DEPTH:
+            depth_limit_reached = True
+            omitted["INSERT"] += 1
+            return
+        if name in names:
+            omitted["INSERT"] += 1
+            return
+        block = insert.block()
+        scales = [abs(insert.dxf.get(key, 1)) for key in ("xscale", "yscale", "zscale")]
+        # virtual_entities does not apply XCLIP or expand MINSERT. Restrict
+        # this pilot to uniform scale so curved source polylines cannot be
+        # silently disassembled into straight fragments during transformation.
+        if (block is None or block.block_record.is_xref or insert.mcount > 1
+                or XClip(insert).has_clipping_path
+                or not all(math.isfinite(value) and value > 0 for value in scales)
+                or not math.isclose(scales[0], scales[1], rel_tol=1e-9)
+                or not math.isclose(scales[0], scales[2], rel_tol=1e-9)):
+            omitted["INSERT"] += 1
+            return
+        layer = effective_layer(insert, inherited_layer)
+        instance_path = (*block_path, path)
+
+        def skipped(entity, reason):
+            if not take_visit():
+                raise TraversalStopped
+            omitted[entity.dxftype()] += 1
+
+        try:
+            for attribute in insert.attribs:
+                if not take_visit():
+                    return
+                omitted[attribute.dxftype()] += 1
+            for index, entity in enumerate(insert.virtual_entities(skipped_entity_callback=skipped)):
+                if not take_visit():
+                    return
+                child_path = f"{path}/b{index}-{handle(entity)}"
+                if entity.dxftype() == "INSERT":
+                    expand(entity, child_path, instance_path, (*names, name), layer)
+                else:
+                    emit(entity, child_path, instance_path, layer)
+                if traversal_limit_reached:
+                    return
+        except TraversalStopped:
+            return
+        except Exception:
+            # Retain already extracted evidence, but never label this block as
+            # fully rendered when transformation or source structure fails.
+            omitted["INSERT"] += 1
+
+    for index, entity in enumerate(model):
+        if not take_visit():
+            break
+        path = f"dxf-e{index}-{handle(entity)}"
+        if entity.dxftype() == "INSERT":
+            pending_blocks.append((entity, path))
+        else:
+            emit(entity, path, (), "0")
+    if not traversal_limit_reached:
+        for insert, path in pending_blocks:
+            expand(insert, path)
+            if traversal_limit_reached:
+                break
+
+    return items, {
+        "status": "partial" if omitted or traversal_limit_reached or depth_limit_reached else "supported_geometry",
+        "scope": "modelspace",
+        "rendered_primitives": len(items),
+        "omitted_entity_counts": dict(omitted),
+        "omitted_curved_polylines": curved_polylines,
+        "limit_reached": limit_reached,
+        "primitive_limit": MAX_PRIMITIVES,
+        "traversal_limit_reached": traversal_limit_reached,
+        "depth_limit_reached": depth_limit_reached,
+        "omitted_nonempty_layouts": 0,
+    }
+
+
+def dxf_primitives(model):
+    """Return supported native-coordinate geometry without unit inference."""
+    return extract_dxf_primitives(model)[0]
 
 
 def drawing_view(items, bounds=None, invert_y=False):

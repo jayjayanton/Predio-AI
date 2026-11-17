@@ -37,7 +37,7 @@ PredioAI extracts information and derives measurements/quantities from verified 
 | PH unit versus parent-lot distinction | Implemented |
 | Cadastral comparison and descriptive CSV export | Implemented; local browser selection |
 | Assisted IRM access and browser PDF field extraction | Implemented prototype; CAPTCHA and document review remain manual |
-| PDF/DXF document inspection through `/api/documents/analyze` | Implemented experimental extraction |
+| PDF/DXF/DWG document inspection through `/api/documents/analyze` | Experimental extraction; DWG requires the deployed local converter |
 | Vector-geometry viewer, zoom, page switching, layer visibility, multiple selection | Implemented; uncalibrated geometry |
 | Preliminary on-screen document-inspection summary | Implemented; not a verified measurement report |
 | Automatic wall/room/roof classification | Not implemented |
@@ -48,15 +48,15 @@ PredioAI extracts information and derives measurements/quantities from verified 
 | Parcel scoring and unsupervised segmentation | Planned parallel analytics track |
 | Damage-evidence workflow for insurance/peritaje | Potential extension; not implemented |
 
-The current UI requires a predio lookup to advance to the document workspace. A future upload-first path may make cadastral linking optional; do not present that as current behavior.
+The current **Analizar planos** entry opens the document workspace directly. A cadastral lookup is optional context, with a visible unlinked state until a predio is selected. Inspection results remain in the viewer, and the documentary summary is opened separately. Repair, maintenance and an isolated floor-finish replacement can proceed without an IRM; other remodeling activities, mixed requests, structural modification and expansion retain the pilot's IRM prerequisite. These are software inspection requirements, not a determination of municipal permits.
 
-The developer IRM parser runs locally in the browser. The remodeling/project document workflow sends files to the backend for in-memory processing. Do not promise that all uploaded files stay on-device. Existing local IRM automation is optional desktop tooling, not automatic municipal retrieval by the hosted app.
+The developer IRM parser runs locally in the browser. The remodeling/project document workflow sends files to the backend: PDF/DXF parsing uses memory and DWG conversion uses temporary files removed after processing. Do not promise that all uploaded files stay on-device. Existing local IRM automation is optional desktop tooling, not automatic municipal retrieval by the hosted app.
 
 ## Core user journey
 
-1. **Identify the property.** Obtain the predio and cadastral context. Separate the lot, building, PH unit and individual room; they are not interchangeable geometries.
-2. **Define the intervention.** Start with plain-language tasks: paint, change flooring, repair, remodel/reorganize, reconstruct or expand. Escalate technical review for structural changes and extensions.
-3. **Provide documents.** Upload authorized PDF or DXF drawings and relevant IRM. For DWG, require authorized conversion to DXF. Plans are already digital when vector PDF/CAD is provided; the job is parsing/structuring, not assuming they need a newly trained vision model.
+1. **Define the intervention.** Start with plain-language tasks: paint, change flooring, repair, remodel/reorganize, reconstruct or expand. Escalate technical review for structural changes and extensions.
+2. **Link property context when available.** A document can be inspected without a municipal lookup. When linked, obtain the predio/cadastral context and confirm the drawing corresponds to it. Separate the lot, building, PH unit and individual room; they are not interchangeable geometries.
+3. **Provide documents.** Upload authorized PDF, DXF or DWG drawings and relevant IRM. The server converts DWG to DXF and reports conversion and extraction limitations while retaining the original source identity. Compare the result with the original. Plans are already digital when vector PDF/CAD is provided; the job is parsing/structuring, not assuming they need a newly trained vision model.
 4. **Inspect before inferring.** Determine available text, vector geometry, pages/layers and explicit dimensions. A raster scan needs a distinct validated extraction path. An IRM provides urban-planning context, not room dimensions.
 5. **Explore interactively.** Use the existing viewer to zoom, show/hide layers and select geometry. Future semantic associations connect these elements to walls, rooms, floors or openings; selection alone is not recognition.
 6. **Validate measurement inputs.** Confirm scale/units per drawing, dimensions, heights, face conventions, openings and evidence that the drawing corresponds to the current building. Mark unknowns and conflicts explicitly.
@@ -157,7 +157,7 @@ React application
 FastAPI and browser services
 ├── Municipal lookup and PUGS (existing)
 ├── Browser developer IRM parsing (existing)
-├── Backend PDF/DXF extraction (existing experimental)
+├── Backend PDF/DXF extraction and local DWG conversion (experimental)
 ├── Validated geometry / deterministic quantities (planned)
 ├── Versioned evidence profile / secure storage (planned)
 └── Reviewed technical exports / optional grounded assistant (planned)
@@ -222,7 +222,7 @@ The insurance extension would add observed damage evidence and a professional re
 | Milestone | Deliverable | Acceptance evidence |
 | --- | --- | --- |
 | M0 — Preserve the foundation | Keep cadastral, IRM, activity and viewer flows working | Tests/build plus browser review; do not rebuild them for marketing changes |
-| M1 — Source-linked document evidence | Improve sheet/element associations using authorized PDF/DXF | Original document/page/layer references remain inspectable |
+| M1 — Source-linked document evidence | Improve sheet/element associations using authorized PDF/DXF/DWG | Original document/page/layer references and conversion limits remain inspectable |
 | M2 — Verified measurements | Scale calibration, selected room/wall/surface calculations, corrections and recalculation | Agreement with manually checked reference measurements |
 | M3 — Usable project workspace | Homeowner-friendly guidance and professional review; secure saved projects when ready | Users understand pending data and can trace/reopen supported results |
 | M4 — Reviewed exports | Technical reports consistent with latest geometry/evidence revision | UI and report agree; stale results cannot be exported as current |

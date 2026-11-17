@@ -17,7 +17,7 @@ ACTIVITIES = {
         "renew_finishes": ("Renovar acabados", "selected_surface"),
     },
     "remodel": {
-        "replace_floor": ("Reemplazar piso", "floor_surface"),
+        "replace_floor": ("Cambiar acabado de piso", "floor_surface"),
         "remodel_bathroom": ("Remodelar baño", "selected_elements"),
         "remodel_kitchen": ("Remodelar cocina", "selected_elements"),
         "change_layout": ("Cambiar distribución", "selected_elements"),
@@ -48,3 +48,15 @@ def validate_activities(work_type, activities):
          "measurement_status": "not_verified"}
         for activity in activities
     ]
+
+
+def requires_irm(work_type, activities):
+    """Return the document-inspection prerequisite for validated activities.
+
+    Replacing a floor finish alone can enter geometry inspection without an
+    IRM. This application rule does not determine municipal requirements or
+    certify that the proposed work is nonstructural or permitted.
+    """
+    if work_type == "remodel":
+        return not (len(activities) == 1 and activities[0] == "replace_floor")
+    return work_type in {"structural", "expansion"}

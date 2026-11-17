@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { hasPartialExtraction, drawingExtractionMessages } from '../drawingExtraction.js';
 
 /**
  * Source-linked vector geometry viewer. Coordinates are not calibrated.
@@ -14,6 +15,8 @@ export default function BlueprintViewer({ views = [] }) {
   const [expanded, setExpanded] = useState(false);
   const drag = useRef(null);
   const view = views.find(v => v.page === page) || views[0];
+  const extractionPartial = hasPartialExtraction(view?.extraction);
+  const extractionMessages = drawingExtractionMessages(view?.extraction);
   const bounds = view?.bounds;
   const elements = view?.elements || [];
   const layers = useMemo(() => [...new Set(elements.map(e => e.layer || 'Sin capa'))], [elements]);
@@ -42,6 +45,11 @@ export default function BlueprintViewer({ views = [] }) {
           <button type="button" onClick={() => setExpanded(v => !v)}>{expanded ? 'Cerrar pantalla completa' : 'Ampliar visor'}</button>
         </div>
       </div>
+      {extractionPartial && <div className="inspection" role="status">
+        <strong>Vista parcial del plano</strong>
+        {extractionMessages.length > 0 && <ul>{extractionMessages.map(message => <li key={message}>{message}</li>)}</ul>}
+        <p>Esta vista no representa el dibujo completo. Contrástala con el plano original.</p>
+      </div>}
       <div className="blueprint-content">
         <div className="blueprint-canvas">
           {views.length > 1 && <label>Página <select value={page} onChange={e => {
@@ -65,7 +73,7 @@ export default function BlueprintViewer({ views = [] }) {
               onPointerUp={() => { drag.current = null; }}
               onPointerCancel={() => { drag.current = null; }}
             >
-              <rect x={x} y={y} width={viewWidth} height={viewHeight} fill="#fff" />
+              <rect x={x} y={y} width={viewWidth} height={viewHeight} fill="#fff" pointerEvents="none" />
               {visible.map(el => <polyline key={el.id}
                 points={el.points.map(p => p.join(',')).join(' ')}
                 fill="none" stroke={selected.includes(el.id) ? '#e65b25' : '#263747'}

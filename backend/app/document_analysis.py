@@ -1,7 +1,8 @@
 """PredioAI document extraction prototype.
 
-Extract evidence from IRM PDFs and architectural PDF/DXF drawings.
-NO zoning compliance verdict, legal authorization, scale inference, or DWG conversion.
+Extract evidence from IRM PDFs and architectural PDF/DXF/DWG drawings.
+DWG conversion runs locally through a bounded, server-installed converter.
+NO zoning compliance verdict, legal authorization, or scale inference.
 Optional dependency for DXF: pip install ezdxf.
 """
 from __future__ import annotations
@@ -9,6 +10,8 @@ from __future__ import annotations
 from collections import Counter
 from io import StringIO
 import re
+
+from .dwg_conversion import convert_dwg_to_dxf
 
 MAX_BYTES = 15 * 1024 * 1024
 MAX_PAGES = 100
@@ -39,8 +42,6 @@ def _validate(data: bytes, filename: str, allowed: set[str]) -> str:
         raise ValueError("File is empty or exceeds 15 MB")
     if ext == "pdf" and not data.startswith(b"%PDF-"):
         raise ValueError("Invalid PDF signature")
-    if ext == "dwg":
-        raise ValueError("DWG requires authorized conversion to DXF; no automatic conversion")
     return ext
 
 
@@ -100,13 +101,21 @@ def _pdf(data: bytes, role: str) -> dict:
 def _dxf(data: bytes) -> dict:
     try:
         import ezdxf
-        from .drawing_geometry import dxf_primitives, drawing_view
+        from .drawing_geometry import extract_dxf_primitives, drawing_view
     except ImportError as exc:
         raise ValueError("DXF support requires optional package ezdxf") from exc
     try:
-        doc = ezdxf.read(StringIO(data.decode('utf-8-sig')))
+        # Match universal-newline file reading: a retained CR corrupts DXF
+        # string values, including hexadecimal group-310 binary records.
+        doc = ezdxf.read(StringIO(data.decode('utf-8-sig'), newline=None))
         model = doc.modelspace()
-        view = drawing_view(dxf_primitives(model), invert_y=True)
+        primitives, extraction = extract_dxf_primitives(model)
+        extraction["omitted_nonempty_layouts"] = sum(
+            1 for layout in doc.layouts if layout.name != "Model" and len(layout)
+        )
+        if extraction["omitted_nonempty_layouts"]:
+            extraction["status"] = "partial"
+        view = {**drawing_view(primitives, invert_y=True), "extraction": extraction}
         counts = Counter()
         layer_counts = Counter()
         annotations = []
@@ -153,7 +162,19 @@ def analyze_document(data: bytes, filename: str, role: str) -> dict:
         raise ValueError("role must be irm or blueprint")
     ext = _validate(data, filename, {"pdf"} if role == "irm"
                     else {"pdf", "dxf", "dwg"})
-    result = _pdf(data, role) if ext == "pdf" else _dxf(data)
+    if ext == "dwg":
+        converted = convert_dwg_to_dxf(data)
+        try:
+            result = _dxf(converted.dxf_bytes)
+        except ValueError as exc:
+            raise ValueError(
+                "No se pudo interpretar la conversión del DWG. "
+                "Revisa el archivo original o prueba una exportación PDF/DXF."
+            ) from exc
+        result.update(format="dwg", converted_format="dxf", conversion=converted.metadata)
+        result["warnings"] = [*converted.metadata.get("warnings", []), *result["warnings"]]
+    else:
+        result = _pdf(data, role) if ext == "pdf" else _dxf(data)
     result["filename"] = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
     result["compliance_checked"] = False
     result["official_approval"] = False

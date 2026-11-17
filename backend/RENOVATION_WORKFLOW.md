@@ -1,68 +1,62 @@
-# PredioAI — Repair, maintenance, remodeling and expansion workflow
+# PredioAI — home-intervention review workflow
 
-## User journey
-1. Select predio and inspect cadastral information.
-2. Choose **Casa** or **Departamento** and intervention type:
-   repair, maintenance, interior remodel, structural modification, expansion.
-3. Upload blueprint (currently PDF through UI; future PDF/DXF) and
-   IRM when applicable. For expansion, IRM is required for the preliminary
-   urban-planning workflow. For other work it is optional or recommended;
-   applicability must be reviewed for each project, not inferred solely
-   from whether it is a house or apartment.
-4. Backend extracts document evidence and validated dimensions.
-5. Future interactive blueprint viewer displays original drawing with
-   individually selectable walls, floors, roofs, openings and rooms;
-   support multiple selection, overlays, and source references.
-6. Users correct extracted geometry; corrections create a revision and
-   trigger recalculation of affected quantities and dependencies.
-7. Generate preliminary quantity/feasibility report from the latest
-   revision, including source evidence, missing fields and limitations.
+## Working user journey
 
-## Critical non-negotiable validation
-- NEVER invent dimensions, areas, wall heights, materials, roof pitch,
-  IRM values, prices or construction approval.
-- A PDF scale label alone is not reliable unless verified against
-  dimension annotations or another reliable reference.
-- Without verified scale or CAD units, show the drawing but block
-  physical measurements and dependent calculations.
-- Floor plans may provide wall length but not wall height. Do not
-  calculate vertical wall area without verified height.
-- Partial repair areas require measured affected extent; selecting
-  an entire wall does not establish damaged surface area.
-- Distinguish gross and net wall areas and subtract openings only
-  when opening dimensions are verified.
-- Distinguish projected roof area from sloped roof surface area.
-- Apartment renovations can affect structure, services, facade,
-  common property or condominium rules. IRM is not categorically
-  irrelevant to apartments.
-- Municipal approval and professional structural review are separate
-  from preliminary automated checks.
+1. Open **Analizar planos**. A predio lookup is optional for document inspection; users can link municipal context when they have the identifier.
+2. Choose **Casa** or **Departamento**, an intervention category and the relevant activities.
+3. Upload an authorized architectural **PDF, DXF or DWG**, plus an IRM when required by this inspection workflow. The server converts DWG before extraction and reports conversion limitations.
+4. Submit to **`POST /api/documents/analyze`**. The backend returns extraction evidence and supported geometry, with units and measurements unverified.
+5. Inspect the extracted drawing in the existing viewer: switch pages, select individual or multiple primitives, show/hide available layers, zoom and pan.
+6. Open the **documentary summary** to review the files, selected activities and unresolved measurement status. This is an on-screen inspection summary, not an exported technical report.
 
-## Future extraction and computation modules
-- PyMuPDF: vector PDF drawings, text and IRM tables.
-- ezdxf: DXF entities/layers, units, dimensions and annotations.
-- NumPy: vector math and derived quantities after validation.
-- Shapely: wall/room polygons, areas, distances and overlays.
-- pdfplumber: IRM tables when PyMuPDF extraction is insufficient.
-- OpenCV/Pillow and optional OCR for scanned documents.
-- SQLite/JSON: persistent element inventory, revisions and audit trail.
-- PDF.js with SVG overlays: source-aligned interactive selection.
-- ReportLab or equivalent: reproducible preliminary PDF reports.
+After inspection, the user remains with the drawing so the interactive result
+can be reviewed before opening the summary. A selected line or polyline is not
+automatically a recognized wall, floor, room, roof or opening. The viewer shows
+supported extracted geometry, which may omit unsupported or excessive elements.
 
-## Current implementation status
-- Predio selection, cadastral/AIVA information and map: implemented.
-- UI selection of building and intervention type: implemented.
-- Conditional IRM requirement: implemented as a **workflow prompt**,
-  not a definitive legal determination.
-- PDF upload: implemented through existing inspection endpoint.
-- PDF/DXF evidence-first module: backend/app/document_analysis.py,
-  not yet wired to the UI.
-- Interactive geometry selection, correction/recalculation, report
-  generation, and IRM compliance engine: **not implemented**.
+## IRM prerequisite in the application
 
-## Rollback
-The new frontend controls are isolated under
-`OPTIONAL WORKFLOW SELECTORS` and `OPTIONAL WORK TYPE CONTROLS`.
-Git commit d64ff9783c11242cf20ee267bb0f399daf2b1d64 contains
-the workflow UI change. Revert that commit to restore the previous
-two-required-PDF UI, leaving existing cadastral data untouched.
+| Selected work | IRM needed to submit this inspection |
+| --- | --- |
+| Repair or maintenance | No |
+| Remodeling with only `replace_floor` — **Cambiar acabado de piso** | No |
+| Any other remodeling activity, including a mixed selection with `replace_floor` | Yes |
+| Structural modification or expansion | Yes |
+
+The backend validates the activities before applying `requires_irm` from
+`app/work_activities.py`. The floor-finish exception concerns preliminary
+document inspection. It does not certify the proposed work as nonstructural,
+authorize construction or replace a review of applicable municipal requirements.
+Apartment work may also involve common property or condominium rules.
+
+## Available and planned capabilities
+
+| Capability | Status |
+| --- | --- |
+| Predio lookup, cadastral context and map | Available; depends on municipal services |
+| Building/work/activity selection and PDF/DXF/DWG upload | Available in the document workspace; DWG requires the server converter installed at deployment |
+| PDF/DXF/DWG metadata, tentative IRM fields and bounded vector extraction | PyMuPDF/ezdxf, with bounded local DWG conversion and partial-view notices |
+| Interactive primitive selection, pages, available layers, zoom and pan | Available; native coordinates remain uncalibrated |
+| On-screen inspection summary | Available; does not contain verified quantities or a compliance verdict |
+| Verified scale/units and physical lengths/surfaces | Planned |
+| Architectural element recognition and geometry corrections | Planned |
+| Revision tracking, dependent recalculation and traceable technical exports | Planned |
+| Automated material quantities, costs or construction approval | Not provided |
+
+## Next validation milestone
+
+Use an authorized real PDF, DXF or DWG and a manually verified reference. Begin with
+one floor-finish task: confirm that the required geometry is available, establish
+units/scale against reliable dimensions, then compare the eventual calculated
+surface with the reference. Record omissions and corrections before expanding
+to painting or more complex work.
+
+Painting requires verified wall heights and opening dimensions as well as
+lengths. A plan's scale label alone does not establish scale accuracy; selecting
+an entire wall does not establish damaged area. Existing drawings also need to
+be compared with the building's current condition. These checks describe the
+measurement-development milestone, not functionality already completed.
+
+See [document inspection](DOCUMENT_ANALYSIS.md) for API limits and
+[architectural methodology](../docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md) for
+the planned evidence, measurement and review process.
