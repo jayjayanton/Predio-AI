@@ -523,3 +523,39 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
   .parish-selector-group { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .parish-selector-list { max-height:330px; }
 }
+
+/* Keep the map title in document flow above the basemap switcher.
+   The former absolute map-top overlay covered Calles/OSM/Topográfico/Satélite. */
+.map-section .predio-map-pane .map-top {
+  position:relative;
+  inset:auto;
+  top:auto;
+  left:auto;
+  right:auto;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:6px;
+  padding:8px 10px;
+  background:#10262b;
+  pointer-events:none;
+}
+.map-section .predio-map-pane .map-top span {
+  padding:5px 7px;
+  background:transparent;
+  font-size:10px;
+}
+.map-section .predio-map-pane .parcel-map-wrapper {
+  min-height:0;
+  height:calc(100% - 44px);
+}
+@media(max-width:600px) {
+  .map-section .predio-map-pane .map-top { padding:6px 8px; }
+  .map-section .predio-map-pane .map-top span { padding:3px 4px; font-size:9px; }
+  .map-section:has(.predio-map-reel) .predio-map-pane .parcel-map-wrapper {
+    height:calc(100% - 40px);
+    min-height:0;
+  }
+}
