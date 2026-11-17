@@ -518,7 +518,7 @@ export default function App() {
   }
 
   async function screenAdvancedPugs() {
-    const ids=[...new Set(exploreResults.map(p=>String(p.n_predio||'')).filter(id=>/^\\d+$/.test(id)))];
+    const ids=[...new Set(exploreResults.map(p=>String(p.n_predio||'')).filter(id=>/^\d+$/.test(id)))];
     if(!ids.length)return;
     setAdvancedBusy(true);
     setAdvancedError('');
@@ -800,11 +800,29 @@ export default function App() {
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
           ? <p className="error" role="alert">Indique un rango de superficies válido, con mínimo menor o igual al máximo.</p>
           : <p className="note">Perfil seleccionado: {searchLandClass==='urban'?'Urbano':searchLandClass==='rural'?'Rural':'Urbano y rural'} · {Number(searchAreaMin).toLocaleString('es-EC')}–{Number(searchAreaMax).toLocaleString('es-EC')} m². Para analizar un predio concreto, utilice la consulta catastral y su IRM.</p>}
-        <details className="advanced-landcover">
-          <summary>Análisis avanzado · Cobertura del suelo <span className="advanced-status">Próximamente</span></summary>
+        <details className="advanced-landcover" open={advancedOpen} onToggle={event=>setAdvancedOpen(event.currentTarget.open)}>
+          <summary>Análisis avanzado · PUGS y vivienda <span className="advanced-status">Etapa 3 · Cruce espacial</span></summary>
           <div className="advanced-landcover-content">
-            <p>El análisis de cobertura del suelo permitirá explorar vegetación, áreas construidas, suelo descubierto y otras coberturas mediante capas GIS verificadas.</p>
-            <p>Este módulo aún no filtra predios ni modifica los resultados catastrales. Se incorporará cuando se defina y valide la capa de cobertura, su resolución y fecha de referencia.</p>
+            <p>Primero se muestran los predios del catastro GIS. Después puede comparar los <strong>{exploreResults.length} predios de la página actual</strong> con la capa municipal PUGS 2024, sin bloquear el mapa.</p>
+            <button type="button" className="primary-action" disabled={advancedBusy||!exploreResults.length}
+              onClick={screenAdvancedPugs}>{advancedBusy?'Analizando PUGS…':'Analizar PUGS de esta página'}</button>
+            {advancedProgress&&<p role="status">{advancedProgress}</p>}
+            {advancedError&&<p role="alert" className="error">{advancedError}</p>}
+            {Object.keys(advancedRows).length>0&&<>
+              <label className="advanced-pugs-filter">Filtrar evidencia preliminar de vivienda
+                <select value={advancedFilter} onChange={event=>{setAdvancedFilter(event.target.value);setExploreSelected(null);}}>
+                  <option value="all">Todos los predios analizados y pendientes</option>
+                  <option value="VU">VU — Vivienda unifamiliar</option>
+                  <option value="VB">VB — Vivienda bifamiliar</option>
+                  <option value="VM">VM — Vivienda multifamiliar</option>
+                  <option value="MIXTO">Varios códigos en zonas PUGS</option>
+                  <option value="SIN_CODIGO">Sin código explícito</option>
+                  <option value="PENDIENTE">Sin clasificación verificable</option>
+                </select>
+              </label>
+              <p>{visibleExploreResults.length} de {exploreResults.length} predios visibles en esta página según el filtro PUGS.</p>
+            </>}
+            <p className="note">La clasificación VU/VB/VM se extrae solo cuando el código aparece explícitamente en los campos cartográficos examinados. Una ausencia de código no significa prohibición. Las intersecciones y los códigos son provisionales y deben contrastarse con el IRM. No representa un conteo de todo Quito ni una aprobación constructiva.</p>
           </div>
         </details>
       </section>}
@@ -1360,7 +1378,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={data} searchResults={exploreGeometries} selectedSearchPredio={exploreSelected} onSelectSearchPredio={selectExplorePredioFromMap} />
+          <ParcelMap data={data} searchResults={visibleExploreGeometries} selectedSearchPredio={exploreSelected} onSelectSearchPredio={selectExplorePredioFromMap} />
           <div className="map-bottom">
             <span>
               Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
@@ -1388,11 +1406,12 @@ export default function App() {
           <div className="predio-reel-heading">
             <div>
               <strong>Explorar predios</strong>
+              {Object.keys(advancedRows).length>0&&<p className="note">PUGS: {Object.keys(advancedRows).length} comparados · filtro: {advancedFilter==='all'?'Todos':advancedFilter} · {visibleExploreResults.length} visibles</p>}
               <div className="predio-selection-controls">
                 <span className="predio-selection-indicator">{exploreSelected?'Seleccionado: '+exploreSelected:'Ningún predio seleccionado'}</span>
                 {exploreSelected&&<button type="button" className="predio-clear-selection" onClick={()=>setExploreSelected(null)}>Quitar selección</button>}
               </div>
-              <p className="note">Ordene los predios por superficie y seleccione una tarjeta para ubicarla en el mapa. PUGS pendiente.</p>
+              <p className="note">Seleccione una tarjeta para ubicarla en el mapa. El cruce PUGS es opcional y se inicia desde Análisis avanzado.</p>
             </div>
             <label className="predio-reel-sort">Ordenar por
               <select value={exploreSort} onChange={e=>{
@@ -1421,7 +1440,7 @@ export default function App() {
               onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
           </nav>
           <div id="predio-results-reel" className={'predio-results-reel '+(reelColumns===2?'icon-grid':'one-column')} role="group" aria-label="Resultados catastrales ordenados">
-            {exploreResults.map((p,i)=>{
+            {visibleExploreResults.map((p,i)=>{
               const id=String(p.n_predio);
               const active=exploreSelected===id;
               const hasGeometry=Boolean(exploreGeometries?.features?.some(f=>String(f.properties?.n_predio)===id));
@@ -1450,6 +1469,7 @@ export default function App() {
                     <span>Terreno: {validLand?fmt(landArea)+' m²':'—'}</span>
                     <span>Construido: {validBuilt?fmt(builtArea)+' m²':'—'}</span>
                     <span>Relación: {ratio!==null?ratio.toLocaleString('es-EC',{maximumFractionDigits:1})+'%':'—'}</span>
+                    {advancedRows[id]&&<span>PUGS: {advancedRows[id].code}</span>}
                   </span>
                 </span> : <>
                   <span className="predio-reel-card-top"><span>Predio {id}</span><span className="predio-reel-index">{exploreOffset+i+1}</span></span>
@@ -1460,6 +1480,7 @@ export default function App() {
                     <span>Construcción / terreno <strong>{ratio!==null?ratio.toLocaleString('es-EC',{maximumFractionDigits:1})+'%':'No disponible'}</strong></span>
                   </span>
                   <span className="predio-reel-metadata">{hasGeometry?'Polígono disponible':'Geometría no disponible'}</span>
+                  {advancedRows[id]&&<span className="predio-pugs-evidence">PUGS: {advancedRows[id].code} · {advancedRows[id].detail}</span>}
                   <span className="predio-reel-status">{active?'● Seleccionado · clic para quitar':hasGeometry?'Ver en mapa':'Ver ficha catastral'}</span>
                 </>}
               </button>;
