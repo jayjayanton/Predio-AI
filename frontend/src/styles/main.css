@@ -1332,3 +1332,19 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
   .sources-methodology-body dl { grid-template-columns:1fr; row-gap:4px; }
   .sources-methodology-body dd { margin-bottom:7px; }
 }
+
+/* More breathing room in the results sidebar, shorter list cards.
+   Icon tiles retain their existing flip-card dimensions. */
+.dashboard-layout .predio-map-reel .predio-results-reel.one-column .predio-reel-card {
+  min-height:0;
+  height:auto;
+  padding:10px 13px;
+  gap:5px;
+  flex:0 0 auto;
+}
+.dashboard-layout .predio-map-reel .predio-results-reel.one-column .predio-reel-card .predio-reel-area-comparison {
+  gap:3px;
+}
+.dashboard-layout .predio-map-reel .predio-results-reel.one-column .predio-reel-card .predio-reel-status {
+  margin-top:2px;
+}
