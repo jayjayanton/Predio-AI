@@ -90,6 +90,10 @@ export default function App() {
   const [exploreGeometries,setExploreGeometries]=useState(null);
   const [exploreSelected,setExploreSelected]=useState(null);
   const toggleExplorePredio=id=>setExploreSelected(current=>current===String(id)?null:String(id));
+  const selectExplorePredioFromMap=id=>{
+    setResultsCollapsed(false);
+    setExploreSelected(current=>current===String(id)?null:String(id));
+  };
   // Keep GIS map selection and the matching result card synchronized.
   useEffect(()=>{
     if(!exploreSelected || !exploreResults.length)return;
@@ -1283,7 +1287,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={data} searchResults={exploreGeometries} selectedSearchPredio={exploreSelected} onSelectSearchPredio={toggleExplorePredio} />
+          <ParcelMap data={data} searchResults={exploreGeometries} selectedSearchPredio={exploreSelected} onSelectSearchPredio={selectExplorePredioFromMap} />
           <div className="map-bottom">
             <span>
               Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
