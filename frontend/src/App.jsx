@@ -519,39 +519,50 @@ export default function App() {
   }
 
   async function screenAdvancedPugs() {
-    const ids=[...new Set(exploreResults.map(p=>String(p.n_predio||'')).filter(id=>/^\d+$/.test(id)))];
     const runId=++advancedRunId.current;
-    if(!ids.length)return;
+    const features=(exploreGeometries?.features||[]).filter(feature=>
+      /^\d+$/.test(String(feature.properties?.n_predio||'')) && feature.geometry);
+    if(!features.length){
+      setAdvancedError('Esta página no contiene polígonos GIS utilizables para el cruce PUGS.');
+      return;
+    }
     if(API.includes('localhost') && !['localhost','127.0.0.1'].includes(window.location.hostname)){
-      setAdvancedError('El análisis PUGS requiere un backend público configurado mediante VITE_API_URL. La búsqueda GIS sigue disponible.');
+      setAdvancedError('El análisis PUGS requiere un backend público configurado con VITE_API_URL. La búsqueda GIS continúa disponible.');
       return;
     }
     setAdvancedBusy(true);
     setAdvancedError('');
     setAdvancedRows({});
     setAdvancedFilter('all');
-    let done=0;
+    setAdvancedProgress(`Preparando índice espacial para ${features.length} polígonos de esta página…`);
     try{
+      // One request sends cadastral polygons already downloaded from ArcGIS.
+      // Backend downloads each PUGS geographic tile once (with cache), then
+      // uses an STRtree; no repeated lookup_predio() for each candidate.
+      const response=await fetch(`${API}/api/pugs/spatial-screen`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({features})
+      });
+      const payload=await response.json();
+      if(!response.ok)throw new Error(payload.detail||'No se pudo completar el cruce espacial PUGS (HTTP '+response.status+').');
+      if(runId!==advancedRunId.current)return;
       const rows={};
-      for(let i=0;i<ids.length;i+=20){
-        const group=ids.slice(i,i+20);
-        setAdvancedProgress(`Cruce PUGS: ${done} de ${ids.length} predios de esta página`);
-        const response=await fetch(`${API}/api/pugs/screen`,{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({predios:group})
-        });
-        if(!response.ok)throw new Error('Servicio PUGS no disponible (HTTP '+response.status+').');
-        const payload=await response.json();
-        if(runId!==advancedRunId.current)return;
-        for(const item of payload.results||[])rows[String(item.predio)]={...item,...getPugsHousingEvidence(item)};
-        done+=group.length;
-        setAdvancedRows({...rows});
+      for(const item of payload.results||[]){
+        rows[String(item.predio)]={...item,...getPugsHousingEvidence(item)};
       }
-      setAdvancedProgress(`Análisis preliminar completo: ${done} de ${ids.length} predios de esta página.`);
+      setAdvancedRows(rows);
+      const unavailable=(payload.results||[]).filter(item=>item.status==='unavailable'||item.status==='ambiguous').length;
+      setAdvancedProgress(
+        `Cruce espacial: ${payload.screened||0} predios, ${payload.zone_features_indexed||0} polígonos PUGS indexados, `+
+        `${payload.spatial_tiles||0} mosaicos, ${payload.tile_requests||0} consultas municipales, `+
+        `${payload.cache_hits||0} mosaicos reutilizados`+
+        (unavailable?`; ${unavailable} predios sin resultado fiable`:'')+'.'
+      );
     }catch(error){
       if(runId===advancedRunId.current){
-        setAdvancedError(error.message||'No se pudo analizar PUGS.');
-        setAdvancedProgress(`Cruce parcial: ${done} de ${ids.length} predios; los restantes siguen pendientes.`);
+        setAdvancedError(error.message||'El análisis espacial PUGS no está disponible.');
+        setAdvancedProgress('Los predios catastrales siguen visibles y no se han reclasificado.');
       }
     }finally{
       if(runId===advancedRunId.current)setAdvancedBusy(false);
@@ -816,9 +827,9 @@ export default function App() {
         <details className="advanced-landcover" open={advancedOpen} onToggle={event=>setAdvancedOpen(event.currentTarget.open)}>
           <summary>Análisis avanzado · PUGS y vivienda <span className="advanced-status">Etapa 3 · Cruce espacial</span></summary>
           <div className="advanced-landcover-content">
-            <p>Primero se muestran los predios del catastro GIS. Después puede comparar los <strong>{exploreResults.length} predios de la página actual</strong> con la capa municipal PUGS 2024, sin bloquear el mapa.</p>
+            <p>Primero se muestran los predios del catastro GIS. Después puede comparar los <strong>{exploreResults.length} predios de la página actual</strong> con la capa municipal PUGS 2024 mediante mosaicos geográficos y un índice espacial, sin bloquear el mapa.</p>
             <button type="button" className="primary-action" disabled={advancedBusy||!exploreResults.length}
-              onClick={screenAdvancedPugs}>{advancedBusy?'Analizando PUGS…':'Analizar PUGS de esta página'}</button>
+              onClick={screenAdvancedPugs}>{advancedBusy?'Analizando PUGS…':'Cruzar predios con PUGS (índice espacial)'}</button>
             {advancedProgress&&<p role="status">{advancedProgress}</p>}
             {advancedError&&<p role="alert" className="error">{advancedError}</p>}
             {Object.keys(advancedRows).length>0&&<>
