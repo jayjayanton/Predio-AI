@@ -1177,3 +1177,46 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .predio-new-query:focus-visible { outline:2px solid #7bf5e2; outline-offset:2px; }
 .predio-new-query:disabled { opacity:.55; cursor:not-allowed; }
 #predio-query-selector { scroll-margin-top:16px; }
+
+/* Third entry point: the GIS explorer uses the full workspace width, with no
+   individual-predio information panel occupying the left side. */
+.dashboard-layout.explorer-layout {
+  grid-template-columns:minmax(0,1fr);
+}
+.dashboard-layout.explorer-layout > .map-section {
+  grid-column:1;
+}
+.dashboard-layout.explorer-layout > .details-resize-handle { display:none; }
+.advanced-pugs-filter {
+  display:flex;
+  flex-direction:column;
+  max-width:370px;
+  gap:7px;
+  margin:13px 0 6px;
+  color:#d6ebe7;
+  font-size:12px;
+  font-weight:650;
+}
+.advanced-pugs-filter select {
+  box-sizing:border-box;
+  width:100%;
+  padding:10px;
+  border:1px solid #52747a;
+  border-radius:8px;
+  background:#18373e;
+  color:#eaf2f1;
+  font-size:13px;
+}
+.advanced-landcover-content .primary-action {
+  width:auto;
+  min-height:40px;
+  margin:7px 0;
+}
+.predio-pugs-evidence {
+  font-size:11px;
+  color:#b2d9f5;
+  line-height:1.35;
+}
+@media(max-width:900px) {
+  .dashboard-layout.explorer-layout { display:flex; flex-direction:column; }
+}
