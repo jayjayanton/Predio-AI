@@ -270,19 +270,40 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
             selectedLayerRef.current=null;
             setSelectedNearby(null);
             layer.setStyle({color:COLORS.nearby,weight:1.6,fillOpacity:0});
-            
+            layer.closePopup();
             return;
           }
           if(selectedLayerRef.current&&selectedLayerRef.current!==layer){
             selectedLayerRef.current.setStyle({color:COLORS.nearby,weight:1.6,fillOpacity:0});
-
+            selectedLayerRef.current.closePopup();
           }
           selectedNearbyRef.current=id;
           selectedLayerRef.current=layer;
           setSelectedNearby(id);
           layer.setStyle({color:COLORS.selected,weight:4,fillColor:COLORS.selected,fillOpacity:.48});
-          // Selection should only recolor the parcel; no popup box.
-
+          layer.bindPopup(nearbyParcelPopup(id,attributesCache.current.get(id)||null),{
+            maxWidth:290,autoPan:false
+          }).openPopup();
+          if(attributesCache.current.has(id))return;
+          try{
+            const params=new URLSearchParams({f:'json',
+              where:"n_predio = '"+id.replace(/'/g,"''")+"'",
+              outFields:'n_predio,parroquia,area_terre,area_const',
+              returnGeometry:'false',resultRecordCount:'1'});
+            const response=await fetch(PARCEL_ATTRIBUTES+'?'+params);
+            if(!response.ok)throw new Error('HTTP '+response.status);
+            const payload=await response.json();
+            if(payload.error)throw new Error(payload.error.message||'Error catastral');
+            const attributes=payload.features?.[0]?.attributes;
+            if(!attributes){
+              layer.setPopupContent(nearbyParcelPopup(id,null,'Sin atributos coincidentes en catastro 2024'));
+              return;
+            }
+            attributesCache.current.set(id,attributes);
+            layer.setPopupContent(nearbyParcelPopup(id,attributes));
+          }catch(error){
+            layer.setPopupContent(nearbyParcelPopup(id,null,'Consulta no disponible: '+error.message));
+          }
         });
       }}/>}
     {highlightMatches&&<div role="status" style={{fontSize:12,padding:'6px 10px',color:'#c9e2e0',background:'#173038'}}>
@@ -357,7 +378,10 @@ function SearchResultsLayer({results,selected,onSelect}) {
       onEachFeature={(feature,layer)=>{
         const id=String(feature.properties?.n_predio||'');
         suppressParcelFocus(layer);
-        // No tooltip box on parcel hover or selection.
+        // Show the existing cadastral details without the black focus box.
+        layer.bindPopup(nearbyParcelPopup(id,feature.properties||{}),{
+          maxWidth:290,autoPan:false
+        });
         layer.on('click',event=>{
           // A blue GIS result always becomes the active card immediately.
           // Stop the same click reaching nearby cadastral layers below it.
