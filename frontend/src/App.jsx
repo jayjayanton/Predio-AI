@@ -82,6 +82,11 @@ export default function App() {
   const [searchParishes,setSearchParishes]=useState([]);
   const [exploreResults,setExploreResults]=useState([]);
   const [exploreSort,setExploreSort]=useState('id');
+  const [reelColumns,setReelColumns]=useState(1);
+  const [detailsCollapsed,setDetailsCollapsed]=useState(false);
+  const [resultsCollapsed,setResultsCollapsed]=useState(false);
+  const [detailsWidth,setDetailsWidth]=useState(420);
+  const [resultsWidth,setResultsWidth]=useState(350);
   const [exploreGeometries,setExploreGeometries]=useState(null);
   const [exploreSelected,setExploreSelected]=useState(null);
   const [exploreCount,setExploreCount]=useState(null);
@@ -424,6 +429,33 @@ export default function App() {
   };
   const VALLEY_PARISHES=['CUMBAYA','TUMBACO','PUEMBO','PIFO','TABABELA','YARUQUI','CHECA','EL QUINCHE','GUAYLLABAMBA','NAYON','ZAMBIZA'];
   // Phase 1: direct cadastral GIS search. PUGS and IRM are reviewed per predio later.
+  // Drag panel edges to adjust widths without changing the GIS result set.
+  function startPanelResize(event, panel) {
+    if(event.button!==0 || window.matchMedia('(max-width: 900px)').matches)return;
+    event.preventDefault();
+    const originX=event.clientX;
+    const originWidth=panel==='details'?detailsWidth:resultsWidth;
+    const update=move=>{
+      const delta=move.clientX-originX;
+      const width=Math.min(panel==='details'?680:680,Math.max(panel==='details'?270:270,
+        originWidth+(panel==='details'?delta:-delta)));
+      if(panel==='details')setDetailsWidth(width);
+      else setResultsWidth(width);
+    };
+    const finish=()=>{
+      window.removeEventListener('pointermove',update);
+      window.removeEventListener('pointerup',finish);
+      window.removeEventListener('pointercancel',finish);
+      document.body.style.cursor='';
+      document.body.style.userSelect='';
+    };
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+    window.addEventListener('pointermove',update);
+    window.addEventListener('pointerup',finish);
+    window.addEventListener('pointercancel',finish);
+  }
+
   async function exploreParcels(offset=0, sort=exploreSort) {
     setExploreError('');
     setExploreGeometries(null);
@@ -635,9 +667,17 @@ export default function App() {
         <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
         {audience === 'remodeler' && <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>}
       </nav>
-      {step === 'property' && (      <main className="layout dashboard-layout">
+      {step === 'property' && (      <main className={'layout dashboard-layout'+(detailsCollapsed?' details-collapsed':'')}
+        style={{'--details-width':(detailsCollapsed?54:detailsWidth)+'px','--results-width':(resultsCollapsed?54:resultsWidth)+'px'}}>
 
-        <aside className="sidebar">
+        <aside className="sidebar details-sidebar">
+          <div className="sidebar-panel-tools">
+            <button type="button" className="panel-collapse-button" aria-expanded={!detailsCollapsed}
+              aria-label={detailsCollapsed?'Expandir información del predio':'Contraer información del predio'}
+              onClick={()=>setDetailsCollapsed(value=>!value)}>{detailsCollapsed?'›':'‹'}</button>
+            {!detailsCollapsed&&<span>Información del predio</span>}
+          </div>
+          <div className="sidebar-panel-content">
 
           <div className="eyebrow">
             QUITO · ECUADOR
@@ -1053,7 +1093,9 @@ export default function App() {
 
 
 
+          </div>
         </aside>
+        <div className="panel-resize-handle details-resize-handle" role="separator" aria-label="Ajustar ancho del panel de información" aria-orientation="vertical" onPointerDown={event=>startPanelResize(event,'details')} />
 
         {/* OPTIONAL PROFESSIONAL APPRAISAL CONTACT SHEET — BEGIN
             Placeholder contact only; never imply this person is verified.
@@ -1154,7 +1196,8 @@ export default function App() {
 
         {/* MAP */}
 
-        <section className="map-section">
+        <section className={'map-section'+(resultsCollapsed?' results-collapsed':'')}
+            style={{'--results-width':(resultsCollapsed?54:resultsWidth)+'px'}}>
 
           <div className="predio-map-pane">
           <div className="map-top">
@@ -1178,11 +1221,19 @@ export default function App() {
             </span>
           </div>
           </div>
+          {audience === 'developer' && !resultsCollapsed && <div className="panel-resize-handle results-resize-handle" role="separator" aria-label="Ajustar ancho del explorador" aria-orientation="vertical" onPointerDown={event=>startPanelResize(event,'results')} />}
           {audience === 'developer' && <div className="predio-map-reel" id="predio-map-reel">
+            <div className="results-panel-tools">
+              <button type="button" className="panel-collapse-button" aria-expanded={!resultsCollapsed}
+                aria-label={resultsCollapsed?'Expandir explorador de predios':'Contraer explorador de predios'}
+                onClick={()=>setResultsCollapsed(value=>!value)}>{resultsCollapsed?'‹':'›'}</button>
+              {resultsCollapsed&&<span className="collapsed-panel-caption">Predios</span>}
+            </div>
+            <div className="results-panel-content">
             {exploreResults.length>0 ? <>
           <div className="predio-reel-heading">
             <div>
-              <strong>Explorar predios ({exploreResults.length} en esta página)</strong>
+              <strong>Explorar predios</strong>
               <p className="note">Ordene los predios por superficie y seleccione una tarjeta para ubicarla en el mapa. PUGS pendiente.</p>
             </div>
             <label className="predio-reel-sort">Ordenar por
@@ -1196,6 +1247,11 @@ export default function App() {
                 <option value="smallest">Menor a mayor superficie</option>
               </select>
             </label>
+            <div className="predio-card-view" role="group" aria-label="Distribución de tarjetas">
+              <span>Vista</span>
+              <button type="button" className={reelColumns===1?'active':''} aria-pressed={reelColumns===1} onClick={()=>setReelColumns(1)}>1 columna</button>
+              <button type="button" className={reelColumns===2?'active':''} aria-pressed={reelColumns===2} onClick={()=>setReelColumns(2)}>2 columnas</button>
+            </div>
           </div>
           <nav className="predio-reel-pagination" aria-label="Navegar páginas de predios">
             <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0}
@@ -1206,7 +1262,7 @@ export default function App() {
             <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+50>=exploreCount}
               onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
           </nav>
-          <div id="predio-results-reel" className="predio-results-reel" role="group" aria-label="Resultados catastrales ordenados">
+          <div id="predio-results-reel" className={'predio-results-reel '+(reelColumns===2?'two-columns':'one-column')} role="group" aria-label="Resultados catastrales ordenados">
             {exploreResults.map((p,i)=>{
               const id=String(p.n_predio);
               const active=exploreSelected===id;
@@ -1235,6 +1291,7 @@ export default function App() {
               <strong>Explorador de predios</strong>
               <p>Seleccione los criterios y pulse «Buscar predios que coinciden». Aquí aparecerán las tarjetas de los predios encontrados para ubicarlos en el mapa.</p>
             </div>}
+            </div>
           </div>}
 
 
