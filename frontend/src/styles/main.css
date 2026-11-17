@@ -777,3 +777,11 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
   .dashboard-layout > .details-resize-handle,.dashboard-layout .results-resize-handle { display:none; }
   .dashboard-layout.details-collapsed .details-sidebar { padding:10px 14px; }
 }
+
+/* Visible keyboard focus and dragging affordance for adjustable panels. */
+.dashboard-layout .panel-resize-handle:focus-visible {
+  outline:2px solid #34cbb8;
+  outline-offset:1px;
+  background:rgba(32,183,170,.15);
+}
+.dashboard-layout .panel-resize-handle:focus-visible::after { background:#54e1cc; }
