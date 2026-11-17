@@ -468,6 +468,25 @@ async def pugs_for_predio(identifier_type: str, identifier: str):
 from pydantic import BaseModel, Field
 import asyncio
 
+# Geographic batch PUGS analysis. GeoJSON cadastral polygons come from the
+# first-stage ArcGIS query; this endpoint does not refetch each predio.
+from .pugs_batch import spatial_screen
+
+class PugsSpatialRequest(BaseModel):
+    features: list[dict] = Field(min_length=1, max_length=100)
+
+@app.post("/api/pugs/spatial-screen")
+async def screen_pugs_spatial(request: PugsSpatialRequest):
+    """Spatially join supplied cadastral polygons with reusable PUGS tiles.
+
+    No VU/VB/VM legal certification. Partial upstream failures are reported
+    as unavailable rather than as false no-intersection classifications.
+    """
+    try:
+        return await spatial_screen(request.features)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
 class PugsScreenRequest(BaseModel):
     predios: list[str] = Field(min_length=1, max_length=20)
 
