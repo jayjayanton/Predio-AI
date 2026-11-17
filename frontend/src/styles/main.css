@@ -1150,3 +1150,7 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
   padding:10px 13px;
 }
 .individual-search-actions > button.secondary:hover { border-color:#36c9b7; background:#24464b; }
+
+/* Stack individual predio actions vertically: clear search stays below IRM. */
+.individual-search-actions { flex-direction:column; align-items:stretch; }
+.individual-search-actions > button { flex:0 0 auto; width:100%; }
