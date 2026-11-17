@@ -441,7 +441,7 @@ export default function App() {
       };
       const [counts,results]=await Promise.all([
         query({returnCountOnly:'true',returnGeometry:'false'}),
-        query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi',returnGeometry:'false',orderByFields:'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
+        query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi,zonificaci',returnGeometry:'false',orderByFields:'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
       ]);
       setExploreCount(Number(counts.count||0));
       const candidates=(results.features||[]).map(x=>x.attributes||{});
