@@ -13,7 +13,7 @@ import ResidentialSimulator from './ResidentialSimulator.jsx';
 import ProductOverview from './components/ProductOverview.jsx';
 import SelectionPage from './components/SelectionPage.jsx';
 import AnalyticsRoadmap from './components/AnalyticsRoadmap.jsx';
-import { SELECTION_KEY, SELECTION_LIMIT, parseSelection, selectionRecord } from './selection.js';
+import { SELECTION_KEY, SELECTION_LIMIT, parseSelection, selectionRecord, mergeSelection } from './selection.js';
 
 const ROUTES = { inicio: 'home', explorar: 'explore', predio: 'property', planos: 'blueprints', seleccion: 'selection', analitica: 'analytics' };
 const pageFromHash = () => ROUTES[window.location.hash.slice(1)] || 'home';
@@ -135,10 +135,20 @@ export default function App() {
       setSelectionNotice(`El predio ${record.n_predio} ya está en tu selección.`); return;
     }
     if (savedParcels.length >= SELECTION_LIMIT) {
-      setSelectionNotice('Tu selección tiene 4 predios. Quita uno desde Selección para agregar otro.'); return;
+      setSelectionNotice(`Tu cartera tiene ${SELECTION_LIMIT} predios. Quita uno desde Selección para agregar otro.`); return;
     }
     setSavedParcels(current => [...current, record]);
     setSelectionNotice(`Predio ${record.n_predio} guardado. Revísalo en Selección.`);
+  }
+  function importParcels(items) {
+    const result = mergeSelection(savedParcels, items);
+    setSavedParcels(result.records);
+    setSelectionNotice(`${result.added} predios importados a la cartera.`);
+    return result;
+  }
+  function setIrmReviewStatus(id, reviewed) {
+    setSavedParcels(current => current.map(p => p.n_predio === String(id)
+      ? { ...p, irmReview: reviewed ? 'manual_reviewed' : 'pending' } : p));
   }
   const [developerIrm, setDeveloperIrm] = useState(null);
   const [irmExtraction, setIrmExtraction] = useState(null);
@@ -932,7 +942,7 @@ export default function App() {
 
       <main id="main-content" className="workspace-main" tabIndex={-1}>
       {page === 'home' && <ProductOverview onExplore={() => navigate('explore')} onConsult={() => navigate('property')} onBlueprints={() => navigate('blueprints')} onAnalytics={() => navigate('analytics')} />}
-      {page === 'selection' && <SelectionPage records={savedParcels} onExplore={() => navigate('explore')} onOpen={openExplorePredio} onRemove={id => { setSavedParcels(current => current.filter(p => p.n_predio !== id)); setSelectionNotice(`Predio ${id} retirado de la selección.`); }} loading={loading} error={error} storageAvailable={storageAvailable} />}
+      {page === 'selection' && <SelectionPage records={savedParcels} onExplore={() => navigate('explore')} onOpen={openExplorePredio} onRemove={id => { setSavedParcels(current => current.filter(p => p.n_predio !== id)); setSelectionNotice(`Predio ${id} retirado de la selección.`); }} onImport={importParcels} onIrmReview={setIrmReviewStatus} loading={loading} error={error} storageAvailable={storageAvailable} />}
       {page === 'analytics' && <AnalyticsRoadmap onExplore={() => navigate('explore')} onSelection={() => navigate('selection')} />}
       {isWorkspace && <>
       {loading && <div className="lookup-progress" role="status">{slowLookup ? 'El servicio está iniciándose o consultando fuentes municipales. La ficha aparecerá al terminar.' : 'Consultando la ficha del predio…'}</div>}

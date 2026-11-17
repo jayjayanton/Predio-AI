@@ -20,6 +20,14 @@ The first screen offers **two explicit paths**: **Analizar planos** for a home i
 
 Consumer-facing tasks are painting, flooring, repair, remodeling, reorganization and expansion. Existing document geometry inspection is not the same as wall recognition, calibrated measurements, quotes, contractor selection, materials procurement or managing building works. A working interpretation/calibration/measurement pipeline and reviewed reports are separate milestones. The guidance for obtaining municipal copies remains owner-led; PredioAI does not submit the request.
 
+## Firm portfolios and sequential IRM review
+
+**Selección** is now a local portfolio of up to **100 predios** rather than a four-column-only shortlist. The existing four-property side-by-side comparison is preserved as an optional subset. Users can import a **text-based PDF containing clearly labelled predio identifiers**, preview and deselect suggested IDs before adding, or paste one predio number per line. Import is handled in the browser (PDF.js) and only approved identifiers and non-sensitive workflow markers are persisted. The original PDF, raw text and IRM documents are **not stored**. Scanned PDFs require OCR or manual identifier entry. No OCR is claimed.
+
+After importing, each property has its own **Abrir ficha / IRM** action. Municipal details are queried **one property at a time**, and the official IRM retrieval/CAPTCHA and user upload/review remain individual. Portfolio status is an optional **manual** reviewed/pending marker and must not be confused with automatic verification or storage of an IRM. Imported identifiers are not assumed to be confirmed municipal properties and any unknown cadastral fields remain blank until a consultation. The list can be filtered and exported to CSV; the portfolio is browser-local, not synchronized across devices or firms.
+
+**Privacy and reliability:** A PDF may contain owner names or ID numbers. The importer extracts only clearly labelled numeric predio IDs and, if unambiguously on the same row, a cadastral key. It does not upload the PDF to the backend or persist document text. Review of candidate IDs is required before saving. There is no bulk municipal scraping or automatic bypass of the official IRM portal.
+
 ## Product status and navigation
 
 The interface is in Spanish and the initial municipal-data scope is Quito's Distrito Metropolitano. Municipal connectivity, document type and drawing quality affect what can be inspected.
@@ -30,7 +38,7 @@ The interface is in Spanish and the initial municipal-data scope is Quito's Dist
 | **Analizar planos** | Entry to the existing predio-linked project, activity, document and geometry-review workflow |
 | **Mi predio** | Look up a predio, inspect its cadastral information and continue to IRM review or the document workflow |
 | **Explorar mapa** | Find cadastral records, browse the map and open a property sheet |
-| **Selección** | Compare up to four saved parcels and download descriptive attributes as CSV |
+| **Selección** | Manage up to 100 predios, import labelled IDs from PDF or pasted list, open each for IRM, compare four at a time, export CSV |
 | **Analítica (secondary)** | Roadmap for future parcel scoring and unsupervised segmentation, linked under complementary capabilities; no active scores |
 
 The architectural journey is **identify the property → select the work → supply plans and relevant IRM → inspect/explore geometry → review evidence**. Verified measurements and technical report export are planned, not completed steps. The current UI requires a property lookup before advancing to the project/document screen; stand-alone document analysis is a future usability improvement.
@@ -75,7 +83,7 @@ The map loads a bounded overlay of **up to 1,000 matching cadastral features**, 
 
 The property sheet shows cadastral identification, parish, land and construction areas, ownership regime and returned valuation information. It distinguishes an individual **propiedad horizontal (PH)** unit from its shared **lote matriz**. Cadastral valuations and zonal AIVA references are not market appraisals or contractor costs.
 
-**Selección** stores up to four descriptive snapshots in the current browser's `localStorage`. Users can remove records, compare fields, reopen a property for a fresh lookup and download a UTF-8 CSV. PH attributed area stays separate from parent-lot area.
+**Selección** stores up to 100 sparse descriptive records in the current browser's `localStorage`. Users can import lists, review each predio, compare any four selected records, reopen a property for a fresh lookup and download a UTF-8 CSV. PH attributed area stays separate from parent-lot area.
 
 This is browser-local storage, not an account, shared team workspace or permanent project database. Uploaded documents and owner details are not included. When storage is unavailable, the selection remains in application memory for the active page session.
 
