@@ -622,10 +622,7 @@ export default function App() {
          {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,exploreSort].join('|')&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
-          <div style={{display:'flex',gap:10,marginTop:10}}>
-            <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0} onClick={()=>exploreParcels(Math.max(0,exploreOffset-50))}>Anterior</button>
-            <button type="button" className="secondary" disabled={exploreBusy||exploreOffset+50>=exploreCount} onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
-          </div>
+
         </div>}
         {Number(searchAreaMin)<=0||Number(searchAreaMax)<=0||searchAreaMin===''||searchAreaMax===''||Number(searchAreaMin)>Number(searchAreaMax)
           ? <p className="error" role="alert">Indique un rango de superficies válido, con mínimo menor o igual al máximo.</p>
@@ -1200,6 +1197,15 @@ export default function App() {
               </select>
             </label>
           </div>
+          <nav className="predio-reel-pagination" aria-label="Navegar páginas de predios">
+            <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0}
+              onClick={()=>exploreParcels(Math.max(0,exploreOffset-50))}>Anterior</button>
+            <span className="predio-reel-page" aria-live="polite">
+              {exploreCount===null?'Sin resultados':`${(exploreResults.length?exploreOffset+1:0).toLocaleString('es-EC')}–${(exploreOffset+exploreResults.length).toLocaleString('es-EC')} / ${exploreCount.toLocaleString('es-EC')}`}
+            </span>
+            <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+50>=exploreCount}
+              onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
+          </nav>
           <div id="predio-results-reel" className="predio-results-reel" role="group" aria-label="Resultados catastrales ordenados">
             {exploreResults.map((p,i)=>{
               const id=String(p.n_predio);
@@ -1216,7 +1222,15 @@ export default function App() {
               </button>;
             })}
           </div>
-
+          <nav className="predio-reel-pagination" aria-label="Navegar páginas de predios">
+            <button type="button" className="secondary" disabled={exploreBusy||exploreOffset===0}
+              onClick={()=>exploreParcels(Math.max(0,exploreOffset-50))}>Anterior</button>
+            <span className="predio-reel-page" aria-live="polite">
+              {exploreCount===null?'Sin resultados':`${(exploreResults.length?exploreOffset+1:0).toLocaleString('es-EC')}–${(exploreOffset+exploreResults.length).toLocaleString('es-EC')} / ${exploreCount.toLocaleString('es-EC')}`}
+            </span>
+            <button type="button" className="secondary" disabled={exploreBusy||exploreCount===null||exploreOffset+50>=exploreCount}
+              onClick={()=>exploreParcels(exploreOffset+50)}>Siguientes 50</button>
+          </nav>
             </> : <div className="predio-reel-empty">
               <strong>Explorador de predios</strong>
               <p>Seleccione los criterios y pulse «Buscar predios que coinciden». Aquí aparecerán las tarjetas de los predios encontrados para ubicarlos en el mapa.</p>
