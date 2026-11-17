@@ -559,3 +559,57 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
     min-height:0;
   }
 }
+
+/* Rounded parish outlines with a calm selection state. */
+.development-filter-grid .parish-selector .parish-selector-option {
+  border:1px solid #38585c;
+  border-radius:9px;
+  padding:7px 9px;
+  background:#193238;
+  text-decoration:none;
+  text-align:center;
+  transition:background .14s,border-color .14s,color .14s;
+}
+.development-filter-grid .parish-selector .parish-selector-option:hover {
+  background:#24454a;
+  border-color:#4abcb2;
+  color:#eafffc;
+  text-decoration:none;
+}
+.development-filter-grid .parish-selector .parish-selector-option.selected {
+  background:#20524b;
+  border-color:#34c9b7;
+  color:#eafffc;
+  font-weight:750;
+  text-decoration:none;
+}
+.parish-selector-group { gap:7px; }
+
+/* Page controls remain accessible at both ends of the scrolling reel. */
+.predio-reel-pagination {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center;
+  gap:7px;
+  padding:9px 0;
+  flex:0 0 auto;
+}
+.predio-reel-pagination button {
+  min-width:0;
+  width:100%;
+  padding:9px 7px;
+  border-radius:8px;
+  font-size:12px;
+  white-space:normal;
+}
+.predio-reel-pagination .predio-reel-page {
+  white-space:nowrap;
+  color:#b9d3d0;
+  font-size:11px;
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:600px) {
+  .predio-reel-pagination { gap:5px; }
+  .predio-reel-pagination button { padding:8px 5px; font-size:11px; }
+  .predio-reel-pagination .predio-reel-page { font-size:10px; }
+}
