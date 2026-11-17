@@ -27,3 +27,10 @@ test('comma CSV with quoted multiline cells stays intact',()=>{
  const rows=parseDelimited('Predio,Nota\n123456,"A\nB"\n234567,OK');
  assert.equal(rows.length,3);assert.equal(rows[1][1],'A\nB');
 });
+
+test('Excel numeric IDs ending in .0 or .000 are accepted without rounding actual decimals',()=>{
+ const rows=[['Cédula Catastral','Avalúo'],['539245.0','10470.49'],['530212.000','56680.22'],['000627739.0','69029.51'],['627739.25','0'],['1.229771e6','0'],['=123456','0']];
+ const result=candidatesFromColumn(rows,0,0);
+ assert.deepEqual(result.candidates.map(p=>p.n_predio),['539245','530212','000627739']);
+ assert.equal(result.warnings.length,1);
+});
