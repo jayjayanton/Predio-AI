@@ -1103,3 +1103,27 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 .predio-reel-card.selected .predio-reel-status,
 .predio-reel-card.selected .predio-icon-area,
 .predio-flip-back .predio-flip-title { color:#d7afff; }
+
+/* Three map states: unobtrusive nearby outlines, blue query results, purple selection. */
+.parcel-color-legend {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px 14px;
+  padding:3px 12px 7px;
+  background:#10262b;
+  color:#c5dfdb;
+  font-size:11px;
+}
+.parcel-color-legend span { display:inline-flex; gap:5px; align-items:center; }
+.parcel-color-legend i {
+  display:inline-block;
+  width:12px;
+  height:12px;
+  border-radius:3px;
+  border:1px solid #eaf2f144;
+}
+.predio-info-popup { min-width:185px; font-family:inherit; color:#26343a; }
+.predio-info-popup strong { display:block; font-size:14px; margin-bottom:7px; }
+.predio-info-popup p { margin:4px 0; font-size:12px; line-height:1.4; }
+.predio-info-popup small { display:block; margin-top:8px; color:#58676c; font-size:10px; line-height:1.4; }
