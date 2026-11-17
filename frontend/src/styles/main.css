@@ -1220,3 +1220,63 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
 @media(max-width:900px) {
   .dashboard-layout.explorer-layout { display:flex; flex-direction:column; }
 }
+
+/* Optional cadastral filters remain compact and do not affect PUGS analysis. */
+.development-filter-grid .gis-optional-filters {
+  grid-column:1 / -1;
+  min-width:0;
+  margin:0;
+  padding:12px 14px 14px;
+  border:1px solid #385056;
+  border-radius:10px;
+  background:#14272d;
+  color:#dcebea;
+}
+.gis-optional-filters legend {
+  padding:0 7px;
+  font-size:13px;
+  font-weight:650;
+  color:#bcd0d0;
+}
+.gis-optional-grid {
+  display:grid;
+  grid-template-columns:minmax(240px,1.4fr) repeat(2,minmax(170px,1fr));
+  align-items:start;
+  gap:14px;
+}
+.development-filter-grid .gis-option-toggle {
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:flex-start;
+  gap:9px;
+  cursor:pointer;
+}
+.development-filter-grid .gis-option-toggle input[type=checkbox] {
+  appearance:auto;
+  width:18px;
+  height:18px;
+  min-height:18px;
+  min-width:18px;
+  margin:0;
+  padding:0;
+  accent-color:#20b7aa;
+  flex:0 0 18px;
+}
+.gis-ratio-inputs {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin:9px 0 3px;
+}
+.gis-optional-filters input:disabled { opacity:.45; cursor:not-allowed; }
+.gis-ratio-field .note { margin:7px 0 0; font-size:11px; }
+.gis-zone-error { color:#ffc8a1; font-size:11px; line-height:1.4; }
+@media(max-width:900px) {
+  .gis-optional-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .gis-ratio-field { grid-column:1 / -1; }
+}
+@media(max-width:600px) {
+  .gis-optional-grid { grid-template-columns:1fr; }
+  .gis-ratio-field { grid-column:auto; }
+}
