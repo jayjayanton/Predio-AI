@@ -4,6 +4,36 @@
 **Stage:** Product design and validation · November 2026  
 **Companion document:** [Project README](../README.md)
 
+## Commercial workflow: remote-first remodeling and construction
+
+PredioAI serves **two connected buyer groups**: (1) real estate firms, investors, and developers researching lots or buildings; and (2) architects, construction companies, renovation contractors, and property owners planning interventions in existing buildings. The second workflow must remain visible as a first-class product capability, not a footnote to cadastral exploration.
+
+**Value proposition:** use approved or otherwise authorized plans and cadastral/IRM context to prepare preliminary quantities remotely, reducing manual drawing measurements and potentially avoiding some early exploratory site visits. This is a testable cost-saving hypothesis, **not a proven reduction in project cost or a replacement for professional surveys**.
+
+### User journey: renovation, repair, and expansion
+
+1. Enter **Planos y remodelación** directly or from a selected property; property linking is optional in the target architecture, although the current prototype still requires a property lookup to advance.
+2. Define the intervention: repair, maintenance, renovation, structural alteration, or extension. Flag structural changes and extensions for professional and municipal review.
+3. Upload authorized floor plans, elevations, sections, and schedules; inspect whether the documents contain text, vector geometry, dimensions, and usable scale.
+4. Select the relevant rooms, walls, openings, ceilings, or floors in a future interactive viewer. Prefer vector geometry and explicit dimensions; use computer vision only when necessary and validated.
+5. Confirm scale, wall heights, number of wall faces, deductions for openings, and whether the plans reflect the *as-built* condition. Record missing evidence explicitly.
+6. Compute reviewable **measurements and surface quantities**, e.g. paintable wall area = sum of verified wall lengths × verified heights × selected faces − verified openings. Never infer wall heights or structural conditions from a floor plan alone.
+7. Produce a preliminary measurement schedule and report, with provenance and manual corrections. Do **not** automatically estimate materials, labor, prices, or construction budgets.
+8. Require an on-site survey when measurements are unverified, drawings are outdated, existing conditions differ, structural work is planned, or municipal/professional obligations apply.
+
+### Pilot success criteria
+
+Measure time to produce a reviewed takeoff versus a manual baseline, discrepancies against site-verified measurements, percentage of measurements requiring correction, and the share of preliminary site visits genuinely avoided. Report uncertainty and document coverage; do not present estimated savings as achieved savings before validation.
+
+### Implementation sequence
+
+- **Present:** cadastral and IRM context; repair/remodel/expansion activity categories; PDF inspection and preliminary document viewing.
+- **Next:** stand-alone document workspace, drawing scale calibration, selectable geometry, validated wall/room/surface measurements, manual corrections, and provenance.
+- **Later:** saved projects, collaborative review, exportable measurement reports, and optional assisted retrieval grounded in uploaded documents.
+- **Separate analytics track:** property scoring and unsupervised parcel segmentation are future real-estate intelligence capabilities, not prerequisites for architectural takeoff.
+
+**Important boundary:** municipal cadastral footprints are not reliable substitutes for individual room plans or as-built measurements. A digitally calculated surface does not by itself certify constructability, code compliance, structural safety, or approval for an extension.
+
 ## Project overview
 
 PredioAI is being developed as a practical bridge between **property GIS** and **construction-document analysis**. Its current prototype retrieves Quito cadastral data and inspects PDF structure. The next stage will allow users to upload authorized architectural drawings, extract reliable construction quantities, explore the findings through an AI assistant, and generate technical reports.
