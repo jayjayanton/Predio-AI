@@ -46,6 +46,29 @@ const BASEMAPS = {
 };
 
 
+// Keep Leaflet's canvas and tile placement synced with collapsible/resizable panels.
+function ResizeWithContainer() {
+  const map=useMap();
+  useEffect(()=>{
+    const element=map.getContainer();
+    let frame=null;
+    const refresh=()=>{
+      if(frame!==null)cancelAnimationFrame(frame);
+      frame=requestAnimationFrame(()=>map.invalidateSize({pan:false,animate:false}));
+    };
+    const observer=typeof ResizeObserver!=='undefined'?new ResizeObserver(refresh):null;
+    observer?.observe(element);
+    window.addEventListener('resize',refresh);
+    refresh();
+    return ()=>{
+      if(frame!==null)cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener('resize',refresh);
+    };
+  },[map]);
+  return null;
+}
+
 // Automatically zoom to a selected cadastral parcel.
 
 function ZoomToParcel({ data }) {
@@ -335,6 +358,8 @@ export default function ParcelMap({ data, criteria, searchResults, selectedSearc
         zoomControl={true}
         className="map"
       >
+
+        <ResizeWithContainer />
 
         {/* ArcGIS basemap */}
 
