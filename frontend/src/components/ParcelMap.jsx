@@ -311,8 +311,23 @@ function SearchResultsLayer({results,selected,onSelect}) {
   const map=useMap();
   useEffect(()=>{
     if(!results?.features?.length)return;
-    const bounds=L.geoJSON(results).getBounds();
-    if(bounds.isValid())map.fitBounds(bounds,{padding:[35,35],maxZoom:15});
+    // The first 50 GIS results may span the whole DMQ. fitBounds(all) zooms
+    // out excessively, so find a representative parcel centroid near the
+    // mean of the returned parcel centers and start at neighborhood scale.
+    const centers=results.features.flatMap(feature=>{
+      if(!feature.geometry)return [];
+      const bounds=L.geoJSON(feature).getBounds();
+      return bounds.isValid()?[bounds.getCenter()]:[];
+    });
+    if(!centers.length)return;
+    const mean=L.latLng(
+      centers.reduce((sum,p)=>sum+p.lat,0)/centers.length,
+      centers.reduce((sum,p)=>sum+p.lng,0)/centers.length
+    );
+    const representative=centers.reduce((best,p)=>
+      mean.distanceTo(p)<mean.distanceTo(best)?p:best,centers[0]);
+    map.invalidateSize({pan:false,animate:false});
+    map.setView(representative,16,{animate:false});
   },[results,map]);
   useEffect(()=>{
     if(!selected||!results?.features?.length)return;
