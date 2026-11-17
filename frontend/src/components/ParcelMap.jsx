@@ -213,9 +213,60 @@ function VisibleParcels({enabled,criteria,highlightMatches}) {
   </>;
 }
 
+function SearchResultsLayer({results,selected,onSelect}) {
+  const map=useMap();
+  const [nearest,setNearest]=useState(null);
+  useEffect(()=>{
+    if(!results?.features?.length){setNearest(null);return;}
+    const collection=L.geoJSON(results);
+    const bounds=collection.getBounds();
+    if(bounds.isValid())map.fitBounds(bounds,{padding:[35,35],maxZoom:15});
+    const updateNearest=()=>{
+      const center=map.getCenter();
+      let best=null,distance=Infinity;
+      collection.eachLayer(layer=>{
+        if(!layer.getBounds)return;
+        const id=String(layer.feature?.properties?.n_predio||'');
+        const d=center.distanceTo(layer.getBounds().getCenter());
+        if(id&&d<distance){best=id;distance=d;}
+      });
+      setNearest(best);
+    };
+    updateNearest();
+    map.on('moveend',updateNearest);
+    return ()=>map.off('moveend',updateNearest);
+  },[results,map]);
+  useEffect(()=>{
+    if(!selected||!results?.features?.length)return;
+    const feature=results.features.find(f=>String(f.properties?.n_predio)===String(selected));
+    if(!feature)return;
+    const bounds=L.geoJSON(feature).getBounds();
+    if(bounds.isValid())map.fitBounds(bounds,{padding:[50,50],maxZoom:18});
+  },[selected,results,map]);
+  if(!results?.features?.length)return null;
+  return <>
+    <GeoJSON key={JSON.stringify([results.features.map(f=>f.properties?.n_predio),selected,nearest])} data={results}
+      style={feature=>{
+        const id=String(feature.properties?.n_predio||'');
+        const active=id===String(selected||nearest);
+        return {color:active?'#ffbf47':'#20b7aa',weight:active?3.5:2,fillColor:active?'#ffbf47':'#20b7aa',fillOpacity:active?.48:.17};
+      }}
+      onEachFeature={(feature,layer)=>{
+        const id=String(feature.properties?.n_predio||'');
+        layer.bindTooltip('Predio '+id);
+        layer.on('click',()=>onSelect?.(id));
+      }}/>
+    <div className="leaflet-bottom leaflet-right" style={{pointerEvents:'none',marginBottom:42}}>
+      <div className="leaflet-control" style={{background:'#10262be8',color:'#eaf2f1',padding:'8px 10px',fontSize:12,borderRadius:8,margin:10}}>
+        {results.features.length} polígonos preliminares · destacado: {selected||nearest||'ninguno'}
+      </div>
+    </div>
+  </>;
+}
+
 // Main cadastral map component.
 
-export default function ParcelMap({ data, criteria }) {
+export default function ParcelMap({ data, criteria, searchResults, selectedSearchPredio, onSelectSearchPredio }) {
   const [basemap, setBasemap] = useState('streets');
   const [showNearbyParcels,setShowNearbyParcels]=useState(true);
   const [highlightMatches,setHighlightMatches]=useState(false);
@@ -295,7 +346,8 @@ export default function ParcelMap({ data, criteria }) {
           maxZoom={19}
         />
 
-        <VisibleParcels enabled={showNearbyParcels} criteria={criteria} highlightMatches={highlightMatches}/>
+        <VisibleParcels enabled={showNearbyParcels && !searchResults?.features?.length} criteria={criteria} highlightMatches={highlightMatches}/>
+        <SearchResultsLayer results={searchResults} selected={selectedSearchPredio} onSelect={onSelectSearchPredio}/>
 
         {/* Municipal cadastral polygons */}
 
