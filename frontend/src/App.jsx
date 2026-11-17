@@ -79,6 +79,13 @@ export default function App() {
   const [searchLandClass,setSearchLandClass]=useState('all');
   const [searchAreaMin,setSearchAreaMin]=useState('500');
   const [searchAreaMax,setSearchAreaMax]=useState('6000');
+  const [constructionRatioEnabled,setConstructionRatioEnabled]=useState(false);
+  const [constructionRatioMin,setConstructionRatioMin]=useState('0');
+  const [constructionRatioMax,setConstructionRatioMax]=useState('100');
+  const [minimumFrontage,setMinimumFrontage]=useState('');
+  const [administrativeZone,setAdministrativeZone]=useState('all');
+  const [administrativeZoneOptions,setAdministrativeZoneOptions]=useState([]);
+  const [administrativeZoneError,setAdministrativeZoneError]=useState('');
   const [searchParishes,setSearchParishes]=useState([]);
   const [exploreResults,setExploreResults]=useState([]);
   const [exploreSort,setExploreSort]=useState('id');
@@ -592,6 +599,39 @@ export default function App() {
     requestAnimationFrame(()=>document.getElementById('predio-query-selector')?.scrollIntoView({behavior:'smooth',block:'start'}));
   }
 
+  const explorationFilterKey=[
+    searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),
+    searchLandClass,exploreSort,
+    constructionRatioEnabled?'ratio:'+constructionRatioMin+':'+constructionRatioMax:'ratio:off',
+    minimumFrontage,administrativeZone
+  ].join('|');
+
+  useEffect(()=>{
+    if(audience!=='explorer')return;
+    let cancelled=false;
+    const loadZones=async()=>{
+      setAdministrativeZoneError('');
+      try{
+        const params=new URLSearchParams({
+          f:'json',where:'administra IS NOT NULL',
+          outFields:'administra',returnDistinctValues:'true',
+          returnGeometry:'false',orderByFields:'administra ASC',resultRecordCount:'200'
+        });
+        const response=await fetch(CADASTRE_SEARCH+'?'+params);
+        if(!response.ok)throw new Error('HTTP '+response.status);
+        const data=await response.json();
+        if(data.error)throw new Error(data.error.message||'ArcGIS error');
+        if(data.exceededTransferLimit)throw new Error('Lista municipal incompleta');
+        const zones=[...new Set((data.features||[]).map(f=>String(f.attributes?.administra||'').trim()).filter(Boolean))];
+        if(!cancelled)setAdministrativeZoneOptions(zones.sort((a,b)=>a.localeCompare(b,'es')));
+      }catch(error){
+        if(!cancelled)setAdministrativeZoneError('No se pudo consultar la lista de administraciones zonales.');
+      }
+    };
+    loadZones();
+    return ()=>{cancelled=true;};
+  },[audience]);
+
   async function exploreParcels(offset=0, sort=exploreSort) {
     advancedRunId.current++;
     setAdvancedBusy(false);
@@ -603,7 +643,26 @@ export default function App() {
     if(!searchAreaMin||!searchAreaMax||!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max<min){
       setExploreError('Ingrese un rango de superficie válido.'); return;
     }
+    const ratioMin=Number(constructionRatioMin),ratioMax=Number(constructionRatioMax);
+    if(constructionRatioEnabled&&(!constructionRatioMin||!constructionRatioMax||
+      !Number.isFinite(ratioMin)||!Number.isFinite(ratioMax)||ratioMin<0||ratioMax<ratioMin)){
+      setExploreError('Ingrese un rango válido de relación construcción/terreno (%).');return;
+    }
+    const frontage=minimumFrontage.trim()===''?null:Number(minimumFrontage);
+    if(frontage!==null&&(!Number.isFinite(frontage)||frontage<0)){
+      setExploreError('Ingrese un frente mínimo válido (m).');return;
+    }
     const clauses=['area_terre >= '+min,'area_terre <= '+max];
+    // Arithmetic is executed by the cadastral service before count/pagination.
+    // No denominator division: excludes missing values and keeps >100% ratios.
+    if(constructionRatioEnabled){
+      clauses.push('area_const IS NOT NULL','area_terre > 0',
+        '(area_const * 100) >= (area_terre * '+ratioMin+')',
+        '(area_const * 100) <= (area_terre * '+ratioMax+')');
+    }
+    if(frontage!==null)clauses.push('frente >= '+frontage);
+    if(administrativeZone!=='all')
+      clauses.push("administra = '"+administrativeZone.replace(/'/g,"''")+"'");
     if(searchParishes.length) {
       clauses.push('('+searchParishes.map(p=>"UPPER(parroquia) = '"+p.replace(/'/g,"''")+"'").join(' OR ')+')');
     }
@@ -622,7 +681,7 @@ export default function App() {
       };
       const [counts,results]=await Promise.all([
         query({returnCountOnly:'true',returnGeometry:'false'}),
-        query({outFields:'n_predio,clave_cata,parroquia,area_terre,area_const,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
+        query({outFields:'n_predio,clave_cata,parroquia,area_terre,area_const,frente,administra,tipo_propi,zonificaci',returnGeometry:'true',outSR:'4326',orderByFields:sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
       ]);
       setExploreCount(Number(counts.count||0));
       setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
@@ -658,7 +717,7 @@ export default function App() {
       });
       setExploreGeometries({type:'FeatureCollection',features:geometries});
       setExploreOffset(offset);
-      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort].join('|'));
+      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioEnabled?'ratio:'+constructionRatioMin+':'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone].join('|'));
     }catch(error){
       setExploreError('No se pudo completar la consulta GIS municipal: '+error.message);
       setExploreResults([]);setExploreGeometries(null);setExploreCount(null);
@@ -816,7 +875,7 @@ export default function App() {
         </div>
         <button type="button" className="primary-action" disabled={exploreBusy} onClick={()=>exploreParcels(0)}>{exploreBusy?'Consultando catastro…':'Buscar predios que coinciden'}</button>
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
-         {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,exploreSort].join('|')&&<div className="explore-results" aria-live="polite">
+         {exploreCount!==null&&exploreQueryKey===explorationFilterKey&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
 
