@@ -120,7 +120,7 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
 
   function importApproved() {
     const items = candidates.filter(p => chosen.includes(p.n_predio))
-      .map(p => ({ n_predio: p.n_predio, clave_cata: p.clave_cata || '', source: 'pdf' }));
+      .map(p => ({ n_predio: p.n_predio, clave_cata: p.clave_cata || '', source: 'import' }));
     if (!items.length) { setImportError('Selecciona al menos un predio para agregar.'); return; }
     const result = onImport(items);
     setImportMessage(`${result.added} agregados · ${result.duplicates} repetidos · ${result.full} sin espacio · ${result.rejected} inválidos.`);
@@ -128,7 +128,7 @@ export default function SelectionPage({ records, onExplore, onOpen, onRemove, on
   }
 
   async function fillMunicipalData() {
-    const ids = records.filter(p => p.source === 'pdf').slice(0, 10).map(p => p.n_predio);
+    const ids = records.filter(p => ['pdf','import'].includes(p.source)).slice(0, 10).map(p => p.n_predio);
     if (!ids.length || enriching) return;
     setEnriching(true); setEnrichResult(''); setEnrichProgress('');
     try {

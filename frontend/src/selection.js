@@ -13,7 +13,7 @@ const numeric = value => {
 // workflow metadata. The imported PDF and extracted raw text stay ephemeral.
 export function selectionRecord(parcel, savedAt = new Date().toISOString()) {
   if (!parcel || !/^\d{1,25}$/.test(String(parcel.n_predio || ''))) return null;
-  const source = parcel.source === 'pdf' ? 'pdf' : 'catastro';
+  const source = ['pdf','import'].includes(parcel.source) ? parcel.source : 'catastro';
   return {
     n_predio: String(parcel.n_predio),
     clave_cata: String(parcel.clave_cata || ''),
@@ -64,7 +64,7 @@ export function mergeSelection(existing, additions) {
 export function selectionCSV(records) {
   const rows = [
     ['Predio', 'Clave catastral', 'Parroquia', 'Regimen de propiedad', 'Suelo registrado', 'Area lote / lote matriz m2', 'Area atribuida PH m2', 'Construccion m2', 'Frente m', 'Guardado el', 'Fuente', 'Estado IRM manual'],
-    ...records.map(p => [p.n_predio, p.clave_cata, p.parroquia, p.tipo_propi, p.zonificaci, p.area_terre, p.tipo_propi.trim().toUpperCase() === 'PROPIEDAD HORIZONTAL' ? p.area_ter_1 : null, p.area_const, p.frente, p.savedAt, p.source === 'pdf' ? 'PDF importado; sin verificación municipal' : 'Catastro municipal de Quito, atributos 2024', p.irmReview === 'manual_reviewed' ? 'Marcado revisado por usuario' : 'Pendiente']),
+    ...records.map(p => [p.n_predio, p.clave_cata, p.parroquia, p.tipo_propi, p.zonificaci, p.area_terre, p.tipo_propi.trim().toUpperCase() === 'PROPIEDAD HORIZONTAL' ? p.area_ter_1 : null, p.area_const, p.frente, p.savedAt, ['pdf','import'].includes(p.source) ? 'Archivo importado; sin verificación municipal' : 'Catastro municipal de Quito, atributos 2024', p.irmReview === 'manual_reviewed' ? 'Marcado revisado por usuario' : 'Pendiente']),
   ];
   const escape = value => {
     const raw = String(value ?? '');

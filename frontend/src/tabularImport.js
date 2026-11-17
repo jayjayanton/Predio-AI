@@ -2,8 +2,8 @@
 // Supports CSV, DOCX tables and XLSX worksheets. Legacy .doc/.xls not supported.
 export function parseDelimited(text, delimiter) {
   const src = String(text || '').replace(/^\uFEFF/, '');
-  const sep = delimiter || (src.split(/\r?\n/).slice(0,5).join('\n').match(/;/g)||[]).length >
-    (src.split(/\r?\n/).slice(0,5).join('\n').match(/,/g)||[]).length ? ';' : ',';
+  const sep = delimiter || (((src.split(/\r?\n/).slice(0,5).join('\n').match(/;/g)||[]).length >
+    (src.split(/\r?\n/).slice(0,5).join('\n').match(/,/g)||[]).length) ? ';' : ',');
   const rows=[];let row=[],value='',quoted=false;
   for(let i=0;i<src.length;i++){
     const c=src[i];
