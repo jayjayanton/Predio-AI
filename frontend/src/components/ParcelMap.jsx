@@ -238,26 +238,10 @@ function VisibleParcels({enabled,criteria,highlightMatches}) {
 
 function SearchResultsLayer({results,selected,onSelect}) {
   const map=useMap();
-  const [nearest,setNearest]=useState(null);
   useEffect(()=>{
-    if(!results?.features?.length){setNearest(null);return;}
-    const collection=L.geoJSON(results);
-    const bounds=collection.getBounds();
+    if(!results?.features?.length)return;
+    const bounds=L.geoJSON(results).getBounds();
     if(bounds.isValid())map.fitBounds(bounds,{padding:[35,35],maxZoom:15});
-    const updateNearest=()=>{
-      const center=map.getCenter();
-      let best=null,distance=Infinity;
-      collection.eachLayer(layer=>{
-        if(!layer.getBounds)return;
-        const id=String(layer.feature?.properties?.n_predio||'');
-        const d=center.distanceTo(layer.getBounds().getCenter());
-        if(id&&d<distance){best=id;distance=d;}
-      });
-      setNearest(best);
-    };
-    updateNearest();
-    map.on('moveend',updateNearest);
-    return ()=>map.off('moveend',updateNearest);
   },[results,map]);
   useEffect(()=>{
     if(!selected||!results?.features?.length)return;
@@ -271,7 +255,7 @@ function SearchResultsLayer({results,selected,onSelect}) {
   },[selected,results,map]);
   if(!results?.features?.length)return null;
   return <>
-    <GeoJSON key={JSON.stringify([results.features.map(f=>f.properties?.n_predio),selected,nearest])} data={results}
+    <GeoJSON key={JSON.stringify([results.features.map(f=>f.properties?.n_predio),selected])} data={results}
       style={feature=>{
         const id=String(feature.properties?.n_predio||'');
         // An automatically detected nearest parcel is NOT a user selection.
