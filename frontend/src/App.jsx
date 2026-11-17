@@ -549,8 +549,10 @@ export default function App() {
       }
       setAdvancedProgress(`Análisis preliminar completo: ${done} de ${ids.length} predios de esta página.`);
     }catch(error){
-      setAdvancedError(error.message||'No se pudo analizar PUGS.');
-      setAdvancedProgress(`Cruce parcial: ${done} de ${ids.length} predios; los restantes siguen pendientes.`);
+      if(runId===advancedRunId.current){
+        setAdvancedError(error.message||'No se pudo analizar PUGS.');
+        setAdvancedProgress(`Cruce parcial: ${done} de ${ids.length} predios; los restantes siguen pendientes.`);
+      }
     }finally{
       if(runId===advancedRunId.current)setAdvancedBusy(false);
     }
@@ -1389,7 +1391,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={data} searchResults={visibleExploreGeometries} selectedSearchPredio={exploreSelected} onSelectSearchPredio={selectExplorePredioFromMap} />
+          <ParcelMap data={data} searchResults={audience==='explorer'?visibleExploreGeometries:null} selectedSearchPredio={audience==='explorer'?exploreSelected:null} onSelectSearchPredio={selectExplorePredioFromMap} />
           <div className="map-bottom">
             <span>
               Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
