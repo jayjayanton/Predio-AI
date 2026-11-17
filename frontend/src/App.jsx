@@ -2159,8 +2159,10 @@ export default function App() {
         </main>
       )}
 
-      <section className="property" aria-label="Fuentes de datos y metodología">
-        <h2>Fuentes de datos y metodología</h2>
+      <section className="property sources-methodology" aria-label="Fuentes de datos y metodología">
+        <details className="sources-methodology-details">
+          <summary><span>Fuentes de datos y metodología</span><span className="sources-methodology-hint">Ver fuentes y criterios</span></summary>
+          <div className="sources-methodology-body">
         <p className="note">PredioAI distingue datos oficiales consultados, documentos aportados por el usuario y cálculos orientativos. La fecha de cada capa no equivale a la fecha de consulta.</p>
         <dl>
           <dt>Catastro municipal de Quito (atributos 2024)</dt>
@@ -2177,6 +2179,8 @@ export default function App() {
           <dd>Análisis cuantitativos y espaciales realizados a partir de información catastral, parámetros de edificabilidad, COS, superficies del predio y normativa urbanística disponible en fuentes municipales oficiales. Los resultados se calculan mediante procedimientos reproducibles y se encuentran sujetos a las condiciones y limitaciones de los datos consultados. La evaluación identifica los parámetros aplicables y las restricciones documentadas. Los retiros, afectaciones viales, cesiones, densidad, excepciones normativas y demás condiciones se incorporan cuando existe información suficiente para su análisis. Los resultados no sustituyen la verificación técnica ni la autorización de las autoridades municipales competentes.</dd>
         </dl>
         <p className="note">Cuando existan diferencias entre catastro, IRM y PUGS, prevalece la necesidad de verificar la normativa y documentación vigente ante el Municipio.</p>
+          </div>
+        </details>
       </section>
 
       {/* FOOTER */}
