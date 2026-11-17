@@ -83,6 +83,7 @@ export default function App() {
   const [searchOccupation,setSearchOccupation]=useState('all');
   const [searchParishes,setSearchParishes]=useState([]);
   const [exploreResults,setExploreResults]=useState([]);
+  const [explorePugsStatus,setExplorePugsStatus]=useState('');
   const [exploreCount,setExploreCount]=useState(null);
   const [exploreBusy,setExploreBusy]=useState(false);
   const [exploreError,setExploreError]=useState('');
@@ -426,9 +427,6 @@ export default function App() {
     setExploreError('');
     const min=Number(searchAreaMin),max=Number(searchAreaMax);
     if(!searchAreaMin||!searchAreaMax||min<=0||max<min){setExploreError('Ingrese un rango de superficie válido.');return;}
-    if(searchLandClass!=='all'||searchHousingType!=='all'||searchOccupation!=='all'){
-      setExploreError('Los filtros urbano/rural, VU/VB/VM y ocupación requieren el cruce PUGS. Seleccione «Todos» en esos filtros para consultar los resultados catastrales por área y parroquia.');return;
-    }
     const areaWhere='area_terre >= '+min+' AND area_terre <= '+max;
     const where=areaWhere+(searchParishes.length===0?'':' AND ('+searchParishes.map(x=>"UPPER(parroquia) = '"+x+"'").join(' OR ')+')');
     setExploreBusy(true);
@@ -446,7 +444,33 @@ export default function App() {
         query({outFields:'n_predio,clave_cata,parroquia,area_terre,tipo_propi',returnGeometry:'false',orderByFields:'n_predio ASC',resultOffset:String(offset),resultRecordCount:'50'})
       ]);
       setExploreCount(Number(counts.count||0));
-      setExploreResults((results.features||[]).map(x=>x.attributes||{}));
+      const candidates=(results.features||[]).map(x=>x.attributes||{});
+      const needsPugs=searchLandClass!=='all'||searchHousingType!=='all'||searchOccupation!=='all';
+      if(needsPugs){
+        const batch=candidates.filter(x=>x.n_predio!=null).slice(0,20);
+        setExplorePugsStatus('Verificando hasta 20 predios de esta página contra PUGS…');
+        const response=await fetch(`${API}/api/pugs/screen`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({predios:batch.map(x=>String(x.n_predio))})});
+        if(!response.ok)throw new Error('El servicio PUGS no está disponible (HTTP '+response.status+').');
+        const screening=await response.json();
+        const byId=new Map((screening.results||[]).map(x=>[String(x.predio),x]));
+        const matches=candidates.filter(candidate=>{
+          const item=byId.get(String(candidate.n_predio));
+          if(!item||!['single_zone','multiple_zones'].includes(item.status))return false;
+          const zones=item.zones||[];
+          return zones.some(z=>{
+            const text=[z.leyenda,z.tipo_des,z.edifi_ba,z.edifi_gm,z.unidad_viv].filter(Boolean).join(' ').toUpperCase();
+            const housing=searchHousingType==='all'||new RegExp('\\b'+searchHousingType+'\\b').test(text);
+            const occupation=searchOccupation==='all'||[z.ocupa_ba,z.ocupa_gm].some(v=>String(v||'').toUpperCase().trim()===searchOccupation);
+            const land=searchLandClass==='all'||String(candidate.zonificaci||'').toUpperCase().includes(searchLandClass==='urban'?'URBAN':'RURAL');
+            return housing&&occupation&&land;
+          });
+        });
+        setExploreResults(matches);
+        setExplorePugsStatus(`PUGS: ${screening.screened} predios revisados de ${candidates.length} en esta página; ${matches.length} coincidencias provisionales. No es un conteo total del DMQ. Las etiquetas VU/VB/VM dependen de los atributos publicados.`);
+      }else{
+        setExploreResults(candidates);
+        setExplorePugsStatus('');
+      }
       setExploreOffset(offset);
       setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchHousingType,searchOccupation].join('|'));
     }catch(e){setExploreError('No se pudo completar la consulta municipal: '+e.message);setExploreResults([]);setExploreCount(null);}
@@ -546,7 +570,7 @@ export default function App() {
       </section>
       {audience === 'developer' && <section className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
         <h2>Exploración de terrenos · Criterios de selección</h2>
-        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. Los filtros urbanísticos requieren validación PUGS.</p>
+        <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. Los filtros urbanísticos se verifican provisionalmente contra PUGS.</p>
         <div className="development-filter-grid">
           <label>Clasificación del suelo
             <select value={searchLandClass} onChange={e=>setSearchLandClass(e.target.value)}>
@@ -600,6 +624,7 @@ export default function App() {
         </div>
         <button type="button" className="primary-action" disabled={exploreBusy} onClick={()=>exploreParcels(0)}>{exploreBusy?'Consultando catastro…':'Buscar predios que coinciden'}</button>
         {exploreError&&<p role="alert" className="error">{exploreError}</p>}
+         {explorePugsStatus&&<p className="note" role="status">{explorePugsStatus}</p>}
         {exploreCount!==null&&exploreQueryKey===[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,searchHousingType,searchOccupation].join('|')&&<div className="explore-results" aria-live="polite">
           <strong>{exploreCount.toLocaleString('es-EC')} registros catastrales coincidentes (2024)</strong>
           <p className="note">Se muestran hasta 50 resultados por página. La consulta utiliza superficie registrada y parroquia; al abrir un predio se consulta su geometría 2026 cuando está disponible. Los resultados no indican terrenos en venta ni autorización de construcción.</p>
