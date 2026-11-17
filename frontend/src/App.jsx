@@ -90,6 +90,19 @@ export default function App() {
   const [exploreGeometries,setExploreGeometries]=useState(null);
   const [exploreSelected,setExploreSelected]=useState(null);
   const toggleExplorePredio=id=>setExploreSelected(current=>current===String(id)?null:String(id));
+  // Keep GIS map selection and the matching result card synchronized.
+  useEffect(()=>{
+    if(!exploreSelected || !exploreResults.length)return;
+    const reel=document.getElementById('predio-results-reel');
+    if(!reel)return;
+    const card=Array.from(reel.querySelectorAll('[data-predio-id]'))
+      .find(element=>element.dataset.predioId===String(exploreSelected));
+    if(!card)return;
+    // Scroll only the sidebar's card list, never the entire page/map.
+    const top=card.offsetTop-reel.offsetTop;
+    reel.scrollTo({top:Math.max(0,top-reel.clientHeight/3),behavior:'smooth'});
+  },[exploreSelected,exploreResults,reelColumns]);
+
   const [exploreCount,setExploreCount]=useState(null);
   const [exploreBusy,setExploreBusy]=useState(false);
   const [exploreError,setExploreError]=useState('');
@@ -471,6 +484,18 @@ export default function App() {
     window.addEventListener('pointercancel',finish);
   }
 
+  function clearGISExploration() {
+    setExploreSelected(null);
+    setExploreResults([]);
+    setExploreGeometries(null);
+    setExploreCount(null);
+    setExploreOffset(0);
+    setExploreQueryKey('');
+    setExploreError('');
+    // Keep chosen filters so the user can refine rather than re-enter them.
+    requestAnimationFrame(()=>document.getElementById('predio-query-selector')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  }
+
   async function exploreParcels(offset=0, sort=exploreSort) {
     setExploreError('');
     setExploreGeometries(null);
@@ -637,7 +662,7 @@ export default function App() {
         <button type="button" className={step === 'project' ? 'active' : ''} disabled={!properties} onClick={() => setStep('project')}>{audience === 'developer' ? '2 · IRM y evaluación' : '2 · Proyecto y planos'}</button>
         {audience === 'remodeler' && <button type="button" className={step === 'report' ? 'active' : ''} disabled={!inspection} onClick={() => setStep('report')}>3 · Informe preliminar</button>}
       </nav>
-      {audience === 'developer' && <section className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
+      {audience === 'developer' && <section id="predio-query-selector" className="development-search-criteria" aria-label="Criterios de exploración de terrenos">
         <h2>Exploración de terrenos · Criterios de selección</h2>
         <p className="note">Defina el tipo de terreno y proyecto que desea explorar. Busque predios por superficie y parroquia, consulte el número de coincidencias y abra cualquier resultado en el mapa. La búsqueda preliminar consulta directamente el catastro GIS por superficie, clasificación catastral y parroquia. PUGS, ocupación y tipo de vivienda se revisan después para cada predio.</p>
         <div className="development-filter-grid">
@@ -1281,6 +1306,7 @@ export default function App() {
               {resultsCollapsed&&<span className="collapsed-panel-caption">Predios</span>}
             </div>
             <div className="results-panel-content">
+            {exploreCount!==null&&<button type="button" className="predio-new-query" disabled={exploreBusy} onClick={clearGISExploration}>Limpiar búsqueda · Nueva consulta ↑</button>}
             {exploreResults.length>0 ? <>
           <div className="predio-reel-heading">
             <div>
@@ -1330,6 +1356,7 @@ export default function App() {
               const ratio=validLand&&validBuilt?100*builtArea/landArea:null;
               return <button type="button" key={id+'-'+i}
                 className={'predio-reel-card'+(active?' selected':'')+(reelColumns===2&&active?' is-flipped':'')}
+                data-predio-id={id}
                 aria-pressed={active}
                 aria-expanded={reelColumns===2?active:undefined}
                 aria-label={`Predio ${id}, ${p.parroquia||'sin parroquia'}, ${validLand?fmt(landArea):'superficie no disponible'} metros cuadrados de terreno. ${hasGeometry?'Ubicar polígono en mapa':'Sin geometría disponible'}`}
