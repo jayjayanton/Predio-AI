@@ -958,3 +958,54 @@ footer { height: 36px; padding: 10px 34px; background: #0b151a; color: #67858a; 
     max-height:520px;
   }
 }
+
+/* Lista displays cadastral area comparison; Iconos expands only the selected tile. */
+.predio-reel-area-comparison {
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  width:100%;
+  font-size:11px;
+  color:#afccc7;
+}
+.predio-reel-area-comparison > span {
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:3px 8px;
+}
+.predio-reel-area-comparison strong {
+  color:#e3f4f1;
+  font-variant-numeric:tabular-nums;
+  font-size:12px;
+}
+.dashboard-layout .predio-map-reel .predio-results-reel.icon-grid .predio-reel-card.icon-expanded {
+  grid-column:span 2;
+  min-height:194px;
+  padding:12px 9px;
+  border-color:#ffbf47;
+  align-items:stretch;
+  justify-content:flex-start;
+}
+.dashboard-layout .predio-map-reel .predio-results-reel.icon-grid .predio-reel-card.icon-expanded .predio-icon-symbol,
+.dashboard-layout .predio-map-reel .predio-results-reel.icon-grid .predio-reel-card.icon-expanded .predio-icon-id,
+.dashboard-layout .predio-map-reel .predio-results-reel.icon-grid .predio-reel-card.icon-expanded .predio-icon-area {
+  align-self:center;
+}
+.predio-icon-expanded-details {
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:5px;
+  width:100%;
+  margin-top:7px;
+  padding-top:8px;
+  border-top:1px solid #41615d;
+  text-align:left;
+  color:#d5e9e5;
+  font-size:11px;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.predio-icon-hint { color:#ffd17c; font-size:10px; }
