@@ -138,6 +138,8 @@ function VisibleParcels({enabled,criteria,highlightMatches}) {
   const [features,setFeatures]=useState(null);
   const [status,setStatus]=useState('');
   const [selectedNearby,setSelectedNearby]=useState(null);
+  const selectedNearbyRef=React.useRef(null);
+  const selectedLayerRef=React.useRef(null);
   const attributesCache=React.useRef(new Map());
   // Retain completed features across pans, while bounding browser memory.
   const cache=React.useRef(new Map());
@@ -247,7 +249,7 @@ function VisibleParcels({enabled,criteria,highlightMatches}) {
   const highlight=Boolean(highlightMatches&&validRange&&!advanced);
   return <>
     {features?.features?.length>0&&<GeoJSON className="predio-nearby-interactive"
-      key={JSON.stringify([features.features.map(f=>f.id||f.properties?.predio),selectedNearby])} data={features}
+      key={JSON.stringify(features.features.map(f=>f.id||f.properties?.predio))} data={features}
       style={feature=>{
         const id=String(feature.properties?.predio??feature.id??'');
         const isSelected=selectedNearby===id;
@@ -262,13 +264,23 @@ function VisibleParcels({enabled,criteria,highlightMatches}) {
         if(!id)return;
         layer.bindTooltip('Predio '+id);
         layer.on('click',async()=>{
-          if(selectedNearby===id){
+          if(selectedNearbyRef.current===id){
+            selectedNearbyRef.current=null;
+            selectedLayerRef.current=null;
             setSelectedNearby(null);
+            layer.setStyle({color:COLORS.nearby,weight:1.6,fillOpacity:0});
             layer.closePopup();
             return;
           }
+          if(selectedLayerRef.current&&selectedLayerRef.current!==layer){
+            selectedLayerRef.current.setStyle({color:COLORS.nearby,weight:1.6,fillOpacity:0});
+            selectedLayerRef.current.closePopup();
+          }
+          selectedNearbyRef.current=id;
+          selectedLayerRef.current=layer;
           setSelectedNearby(id);
-          layer.bindPopup(nearbyParcelPopup(id,attributesCache.current.get(id)||null),{maxWidth:290}).openPopup();
+          layer.setStyle({color:COLORS.selected,weight:4,fillColor:COLORS.selected,fillOpacity:.48});
+          layer.bindPopup(nearbyParcelPopup(id,attributesCache.current.get(id)||null),{maxWidth:290,autoPan:false}).openPopup();
           if(attributesCache.current.has(id))return;
           try{
             const params=new URLSearchParams({f:'json',
@@ -394,6 +406,11 @@ export default function ParcelMap({ data, criteria, searchResults, selectedSearc
       </label>}
       {/* Leaflet map */}
 
+      <div className="parcel-color-legend" aria-label="Leyenda de selección de predios">
+        <span><i style={{background:COLORS.nearby}}/>Predios cercanos</span>
+        <span><i style={{background:COLORS.searched}}/>Resultados GIS</span>
+        <span><i style={{background:COLORS.selected}}/>Seleccionado</span>
+      </div>
       <MapContainer
         center={[-0.200, -78.430]}
         zoom={17}
