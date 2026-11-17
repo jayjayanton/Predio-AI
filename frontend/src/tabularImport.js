@@ -66,7 +66,7 @@ async function unzipEntries(bytes, requested) {
 }
 export function extractDocxTables(xmlString) {
   const doc=xml(xmlString);
-  const tables=local(doc,'tbl').filter(node=>!node.parentElement?.closest?.('w\\:tbl'));
+  const tables=local(doc,'tbl');
   const result=tables.map((table,i)=>({
     name:'Tabla '+(i+1),
     rows:children(table,'tr').map(tr=>children(tr,'tc').map(tc=>
