@@ -69,7 +69,7 @@ const steps = [
   { number: '03', title: 'Profundiza con el IRM', text: 'Consulta el portal municipal, incorpora el documento y revisa los parámetros y condiciones urbanísticas del predio.' },
 ];
 
-export default function ProductOverview({ onExplore, onConsult, onAnalytics }) {
+export default function ProductOverview({ onExplore, onConsult, onBlueprints, onAnalytics }) {
   return <section className="product-overview" id="product-overview" aria-label="Presentación de PredioAI">
     <section className="po-hero" aria-labelledby="po-hero-title">
       <div className="po-hero-copy">
@@ -80,9 +80,24 @@ export default function ProductOverview({ onExplore, onConsult, onAnalytics }) {
           <button type="button" className="po-button po-button-primary" onClick={onExplore}>Explorar predios <Arrow /></button>
           <button type="button" className="po-button po-button-secondary" onClick={onConsult}>Consultar un predio <Arrow diagonal /></button>
         </div>
-        <p className="po-hero-footnote">Pensado para inmobiliarias, desarrolladores y equipos de arquitectura.</p>
+        <p className="po-hero-footnote">Para inmobiliarias, promotores, arquitectos y empresas de remodelación y construcción.</p>
       </div>
       <TerritoryIllustration />
+    </section>
+
+    <section className="po-pilot" aria-labelledby="po-blueprint-title">
+      <div className="po-pilot-intro">
+        <p className="po-eyebrow">DEL PREDIO A LA OBRA</p>
+        <h2 id="po-blueprint-title">También para quienes transforman inmuebles.</h2>
+        <p>Una vivienda no solo se compra o vende: también se repara, remodela y amplía. PredioAI conecta la información del predio con la revisión de planos para que arquitectos y contratistas puedan preparar mediciones preliminares a distancia.</p>
+        <p>La meta es reducir trabajo manual y visitas exploratorias innecesarias, no reemplazar inspecciones profesionales, levantamientos de obra o permisos municipales.</p>
+      </div>
+      <div className="po-pilot-plan">
+        <h3>Planos y remodelación</h3>
+        <ul><li>Vincular planos PDF con un predio y su contexto municipal.</li><li>Inspeccionar documentos y, en fases posteriores, seleccionar muros, habitaciones y superficies para obtener medidas revisables.</li><li>Preparar informes preliminares para reparaciones, remodelaciones y ampliaciones.</li></ul>
+        <button type="button" className="po-pilot-link" onClick={onBlueprints}>Conocer el flujo de planos <Arrow /></button>
+        <small>El análisis geométrico y las mediciones automáticas aún están en desarrollo.</small>
+      </div>
     </section>
 
     <section className="po-workflow" aria-labelledby="po-workflow-title">
