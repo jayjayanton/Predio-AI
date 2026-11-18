@@ -132,8 +132,11 @@ def _pdf(data: bytes, role: str) -> dict:
             text = page.get_text("text")
             fragments.append(text[:MAX_TEXT])
             if role == "blueprint":
-                view = drawing_view(pdf_primitives(page),
+                drawings = page.get_drawings()
+                vector_path_count = len(drawings)
+                view = drawing_view(pdf_primitives(page, drawings=drawings),
                     [0, 0, float(page.rect.width), float(page.rect.height)])
+                del drawings
                 view["page"] = page.number + 1
                 views.append(view)
             pages.append({
@@ -141,7 +144,7 @@ def _pdf(data: bytes, role: str) -> dict:
                 "width_pt": round(page.rect.width, 2),
                 "height_pt": round(page.rect.height, 2),
                 "text_characters": len(text),
-                "vector_paths": len(page.get_drawings()),
+                "vector_paths": vector_path_count if role == "blueprint" else len(page.get_drawings()),
                 "embedded_images": len(page.get_images(full=True)),
                 "needs_ocr": len(text.strip()) < 30,
             })

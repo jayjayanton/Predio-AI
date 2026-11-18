@@ -387,13 +387,16 @@ def _setbacks(request, parcel, local_parcel, combined, ready):
     constraints = (request.irm or IrmInput()).constraints
     requirements = {"front": constraints.retiro_frontal, "side": constraints.retiro_lateral, "rear": constraints.retiro_posterior}
     output = []
+    points_by_polygon = {}
     for edge in request.edges:
         if edge.polygon >= len(parts) or edge.edge >= len(parts[edge.polygon].exterior.coords) - 1:
             raise ValueError("La clasificación de lindero hace referencia a un borde que no existe en el predio.")
         required = requirements[edge.kind]
         actual = None
         if local_parts is not None:
-            points = list(local_parts[edge.polygon].exterior.coords)
+            if edge.polygon not in points_by_polygon:
+                points_by_polygon[edge.polygon] = list(local_parts[edge.polygon].exterior.coords)
+            points = points_by_polygon[edge.polygon]
             actual = combined.distance(LineString([points[edge.edge], points[edge.edge + 1]]))
         status = "pending" if not ready or actual is None or required is None else "conflict" if actual + 1e-6 < required else "within_reviewed_limits"
         output.append({**edge.model_dump(), "required_m": required, "actual_m": _rounded(actual), "status": status})
@@ -430,8 +433,11 @@ def _live_setback_context(request, parcel, local_parcel, ready, pending_reasons)
     if usable:
         local_geometry = rotate(local_parcel, request.placement.rotation_degrees, origin=(0, 0))
         local_parts = [local_geometry] if local_geometry.geom_type == "Polygon" else list(local_geometry.geoms)
+        points_by_polygon = {}
         for edge in request.edges:
-            points = list(local_parts[edge.polygon].exterior.coords)
+            if edge.polygon not in points_by_polygon:
+                points_by_polygon[edge.polygon] = list(local_parts[edge.polygon].exterior.coords)
+            points = points_by_polygon[edge.polygon]
             edges.append({**edge.model_dump(), "required_m": requirements[edge.kind],
                           "points": [list(points[edge.edge]), list(points[edge.edge + 1])]})
     return {"version": 1, "coordinate_space": "local_metres", "tolerance_m": SETBACK_TOLERANCE_M,

@@ -121,10 +121,12 @@ def _finite_pair(value):
     return None
 
 
-def pdf_primitives(page):
+def pdf_primitives(page, *, drawings=None):
     """Extract straight source paths; curves and images are not approximated."""
     items = []
-    for drawing_index, drawing in enumerate(page.get_drawings()):
+    if drawings is None:
+        drawings = page.get_drawings()
+    for drawing_index, drawing in enumerate(drawings):
         for segment_index, segment in enumerate(drawing.get("items", [])):
             if len(items) >= MAX_PRIMITIVES:
                 break
@@ -234,12 +236,22 @@ def extract_dxf_primitives(model, *, budget=None, scope=None, page=1):
         )
 
     def coordinates(vertices):
+        # Validate each CAD vertex once rather than calling planar() and then
+        # revalidating and rounding its XY coordinates through _finite_pair().
         result = []
         for vertex in vertices:
             budget.point()
-            if not planar((vertex,)):
+            z = float(vertex.z)
+            if not math.isfinite(z) or abs(z) > 1e-7:
                 raise ValueError("nonplanar_or_invalid_coordinates")
-            value = _finite_pair(vertex)
+            try:
+                x, y = float(vertex[0]), float(vertex[1])
+                valid = math.isfinite(x) and math.isfinite(y) and max(abs(x), abs(y)) < 1e9
+            except (TypeError, ValueError, IndexError, OverflowError):
+                valid = False
+            if not valid:
+                raise ValueError("nonplanar_or_invalid_coordinates")
+            value = [round(x, 5), round(y, 5)]
             if not result or result[-1] != value:
                 result.append(value)
         return result
