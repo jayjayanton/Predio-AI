@@ -1882,3 +1882,12 @@ html { scroll-padding-top:94px; }
 }
 .dashboard-layout .predio-map-reel .predio-results-reel.one-column,
 .dashboard-layout .predio-map-reel .predio-results-reel.icon-grid { min-height:180px; flex:1 0 180px; }
+
+/* Preserve original CAD annotations separately from verified measurements. */
+.blueprint-annotations, .cad-layout-summary { border-top:1px solid var(--line); margin-top:16px; padding-top:12px; }
+.blueprint-annotations .source-label-list { list-style:none; margin:8px 0; padding:0; max-height:200px; overflow:auto; }
+.blueprint-annotations .source-label-list li { margin:0 0 5px; }
+.blueprint-annotations .source-label-list button { width:100%; text-align:left; overflow-wrap:anywhere; font-size:12px; background:var(--surface-soft); }
+.blueprint-annotations .source-label-selected { border-left:3px solid var(--accent); padding:8px 10px; background:var(--surface-soft); overflow-wrap:anywhere; }
+.blueprint-annotations .source-label-selected span { color:var(--muted); display:block; margin-top:4px; }
+.cad-layout-summary p { font-size:12px; overflow-wrap:anywhere; }
