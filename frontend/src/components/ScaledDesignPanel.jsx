@@ -31,6 +31,7 @@ export default function ScaledDesignPanel({shapes, selectedId, scale, showShapes
   const selected = shapes.find(shape => shape.id === selectedId);
   const id = useId();
   const [fields, setFields] = useState({});
+  const [editedDimensions, setEditedDimensions] = useState({});
   const [error, setError] = useState('');
   const [showDrawingTools, setShowDrawingTools] = useState(false);
   const activeTool = DRAWING_TOOLS.find(item => drawingTool === `draw-${item.kind}`);
@@ -46,16 +47,22 @@ export default function ScaledDesignPanel({shapes, selectedId, scale, showShapes
   const drawingToolsVisible = !isEditing || showDrawingTools;
   useEffect(() => {
     setFields(selected ? {label: selected.label, width: dimensionInput(selected.widthMetres), depth: dimensionInput(selected.depthMetres), rotation: String(selected.rotationDegrees), role: selected.role} : {});
-    setError('');
+    setEditedDimensions({}); setError('');
   }, [selected]);
   useEffect(() => setShowDrawingTools(false), [selected?.id]);
-  const update = (name, value) => { setFields(current => ({...current, [name]: value})); setError(''); };
+  const update = (name, value) => {
+    setFields(current => ({...current, [name]: value}));
+    setError('');
+  };
+  // Native input also records a deliberate replacement with the same displayed
+  // value, which React's value-change event can suppress.
+  const editDimension = name => setEditedDimensions(current => ({...current, [name]: true}));
   const submit = event => {
     event.preventDefault(); if (!selected || !scale) return;
     // Display rounding is presentation only. An untouched field must not resize
     // geometry when the user changes a name, role or rotation.
-    const widthChanged = fields.width !== dimensionInput(selected.widthMetres);
-    const depthChanged = selected.kind !== 'circle' && fields.depth !== dimensionInput(selected.depthMetres);
+    const widthChanged = Boolean(editedDimensions.width);
+    const depthChanged = selected.kind !== 'circle' && Boolean(editedDimensions.depth);
     const width = widthChanged ? parseDimension(fields.width) : selected.widthMetres;
     const depth = selected.kind === 'circle' ? width : depthChanged ? parseDimension(fields.depth) : selected.depthMetres;
     const rotation = /^-?\d+(?:[.,]\d+)?$/.test(String(fields.rotation).trim()) ? Number(String(fields.rotation).replace(',', '.')) : NaN;
@@ -110,8 +117,8 @@ export default function ScaledDesignPanel({shapes, selectedId, scale, showShapes
       <form className="cad-shape-editor" onSubmit={submit}>
         <div className="cad-shape-editor-heading"><strong>{selected.kind === 'circle' ? 'Círculo' : polygon ? (vertices.length === 3 ? 'Triángulo' : 'Polígono libre') : Math.abs(selected.widthMetres - selected.depthMetres) < 1e-8 ? 'Cuadrado' : 'Rectángulo'}</strong><span className={selected.role === 'extension' ? 'is-extension' : ''}>{selected.role === 'extension' ? 'Ampliación propuesta' : 'Mobiliario / referencia'}</span></div>
         <div className="cad-design-dimensions">
-          <label className="cad-studio-field" htmlFor={`${id}-width`}>{selected.kind === 'circle' ? 'Diámetro (m)' : 'Ancho (m)'}<input id={`${id}-width`} inputMode="decimal" type="text" value={fields.width || ''} onChange={event => update('width', event.target.value)} /></label>
-          {selected.kind !== 'circle' && <label className="cad-studio-field" htmlFor={`${id}-depth`}>Fondo (m)<input id={`${id}-depth`} inputMode="decimal" type="text" value={fields.depth || ''} onChange={event => update('depth', event.target.value)} /></label>}
+          <label className="cad-studio-field" htmlFor={`${id}-width`}>{selected.kind === 'circle' ? 'Diámetro (m)' : 'Ancho (m)'}<input id={`${id}-width`} inputMode="decimal" type="text" value={fields.width || ''} onInput={() => editDimension('width')} onChange={event => update('width', event.target.value)} /></label>
+          {selected.kind !== 'circle' && <label className="cad-studio-field" htmlFor={`${id}-depth`}>Fondo (m)<input id={`${id}-depth`} inputMode="decimal" type="text" value={fields.depth || ''} onInput={() => editDimension('depth')} onChange={event => update('depth', event.target.value)} /></label>}
         </div>
         {polygon && <p className="cad-shape-size-note">Ancho y fondo corresponden al marco de la figura antes del giro. Cambiarlos ajusta todos sus puntos.</p>}
         <label className="cad-studio-field" htmlFor={`${id}-name`}>Nombre<input id={`${id}-name`} type="text" maxLength={60} value={fields.label || ''} onChange={event => update('label', event.target.value)} /></label>
