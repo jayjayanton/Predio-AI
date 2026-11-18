@@ -327,6 +327,7 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
             elements={selectedItems} hiddenSelectedCount={selectedItems.length - selectedVisible.length}
             documentFormat={documentFormat} unitsCode={unitsCode} scope={view.extraction?.scope} viewIdentity={view}
             scale={measurementScale} onScaleChange={next => setScaleRecord(next ? {...next, view} : null)}
+            onReturnToDrawing={() => { stageRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'}); canvasRef.current?.focus({preventScroll: true}); }}
             onClearSelection={() => { setSelected(new Set()); setFocusedId(null); }} />
           <details className="cad-layers" open><summary>Capas ({number(layers.length)})</summary>
             <label className="cad-search">Buscar capa<input type="search" value={layerQuery} onChange={event => setLayerQuery(event.target.value)} placeholder="Nombre de capa" /></label>

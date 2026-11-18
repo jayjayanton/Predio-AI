@@ -74,6 +74,10 @@ Open **Medidas** in the drawing inspector. For a CAD model, review the declared 
 
 The panel reports selected geometric length and, for a supported simple closed boundary, perimeter and enclosed area. Curved geometry uses the imported sampled paths and is labelled approximate. Text, dimension decorations and hatch-pattern strokes are excluded; explicit hatch boundaries can be measured. Disconnected, branching, crossing, ambiguous or overly complex selections do not produce an area. Selecting the whole drawing does not define a floor surface.
 
+Selected, compatible and excluded counts appear together before the values. **Volver al plano** returns focus to the drawing without changing the selection, zoom or applied scale. Calibration factors retain significant digits and show an approximation sign when their display is rounded; U.S. survey feet are a separate explicit unit choice.
+
+A source hatch's rendered outer and inner boundaries stay in one selectable element, including patterned hatches. Valid nested contours subtract holes from area; perimeter includes their inner edges. Pattern strokes remain separately selectable and excluded from measurement. A smaller item count after reimport can reflect this source grouping without losing drawing segments. Hatch island style is respected before the contours are grouped.
+
 **Ver plano de ejemplo** includes a separate **Área de ejemplo** layer. Select its boundary and apply centimetres: the fictional 4.42 × 2.44 m rectangle has perimeter 13.72 m and area 10.7848 m². This is a reproducible arithmetic demonstration, not a real-building measurement.
 
 Unit-code and layout context references: [Autodesk INSUNITS](https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-A58A87BB-482B-4042-A00A-EEF55A2B4FD8.htm) and [ezdxf DXF units](https://ezdxf.readthedocs.io/en/stable/concepts/units.html). Unit metadata suggests an interpretation; the panel still requires explicit confirmation or calibration.

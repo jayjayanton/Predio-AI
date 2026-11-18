@@ -428,20 +428,16 @@ def extract_dxf_primitives(model, *, budget=None, scope=None, page=1):
             "method": "adaptive_bezier_flattening",
             "tolerance": max(tolerances),
         }
-        if entity.dxf.solid_fill and not entity.gradient:
-            item = {**base, "kind": "hatch_boundary", "points": [], "rings": rings,
-                    "filled": True, "closed": True, "fill_rule": "evenodd"}
-            if has_curves:
-                item["approximation"] = approximation
-            add(item)
-        else:
-            for index, points in enumerate(rings):
-                item = {**base, "id": f"{identifier}/boundary{index}",
-                        "kind": "hatch_boundary", "points": points, "closed": True,
-                        "filled": False}
-                if has_curves:
-                    item["approximation"] = approximation
-                add(item)
+        # Keep one source hatch's outer boundary and islands together. Splitting
+        # patterned rings made selecting only its outer edge lose the holes in
+        # downstream area calculations. Pattern strokes remain separate below;
+        # only solid hatches receive a solid fill in the viewer.
+        item = {**base, "kind": "hatch_boundary", "points": [], "rings": rings,
+                "filled": bool(entity.dxf.solid_fill and not entity.gradient),
+                "closed": True, "fill_rule": "evenodd"}
+        if has_curves:
+            item["approximation"] = approximation
+        add(item)
 
         if has_curves:
             approximated[entity.dxftype()] += 1

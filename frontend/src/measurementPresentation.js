@@ -24,3 +24,15 @@ export function formatDrawingNumber(value) {
     ...(normalized !== 0 && Math.abs(normalized) < 0.0001 ? {notation: 'scientific'} : {}),
   }).format(normalized);
 }
+
+// Scale factors can be much smaller than the measured quantities. Preserve
+// significant digits and distinguish a rounded display from an exact equality.
+export function formatScaleFactor(value) {
+  if (!Number.isFinite(value) || value <= 0) return {text: '—', approximate: false};
+  const text = new Intl.NumberFormat('es-EC', {
+    useGrouping: false,
+    maximumSignificantDigits: 8,
+    ...(value < 0.0001 || value >= 1e8 ? {notation: 'scientific'} : {}),
+  }).format(value);
+  return {text, approximate: Number(text.replace(',', '.')) !== value};
+}

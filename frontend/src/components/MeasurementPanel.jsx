@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useMemo, useState } from 'react';
 import { UNIT_OPTIONS, cadUnitFromCode, calibrateScale, deriveScaleFromUnit, measureSelection } from '../drawingMeasurements.js';
-import { canConfirmDrawingUnit, formatDrawingNumber, parseKnownMetres } from '../measurementPresentation.js';
+import { canConfirmDrawingUnit, formatDrawingNumber, formatScaleFactor, parseKnownMetres } from '../measurementPresentation.js';
 
 const AREA_REASONS = {
   no_geometry: 'Selecciona una línea para conocer su longitud o un contorno cerrado para obtener un área.',
@@ -28,7 +28,7 @@ const METRICS = [
 
 export default function MeasurementPanel({
   elements, hiddenSelectedCount = 0, documentFormat, unitsCode, scope, viewIdentity,
-  scale, onScaleChange, onClearSelection, panelId, sectionRef,
+  scale, onScaleChange, onClearSelection, onReturnToDrawing, panelId, sectionRef,
 }) {
   const ownId = useId();
   const knownInputId = `${ownId}-known`;
@@ -49,6 +49,7 @@ export default function MeasurementPanel({
   const hasCurveApproximation = result.warnings?.includes('curve_approximation');
   const calibrationEligible = result.calibration?.eligible === true;
   const metricRangeError = result.metricReason === 'numerical_range' || result.warnings?.includes('metric_numerical_range');
+  const scaleFactor = scale ? formatScaleFactor(scale.metresPerUnit) : null;
 
   useEffect(() => {
     setUnitChoice(suggestedUnit); setKnownMetres(''); setError(''); setNotice(''); setShowScaleEditor(true);
@@ -84,10 +85,16 @@ export default function MeasurementPanel({
 
   return <section id={panelId} ref={sectionRef} className="cad-measurements" tabIndex={-1} aria-labelledby={`${ownId}-title`}>
     <div className="cad-measurement-heading"><h3 id={`${ownId}-title`}>Medidas</h3><span className={scale ? 'is-confirmed' : ''}>{scale ? 'Escala aplicada' : 'Escala pendiente'}</span></div>
-    <div className="cad-measurement-scope"><p><strong>{elements.length.toLocaleString('es-EC')}</strong> elementos seleccionados · se mide la selección completa.</p>
-      {elements.length > 0 && <button type="button" onClick={onClearSelection}>Limpiar</button>}
+    <div className="cad-measurement-scope">
+      <p><strong>{elements.length.toLocaleString('es-EC')}</strong> {elements.length === 1 ? 'elemento seleccionado' : 'elementos seleccionados'}<br />
+        {result.eligibleCount.toLocaleString('es-EC')} {result.eligibleCount === 1 ? 'elemento compatible' : 'elementos compatibles'} · {result.excludedCount.toLocaleString('es-EC')} {result.excludedCount === 1 ? 'excluido' : 'excluidos'}</p>
+      <div className="cad-measurement-actions">
+        {onReturnToDrawing && <button type="button" onClick={onReturnToDrawing}>Volver al plano</button>}
+        {elements.length > 0 && <button type="button" onClick={onClearSelection}>Limpiar</button>}
+      </div>
     </div>
-    {hiddenSelectedCount > 0 && <p className="cad-measurement-hidden">La selección incluye <strong>{hiddenSelectedCount.toLocaleString('es-EC')} elementos ocultos</strong>; también se consideran, con las exclusiones indicadas abajo.</p>}
+    {excluded.length > 0 && <p className="cad-measurement-excluded"><strong>{result.excludedCount.toLocaleString('es-EC')} {result.excludedCount === 1 ? 'excluido' : 'excluidos'}:</strong> {excluded.map(([kind, count]) => `${EXCLUDED_LABELS[kind] || 'otros elementos'} (${count.toLocaleString('es-EC')})`).join('; ')}. No se suman a las medidas.</p>}
+    {hiddenSelectedCount > 0 && <p className="cad-measurement-hidden">La selección incluye <strong>{hiddenSelectedCount.toLocaleString('es-EC')} {hiddenSelectedCount === 1 ? 'elemento oculto' : 'elementos ocultos'}</strong>; {hiddenSelectedCount === 1 ? 'también se considera' : 'también se consideran'}, con las exclusiones indicadas.</p>}
     <div className="cad-measurement-values" aria-live="polite" aria-atomic="true">
       {METRICS.map(({key, label, metricUnit, rawUnit}) => {
         const value = hasGeometry ? (scale ? result.metric?.[key] : result.raw?.[key]) : null;
@@ -101,13 +108,13 @@ export default function MeasurementPanel({
     </div>
     {!scale && <p className="cad-measurement-next">u = unidades del dibujo. {unitAllowed ? 'Aplica una unidad o calibra una referencia para obtener m y m².' : 'Calibra una longitud conocida para obtener m y m².'}</p>}
     {scale && metricRangeError && <p className="cad-measurement-error" role="status">La escala aplicada produce cantidades demasiado grandes o pequeñas para representarlas de forma confiable. Se conservan los valores en unidades del dibujo; restablece la escala y revisa la unidad o la referencia.</p>}
-    {hasGeometry && <p className="cad-length-scope">La longitud suma los trazados seleccionados. Los trazados coincidentes cuentan por separado; no equivale a cantidades de obra.</p>}
+    {hasGeometry && <p className="cad-length-scope">La longitud suma los trazados compatibles seleccionados. Los trazados coincidentes cuentan por separado; no equivale a cantidades de obra.</p>}
+    {result.areaMode === 'compound_rings' && elements.some(item => item.rings?.length > 1) && <p className="cad-length-scope">El área descuenta los huecos interiores del contorno. El perímetro incluye el borde exterior y los bordes de esos huecos.</p>}
     {result.areaStatus !== 'available' && <p className="cad-area-reason">{AREA_REASONS[result.areaReason] || 'No se puede determinar un área para esta selección. Selecciona un único contorno cerrado y continuo.'}</p>}
-    {excluded.length > 0 && <p className="cad-measurement-excluded"><strong>{result.excludedCount.toLocaleString('es-EC')} excluidos:</strong> {excluded.map(([kind, count]) => `${EXCLUDED_LABELS[kind] || 'otros elementos'} (${count.toLocaleString('es-EC')})`).join('; ')}. No se suman a las medidas.</p>}
     {hasCurveApproximation && <p className="cad-measurement-approximation">La selección contiene curvas representadas por tramos. Sus longitudes y áreas son aproximadas.</p>}
     {result.warnings?.includes('roundoff_endpoint_matching') && <p className="cad-measurement-approximation">El cierre utiliza extremos coincidentes dentro de una tolerancia numérica. Revisa el contorno seleccionado.</p>}
     {scale ? <div className="cad-scale-current">
-      <p><strong>{scale.method === 'known_length' ? 'Calibración con referencia' : 'Unidad confirmada por ti'}</strong><br />1 u = {formatDrawingNumber(scale.metresPerUnit)} m.</p>
+      <p><strong>{scale.method === 'known_length' ? 'Calibración con referencia' : 'Unidad confirmada por ti'}</strong><br />1 u {scaleFactor.approximate ? '≈' : '='} {scaleFactor.text} m.</p>
       {scale.method === 'known_length' && <p>Referencia: <span className="cad-reference-id">{scale.referenceElementId}</span><br />{formatDrawingNumber(scale.referenceLengthDrawingUnits)} u = {formatDrawingNumber(scale.knownLengthMetres)} m.</p>}
       <div className="cad-scale-actions"><button type="button" onClick={() => setShowScaleEditor(value => !value)} aria-expanded={showScaleEditor}>{showScaleEditor ? 'Cerrar ajustes' : 'Cambiar escala'}</button><button type="button" onClick={reset}>Restablecer escala</button></div>
     </div> : null}

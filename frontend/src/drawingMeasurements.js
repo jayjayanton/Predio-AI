@@ -21,7 +21,7 @@ const CAD_UNITS = new Map([
   [23, ['us-yd', 'Yardas topográficas de EE. UU.', 3600 / 3937]],
   [24, ['us-mi', 'Millas topográficas de EE. UU.', 6336000 / 3937]],
 ]);
-export const UNIT_OPTIONS = ['m', 'cm', 'mm', 'in', 'ft', 'yd'].map(value => {
+export const UNIT_OPTIONS = ['m', 'cm', 'mm', 'in', 'ft', 'yd', 'us-ft'].map(value => {
   const [, label, metresPerUnit] = [...CAD_UNITS.values()].find(unit => unit[0] === value);
   return Object.freeze({value, label, metresPerUnit});
 });
