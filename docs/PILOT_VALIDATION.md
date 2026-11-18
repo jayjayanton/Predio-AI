@@ -14,7 +14,7 @@ The initial conversation should be with the homeowner and a small architecture/r
 
 1. Explain the practical task: understand an existing plan before replacing a room's floor or preparing a painting scope.
 2. Open **Analizar planos** directly. Explain that municipal lookup is optional for inspecting a file. An isolated flooring or painting task can be inspected without an IRM under this pilot's software rules.
-3. With an authorized document, show the source file, available pages/layers and selected geometry. Label a synthetic fixture explicitly if used only to demonstrate interaction.
+3. Use **Ver plano de ejemplo** to introduce the drawing overview, zoom, layer controls and selection without an upload. The sample is a fictional dwelling. Then inspect an authorized document and show its source file, available views/layers, imported element count and source identifiers. A rectangular selection crosses drawing elements; it does not automatically define a room boundary or a construction quantity.
 4. Open **Resumen documental**. Point out the available evidence and fields still awaiting verification.
 5. Show **Mi predio** only when municipal context is relevant. Broader remodeling, structural and expansion requests retain their document prerequisites; the application does not decide what work is permitted.
 6. Ask the reviewer to choose one real case for the next measurement milestone.
@@ -39,7 +39,7 @@ For the first case, prefer a **floor surface** with a clear boundary and at leas
 | Correction milestone | Deliberate correction to a boundary/dimension | Dependent quantities invalidated and recalculated from the corrected version |
 | Report milestone | Source, revision, selected elements, formula and review status | Traceable output that another person can reproduce and check |
 
-Only the first two checks can be investigated with today's viewer. One real DWG has now been used in a local conversion/ingestion trial; its block content exceeds the selectable-view limit and includes unsupported visual types. This is a partial inspection result, not a successful measurement validation. The scale/calculation/correction/report pipeline still requires implementation and validation. Agree an acceptable error tolerance with the intended professional user **before** evaluating results; do not invent a universal construction tolerance.
+Only the first two checks can be investigated with today's viewer. The original real-DWG trial exposed the old 3,000-element display cutoff. The expanded CAD importer retains all supported elements when the whole file fits its resource budget, including supported blocks, curves, hatches, text and dimension components. The drawing overview and detail use the same imported data, so they are not an independent fidelity check. Compare them with the original CAD application or an independent export, and retain conversion/omission warnings. This establishes inspection behavior, not successful measurement validation. The scale/calculation/correction/report pipeline still requires implementation and validation. Agree an acceptable error tolerance with the intended professional user **before** evaluating results; do not invent a universal construction tolerance.
 
 Record the baseline manual workflow time, inspection/correction time and any additional visit required. One successful document establishes a case result, not performance across all Quito drawings. Test a second independent drawing before broadening claims.
 

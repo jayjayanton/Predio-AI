@@ -16,6 +16,7 @@ import AnalyticsRoadmap from './components/AnalyticsRoadmap.jsx';
 import { SELECTION_KEY, SELECTION_LIMIT, parseSelection, selectionRecord, mergeSelection } from './selection.js';
 import { workspaceForPage, requiresIrm, documentValidationError } from './documentWorkflow.js';
 import { hasPartialExtraction, dwgConversionNotice } from './drawingExtraction.js';
+import { createExampleDrawing } from './exampleDrawing.js';
 
 const ROUTES = { inicio: 'home', explorar: 'explore', predio: 'property', planos: 'blueprints', seleccion: 'selection', analitica: 'analytics' };
 const pageFromHash = () => ROUTES[window.location.hash.slice(1)] || 'home';
@@ -357,6 +358,8 @@ export default function App() {
   const [irmCopyStatus, setIrmCopyStatus] = useState('');
   const [irmBridgeBusy, setIrmBridgeBusy] = useState(false);
   const [inspection, setInspection] = useState(null);
+  const [drawingExample, setDrawingExample] = useState(null);
+  const displayedDrawing = drawingExample || inspection?.blueprint;
   const blueprintConversion = dwgConversionNotice(inspection?.blueprint);
   const [inspecting, setInspecting] = useState(false);
   const [inspectionError, setInspectionError] = useState('');
@@ -391,6 +394,7 @@ export default function App() {
     if (role === 'irm') setIrmPdf(validationError ? null : file);
     else setPdf(validationError ? null : file);
     setInspection(null);
+    setDrawingExample(null);
     setInspectionError(validationError);
     if (validationError) event.target.value = '';
   }
@@ -956,6 +960,7 @@ export default function App() {
   // To revert, restore the original two-document inspection handler.
   async function inspect() {
     if (!pdf || !activities.length || (irmRequired && !irmPdf)) return;
+    setDrawingExample(null);
     inspectionController.current?.abort();
     const controller = new AbortController();
     inspectionController.current = controller;
@@ -2057,6 +2062,13 @@ export default function App() {
       {step === 'project' && audience === 'remodeler' && (
         <section className="workspace-page">
           <div className="workspace-heading"><div><span className="eyebrow">PASO 1 · PLANOS Y ACTIVIDADES</span><h2>{properties ? `Planos del predio ${properties.n_predio}` : '¿Qué quieres revisar?'}</h2><p className="note">Elige una actividad, adjunta el plano y explora su contenido. {properties ? 'Comprueba que el archivo corresponda a esta propiedad.' : 'Aún no hay un predio vinculado; la inspección del archivo sigue disponible.'}</p></div><button type="button" className="secondary" onClick={() => setStep('property')}>{properties ? 'Ver predio vinculado' : 'Vincular predio'}</button></div>
+          <div className="inspection-result-header">
+            <p>Prueba la vista general, las capas y la selección de segmentos con una vivienda ficticia.</p>
+            <button type="button" className="secondary" onClick={() => {
+              setDrawingExample(createExampleDrawing());
+              requestAnimationFrame(() => document.getElementById('drawing-workspace')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }));
+            }}>Ver plano de ejemplo</button>
+          </div>
           <div className="project-layout">
             <section className="project-controls">
                             {/* OPTIONAL DOCUMENTS & PDF SECTION — BEGIN
@@ -2235,9 +2247,10 @@ export default function App() {
             </section>
             <section id="drawing-workspace" className="drawing-workspace" aria-label="Área de trabajo de planos">
               <div className="section-heading">ESPACIO DE PLANOS <span>GEOMETRÍA SIN VERIFICAR</span></div>
-              {inspection && <div className="inspection-result-header"><p role="status"><strong>{blueprintConversion?.title || 'Archivo inspeccionado.'}</strong> {blueprintConversion?.detail || 'Revisa el dibujo y sus capas antes de abrir el resumen.'}</p><button type="button" className="secondary" onClick={() => setStep('report')}>Ver resumen documental →</button></div>}
-              {inspection?.blueprint?.drawing_views?.length
-                ? <BlueprintViewer key={inspection.blueprint.filename} views={inspection.blueprint.drawing_views} cadLayouts={inspection.blueprint.cad_layouts || []} />
+              {drawingExample ? <div className="inspection-result-header"><p role="status"><strong>Ejemplo interactivo · vivienda ficticia.</strong> Las cotas y textos son ilustrativos. Este ejemplo permite probar el visor; no analiza ni sustituye tu archivo.</p><button type="button" className="secondary" onClick={() => setDrawingExample(null)}>{inspection ? 'Volver a mi plano' : 'Cerrar ejemplo'}</button></div>
+                : inspection && <div className="inspection-result-header"><p role="status"><strong>{blueprintConversion?.title || 'Archivo inspeccionado.'}</strong> {blueprintConversion?.detail || 'Revisa el dibujo y sus capas antes de abrir el resumen.'}</p><button type="button" className="secondary" onClick={() => setStep('report')}>Ver resumen documental →</button></div>}
+              {displayedDrawing?.drawing_views?.length
+                ? <BlueprintViewer key={displayedDrawing.filename} views={displayedDrawing.drawing_views} cadLayouts={displayedDrawing.cad_layouts || []} />
                 : <div className="empty"><strong>{inspection ? 'No se encontró geometría vectorial seleccionable.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y contrasta el contenido con el archivo original.' : 'Adjunta un PDF, DXF o DWG y pulsa «Inspeccionar mi plano». Podrás acercar el dibujo, seleccionar líneas y mostrar u ocultar capas compatibles.'}</p><p className="note">La precisión con planos reales está pendiente de validación. No se muestran medidas en m² ni cantidades de obra.</p></div>}
             </section>
           </div>
@@ -2251,7 +2264,7 @@ export default function App() {
           <p className="note">Este resumen no es un informe técnico certificado, un presupuesto ni una verificación de normativa.</p>
           <div className="report-grid">
             <div className="property"><h2>Documentos revisados</h2><p>Plano: {inspection.blueprint?.filename || pdf?.name || 'Sin archivo'}</p><p>Formato: {inspection.blueprint?.format?.toUpperCase() || 'No disponible'}</p>{blueprintConversion && <p><strong>{blueprintConversion.title}</strong> {blueprintConversion.detail}</p>}<p>IRM: {inspection.irm ? 'Adjuntado · campos candidatos sin verificar' : 'No adjuntado'}</p><p>Actividades: {inspection.activities?.map(a => a.label).join(', ') || 'No disponible'}</p></div>
-            <div className="property"><h2>Estado de mediciones</h2><p>Geometría: {inspection.blueprint?.drawing_views?.length || 0} vista(s) extraída(s)</p><p>Etiquetas originales extraídas: {inspection.blueprint?.drawing_views?.reduce((total, view) => total + (view.source_labels?.length || 0), 0) || 0} (sin verificar)</p>{inspection.blueprint?.cad_layouts?.length > 0 && <p>Presentaciones CAD: {inspection.blueprint.cad_layouts.map(layout => layout.name + (layout.displayed ? ' (modelo, visible)' : ' (no representada)')).join(' · ')}. Estas presentaciones no identifican automáticamente pisos.</p>}{inspection.blueprint?.drawing_views?.some(view => hasPartialExtraction(view.extraction)) && <p><strong>Integridad de la vista: parcial.</strong> Consulta las omisiones indicadas en el visor.</p>}<p>Unidades y escala: sin verificar</p><p>Áreas, longitudes y costos: no disponibles</p><p>Conformidad municipal: no evaluada</p></div>
+            <div className="property"><h2>Estado de mediciones</h2><p>Geometría: {inspection.blueprint?.drawing_views?.length || 0} vista(s) extraída(s)</p><p>Etiquetas originales extraídas: {inspection.blueprint?.drawing_views?.reduce((total, view) => total + (view.extraction?.rendered_text_elements ?? view.source_labels?.length ?? 0), 0) || 0} (sin verificar)</p>{inspection.blueprint?.cad_layouts?.length > 0 && <p>Presentaciones CAD: {inspection.blueprint.cad_layouts.map(layout => layout.name + (layout.displayed ? ' (disponible en el visor)' : ' (sin vista extraída)')).join(' · ')}. Estas presentaciones no identifican automáticamente pisos.</p>}{inspection.blueprint?.drawing_views?.some(view => hasPartialExtraction(view.extraction)) && <p><strong>Integridad de la vista: parcial.</strong> Consulta las omisiones indicadas en el visor.</p>}<p>Unidades y escala: sin verificar</p><p>Áreas, longitudes y costos: no disponibles</p><p>Conformidad municipal: no evaluada</p></div>
           </div>
           <p className="source-note">Fuentes: archivos proporcionados por el usuario; la información extraída es preliminar y requiere revisión profesional.</p>
           <div className="report-actions"><button type="button" className="secondary" onClick={() => setStep('project')}>← Revisar planos</button><button type="button" className="secondary" onClick={() => setStep('property')}>{properties ? 'Ver información catastral' : 'Vincular predio (opcional)'}</button></div>

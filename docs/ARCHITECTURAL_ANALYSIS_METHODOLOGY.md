@@ -38,7 +38,7 @@ PredioAI extracts information and derives measurements/quantities from verified 
 | Cadastral comparison and descriptive CSV export | Implemented; local browser selection |
 | Assisted IRM access and browser PDF field extraction | Implemented prototype; CAPTCHA and document review remain manual |
 | PDF/DXF/DWG document inspection through `/api/documents/analyze` | Experimental extraction; DWG requires the deployed local converter |
-| Vector-geometry viewer, zoom, page switching, layer visibility, multiple selection | Implemented; uncalibrated geometry |
+| Drawing overview/detail viewer, zoom, layout switching, layer visibility, individual and rectangle selection | Implemented; uncalibrated geometry with explicit import limitations |
 | Preliminary on-screen document-inspection summary | Implemented; not a verified measurement report |
 | Automatic wall/room/roof classification | Not implemented |
 | Verified scale and architectural lengths/surfaces | Not implemented |
@@ -58,7 +58,7 @@ The developer IRM parser runs locally in the browser. The remodeling/project doc
 2. **Link property context when available.** A document can be inspected without a municipal lookup. When linked, obtain the predio/cadastral context and confirm the drawing corresponds to it. Separate the lot, building, PH unit and individual room; they are not interchangeable geometries.
 3. **Provide documents.** Upload authorized PDF, DXF or DWG drawings and relevant IRM. The server converts DWG to DXF and reports conversion and extraction limitations while retaining the original source identity. Compare the result with the original. Plans are already digital when vector PDF/CAD is provided; the job is parsing/structuring, not assuming they need a newly trained vision model.
 4. **Inspect before inferring.** Determine available text, vector geometry, pages/layers and explicit dimensions. A raster scan needs a distinct validated extraction path. An IRM provides urban-planning context, not room dimensions.
-5. **Explore interactively.** Use the existing viewer to zoom, show/hide layers and select geometry. Future semantic associations connect these elements to walls, rooms, floors or openings; selection alone is not recognition.
+5. **Explore interactively.** Use the overview to keep context while zooming into the detail canvas. Show/hide layers, search source identifiers or text, and select individual elements or a rectangular area. The built-in fictional drawing demonstrates the controls without an upload. Imported CAD curves use an explicit display approximation; units, source annotations and layer names remain evidence to review. Future semantic associations connect these elements to walls, rooms, floors or openings; selection alone is not recognition.
 6. **Validate measurement inputs.** Confirm scale/units per drawing, dimensions, heights, face conventions, openings and evidence that the drawing corresponds to the current building. Mark unknowns and conflicts explicitly.
 7. **Calculate and correct.** A future deterministic engine computes only supported quantities. A correction invalidates dependent quantities and triggers backend recalculation before a report is treated as current.
 8. **Review and communicate.** Assemble traceable quantities and missing information into a report reviewed by the responsible person/professional, then export/share through an authorized workflow when implemented.
