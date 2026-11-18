@@ -10,7 +10,7 @@ const height = {id:'h',room:'Sala',source:'Corte A-A.dwg',kind:'room_height',vie
 test('combines independently calibrated sources only when the room matches',()=>{
   const selections=addProjectSelection(addProjectSelection([],area),height);
   const [room]=summarizeProjectSelections(selections);
-  assert.equal(room.volume,46.17);
+  assert.ok(Math.abs(room.volume - 46.17) < 1e-10);
   assert.equal(room.floorArea,17.1);
   assert.equal(room.height,2.7);
   assert.equal(room.items[1].source,'Corte A-A.dwg');
