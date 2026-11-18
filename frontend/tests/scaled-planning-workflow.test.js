@@ -283,3 +283,23 @@ test('pinch cancellation, view changes, and scale changes cannot retain uncommit
   assert.equal(Boolean(container.querySelector('.cad-draft-path')), false); assert.equal(snapshot, null);
   await click('Aplicar unidad'); assert.equal(snapshot.shapes.length, 0);
 });
+
+test('selected-figure controls stay compact and rounded inputs never round untouched polygon geometry', async () => {
+  await click('Aplicar unidad');
+  await drawPolygon([[205, 180], [407, 180], [407, 295], [310, 295], [310, 380], [205, 380]]);
+  const original = structuredClone(lastShape()), geometry = structuredClone(snapshot.shapes[0].geometry);
+  assert.equal(container.querySelector('.cad-sketch-tools').hidden, true);
+  assert.equal(input('Ancho (m)').value, String(Number(original.widthMetres.toFixed(4))));
+  assert.equal(input('Fondo (m)').value, String(Number(original.depthMetres.toFixed(4))));
+  await setValue(input('Nombre'), 'Mueble a medida'); await click('Aplicar medidas');
+  assert.deepEqual(lastShape().verticesMetres, original.verticesMetres);
+  assert.equal(lastShape().widthMetres, original.widthMetres); assert.equal(lastShape().depthMetres, original.depthMetres);
+  assert.deepEqual(snapshot.shapes[0].geometry, geometry);
+  await setValue(input('Uso en el escenario'), 'extension'); await click('Aplicar medidas');
+  assert.equal(snapshot.shapes[0].role, 'extension'); assert.deepEqual(snapshot.shapes[0].geometry, geometry);
+  await act(async () => container.querySelector('.cad-sketch-disclosure').click());
+  assert.equal(container.querySelector('.cad-sketch-tools').hidden, false);
+  await click('Dibujar triángulo'); assert.equal(container.querySelector('.cad-sketch-tools').hidden, false);
+  await click('Cancelar dibujo');
+  assert.equal(snapshot.shapes.length, 1);
+});
