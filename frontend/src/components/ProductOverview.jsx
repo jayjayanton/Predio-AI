@@ -34,7 +34,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
           <button type="button" className="po-button po-button-secondary" onClick={onConsult}>Consultar mi predio <Arrow diagonal/></button>
         </div>
         <p className="po-hero-footnote">Para propietarios, arquitectos independientes y pequeños equipos de remodelación o construcción.</p>
-        <p className="po-release-note"><strong>Prototipo actual:</strong> consulta catastral, IRM asistido e inspección interactiva de planos PDF, DXF o DWG. <strong>En desarrollo:</strong> medidas arquitectónicas verificadas y reportes exportables. La validación de precisión con planos reales sigue pendiente.</p>
+        <p className="po-release-note"><strong>Prototipo actual:</strong> consulta catastral, IRM asistido e inspección de PDF, DXF o DWG con medidas geométricas tras confirmar la escala. <strong>En desarrollo:</strong> medidas arquitectónicas verificadas y reportes exportables. La validación de precisión con planos reales sigue pendiente.</p>
       </div>
       <ProjectGuide/>
     </section>
@@ -47,7 +47,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
           <div className="po-choice-top"><span className="po-choice-icon" aria-hidden="true">▧</span><span className="po-stage">Flujo experimental disponible</span></div>
           <h3>Quiero revisar los planos de mi casa</h3>
           <p>Para una reforma, reparación, pintura, cambio de pisos o ampliación. Empieza con un plano autorizado y explora lo que contiene. Puedes agregar después la información del predio.</p>
-          <p className="po-choice-note">La selección de líneas funciona; identificar muros y calcular superficies confiables sigue en desarrollo.</p>
+          <p className="po-choice-note">Selecciona líneas o contornos y confirma la escala para calcular longitudes y áreas. La identificación automática de muros y la validación arquitectónica siguen en desarrollo.</p>
           <button type="button" className="po-choice-action" onClick={onBlueprints}>Ir a Analizar planos <Arrow/></button>
         </article>
         <article className="po-choice">
@@ -72,7 +72,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
       <div className="po-section-heading"><p className="po-eyebrow">CASOS DE USO</p><h2 id="po-use-cases-title">¿Qué te gustaría mejorar?</h2></div>
       <div className="po-use-case-grid">
         <article><span className="po-case-number">01 / PINTURA</span><h3>Pintar paredes y techos</h3><p>Futura medición de superficies seleccionadas tras verificar alturas y aberturas.</p></article>
-        <article><span className="po-case-number">02 / PISOS</span><h3>Cambiar el piso</h3><p>Futura medición de superficies de ambientes con escala comprobada.</p></article>
+        <article><span className="po-case-number">02 / PISOS</span><h3>Cambiar el piso</h3><p>Mide un contorno cerrado con una escala confirmada y revisa qué superficie representa.</p></article>
         <article><span className="po-case-number">03 / REPARACIÓN</span><h3>Reorganizar o reparar</h3><p>Revisar el plano existente y documentar las zonas que requieren intervención.</p></article>
         <article><span className="po-case-number">04 / AMPLIACIÓN</span><h3>Reconstruir o ampliar</h3><p>Consultar planos, predio e IRM antes de revisar la propuesta con un profesional.</p></article>
       </div>
@@ -105,7 +105,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
       <div className="po-section-heading"><p className="po-eyebrow">PARA QUIÉN ES</p><h2 id="po-audiences-title">Para tu hogar y quienes te ayudan a mejorarlo.</h2></div>
       <div className="po-audience-grid po-core-audiences">
         <article><span className="po-stage">Hogar</span><h3>Propietarios y hogares</h3><p>Revisa planos y datos del inmueble para entender un proyecto de reparación o reforma.</p></article>
-        <article><span className="po-stage">Arquitectura</span><h3>Arquitectos independientes y estudios pequeños</h3><p>Inspecciona documentos con tus clientes. Próximamente, medidas revisables con sus fuentes.</p></article>
+        <article><span className="po-stage">Arquitectura</span><h3>Arquitectos independientes y estudios pequeños</h3><p>Inspecciona documentos y calcula medidas de la geometría seleccionada con una escala confirmada. Revisa sus fuentes con tus clientes.</p></article>
         <article><span className="po-stage">Oficios y obra</span><h3>Empresas de remodelación y construcción</h3><p>Consulta los planos y prepara el alcance técnico. Los proveedores, materiales, precios y obra siguen bajo tu responsabilidad.</p></article>
       </div>
       <details className="po-secondary-audiences"><summary>Otras herramientas y posibilidades futuras</summary><div className="po-audience-grid">

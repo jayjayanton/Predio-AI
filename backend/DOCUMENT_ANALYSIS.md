@@ -4,6 +4,15 @@ The document workspace is connected to **`POST /api/documents/analyze`**.
 It extracts document evidence and selectable geometry. It does not establish
 architectural measurements, regulatory compliance or construction approval.
 
+The frontend's **Medidas** panel separately calculates selected geometric
+lengths, perimeters and closed-boundary areas after explicit unit confirmation
+or known-length calibration. CAD display coordinates preserve native distance
+and area; the Y reflection used for rendering does not change either. PDF
+coordinates are page points and require calibration. The extraction endpoint's
+`measurements_available: false` remains accurate: it does not receive the user's
+calibration, compute these browser-local results or verify physical dimensions.
+Calibration is scoped to the current view and is not saved as a project.
+
 ## Current inputs and extraction
 
 | Input | Parser | Current output |
@@ -25,9 +34,12 @@ elements. A CAD unit code or dimension annotation is evidence to review, not a
 verified physical measurement.
 
 **Ver plano de ejemplo** opens a fictional drawing entirely in the frontend.
-It demonstrates layers, curved paths, source labels, zoom and selection without
-uploading or analyzing a user's file. Its illustrative dimensions are not
-verified measurements and it does not bypass the real-upload prerequisites.
+It demonstrates layers, curved paths, source labels, zoom, selection and the
+measurement panel without uploading or analyzing a user's file. The explicit
+fictional **Área de ejemplo** boundary is 442 × 244 drawing units; applying
+centimetres produces 10.7848 m² and a 13.72 m perimeter. Its illustrative
+dimensions are not verified physical measurements and it does not bypass the
+real-upload prerequisites.
 
 ## Combined endpoint
 

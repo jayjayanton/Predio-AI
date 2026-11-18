@@ -1040,7 +1040,7 @@ export default function App() {
         <button type="button" aria-pressed={audience === 'developer'} className={audience === 'developer' ? 'active' : ''} onClick={() => { setAudience('developer'); setStep('property'); }}>Información urbanística</button>
         <button type="button" onClick={() => navigate('blueprints')}>Planos de mi vivienda →</button>
       </div>}
-      {page === 'blueprints' && <section className="blueprint-intro" aria-label="Análisis de planos"><p className="eyebrow">TU VIVIENDA · TUS PLANOS</p><h1>Revisa los planos de tu vivienda.</h1><p>Empieza con un PDF, DXF o DWG autorizado. Explora sus líneas, páginas y capas; puedes vincular la información del predio cuando la necesites.</p><p className="note"><strong>Disponible hoy:</strong> inspección de documentos y geometría. Las medidas arquitectónicas verificadas y los informes exportables siguen en desarrollo.</p></section>}
+      {page === 'blueprints' && <section className="blueprint-intro" aria-label="Análisis de planos"><p className="eyebrow">TU VIVIENDA · TUS PLANOS</p><h1>Revisa los planos de tu vivienda.</h1><p>Empieza con un PDF, DXF o DWG autorizado. Explora sus líneas, páginas y capas; puedes vincular la información del predio cuando la necesites.</p><p className="note"><strong>Disponible hoy:</strong> inspección y medición de geometría seleccionada tras confirmar unidades o calibrar una longitud conocida. La validación arquitectónica y los informes exportables siguen en desarrollo.</p></section>}
       {audience !== 'explorer' && <nav className="workflow-nav" aria-label="Etapas del proyecto">
         {audience === 'developer' ? <>
           <button type="button" className={step === 'property' ? 'active' : ''} onClick={() => setStep('property')}>1 · Predio</button>
@@ -2063,7 +2063,7 @@ export default function App() {
         <section className="workspace-page">
           <div className="workspace-heading"><div><span className="eyebrow">PASO 1 · PLANOS Y ACTIVIDADES</span><h2>{properties ? `Planos del predio ${properties.n_predio}` : '¿Qué quieres revisar?'}</h2><p className="note">Elige una actividad, adjunta el plano y explora su contenido. {properties ? 'Comprueba que el archivo corresponda a esta propiedad.' : 'Aún no hay un predio vinculado; la inspección del archivo sigue disponible.'}</p></div><button type="button" className="secondary" onClick={() => setStep('property')}>{properties ? 'Ver predio vinculado' : 'Vincular predio'}</button></div>
           <div className="inspection-result-header">
-            <p>Prueba la vista general, las capas y la selección de segmentos con una vivienda ficticia.</p>
+            <p>Prueba las capas, la selección y el panel de medidas con una vivienda ficticia.</p>
             <button type="button" className="secondary" onClick={() => {
               setDrawingExample(createExampleDrawing());
               requestAnimationFrame(() => document.getElementById('drawing-workspace')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }));
@@ -2233,10 +2233,10 @@ export default function App() {
                     )}
 
                     <p className="note">
-                      Se extrajo información preliminar de los documentos. Todavía no
-                      hay identificación visual de muros, cálculo de
-                      superficies ni verificación de cumplimiento IRM.
-                      No se generan dimensiones sin escala verificable.
+                      Se extrajo información preliminar de los documentos. El panel Medidas calcula
+                      longitudes y áreas de contornos compatibles con la escala que confirmes.
+                      La identificación automática de muros, las cantidades de obra y la
+                      verificación de cumplimiento IRM siguen pendientes.
                     </p>
                   </div>
                 )}
@@ -2247,11 +2247,11 @@ export default function App() {
             </section>
             <section id="drawing-workspace" className="drawing-workspace" aria-label="Área de trabajo de planos">
               <div className="section-heading">ESPACIO DE PLANOS <span>GEOMETRÍA SIN VERIFICAR</span></div>
-              {drawingExample ? <div className="inspection-result-header"><p role="status"><strong>Ejemplo interactivo · vivienda ficticia.</strong> Las cotas y textos son ilustrativos. Este ejemplo permite probar el visor; no analiza ni sustituye tu archivo.</p><button type="button" className="secondary" onClick={() => setDrawingExample(null)}>{inspection ? 'Volver a mi plano' : 'Cerrar ejemplo'}</button></div>
+              {drawingExample ? <div className="inspection-result-header"><p role="status"><strong>Ejemplo interactivo · vivienda ficticia.</strong> Para probar medidas, selecciona la capa «Área de ejemplo» y aplica centímetros en el panel Medidas. Su contorno mide 4,42 × 2,44 m. Las cotas son ilustrativas; este ejemplo no analiza tu archivo.</p><button type="button" className="secondary" onClick={() => setDrawingExample(null)}>{inspection ? 'Volver a mi plano' : 'Cerrar ejemplo'}</button></div>
                 : inspection && <div className="inspection-result-header"><p role="status"><strong>{blueprintConversion?.title || 'Archivo inspeccionado.'}</strong> {blueprintConversion?.detail || 'Revisa el dibujo y sus capas antes de abrir el resumen.'}</p><button type="button" className="secondary" onClick={() => setStep('report')}>Ver resumen documental →</button></div>}
               {displayedDrawing?.drawing_views?.length
-                ? <BlueprintViewer key={displayedDrawing.filename} views={displayedDrawing.drawing_views} cadLayouts={displayedDrawing.cad_layouts || []} />
-                : <div className="empty"><strong>{inspection ? 'No se encontró geometría vectorial seleccionable.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y contrasta el contenido con el archivo original.' : 'Adjunta un PDF, DXF o DWG y pulsa «Inspeccionar mi plano». Podrás acercar el dibujo, seleccionar líneas y mostrar u ocultar capas compatibles.'}</p><p className="note">La precisión con planos reales está pendiente de validación. No se muestran medidas en m² ni cantidades de obra.</p></div>}
+                ? <BlueprintViewer key={displayedDrawing.filename} views={displayedDrawing.drawing_views} cadLayouts={displayedDrawing.cad_layouts || []} documentFormat={displayedDrawing.format} unitsCode={displayedDrawing.units_code} />
+                : <div className="empty"><strong>{inspection ? 'No se encontró geometría vectorial seleccionable.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y contrasta el contenido con el archivo original.' : 'Adjunta un PDF, DXF o DWG y pulsa «Inspeccionar mi plano». Podrás acercar el dibujo, seleccionar líneas y usar el panel Medidas.'}</p><p className="note">Confirma unidades o calibra una longitud conocida antes de obtener metros o m². Los resultados geométricos requieren revisión con el plano y las condiciones reales.</p></div>}
             </section>
           </div>
         </section>
