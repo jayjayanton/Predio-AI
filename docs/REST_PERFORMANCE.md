@@ -61,9 +61,11 @@ Before raising the default, validate the deployed 1,000/2,000 controls on a repr
 
 ### Deployed checks
 
-The published implementation passed the GitHub [CI run](https://github.com/jayjayanton/Predio-AI/actions/runs/44345396442) and [Pages deployment](https://github.com/jayjayanton/Predio-AI/actions/runs/44345396368). CI verified 234 frontend tests, 310 backend tests with one existing private-DWG test skipped, and the production frontend build.
+The published implementation passed the GitHub [CI run](https://github.com/jayjayanton/Predio-AI/actions/runs/44347807705) and [Pages deployment](https://github.com/jayjayanton/Predio-AI/actions/runs/44347807844). CI verified 235 frontend tests, 310 backend tests with one existing private-DWG test skipped, and the production frontend build.
 
-A live desktop-browser check at 1,363 × 936 CSS pixels used the same Cumbayá/Tumbaco filter and displayed 11,045 matches. The 1,000 and 2,000 overview choices rendered successfully; the larger view had 2,000 SVG paths. With the limit returned to 1,000, card page 1,001–1,200 produced a 1,200-feature map overlay and selected predio 1234871. Returning to the 2,000 overview preserved that selection. The fixture contains 14 records with that same parent-lot polygon; this check motivated bringing the selected path to the front.
+A live desktop-browser check at 1,363 × 936 CSS pixels used the same Cumbayá/Tumbaco filter and displayed 11,045 matches. The 1,000 and 2,000 overview choices rendered successfully; the larger view had 2,000 SVG paths. With the limit returned to 1,000, card page 1,001–1,200 produced a 1,200-feature map overlay and selected predio 1234871. Returning to the 2,000 overview preserved that selection. The fixture contains 14 records with that same parent-lot polygon; this check motivated bringing the selected path to the front. After that fix deployed, the same parcel was visibly highlighted above the 14 coincident outlines.
+
+![Live desktop verification: 2,000 polygons and the selected later-page parcel above coincident PH outlines.](performance/explorer-2000-selected.jpg)
 
 Public backend smoke checks returned HTTP 200 for health, property details, individual PUGS and a one-parcel batch. The property retained its matched 2026 geometry and AIVA fields. Fresh individual and batch responses exposed the new hole-aware overlay and cached-index methods, including `shared_tile_requests`; `regulatory_approval` stayed false. These observations verify deployed behavior without asserting a Render management-log or deployment-SHA inspection. Desktop checks do not establish phone responsiveness, frame rates or a production latency objective.
 
