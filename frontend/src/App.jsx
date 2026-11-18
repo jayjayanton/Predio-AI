@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import ParcelMap from './components/ParcelMap.jsx';
 import BlueprintViewer from './components/BlueprintViewer.jsx';
 import ProjectPackagePanel from './components/ProjectPackagePanel.jsx';
+import DrawingLocationPanel from './components/DrawingLocationPanel.jsx';
 import ResidentialSimulator from './ResidentialSimulator.jsx';
 import ProductOverview from './components/ProductOverview.jsx';
 import SelectionPage from './components/SelectionPage.jsx';
@@ -23,6 +24,7 @@ const ROUTES = { inicio: 'home', explorar: 'explore', predio: 'property', planos
 const pageFromHash = () => ROUTES[window.location.hash.slice(1)] || 'home';
 const routeForPage = page => Object.keys(ROUTES).find(key => ROUTES[key] === page) || 'inicio';
 const scrollBehavior = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+const EMPTY_LOCATION_REFERENCES = Object.freeze({});
 
 // ============================================================
 // 1. CONFIGURATION
@@ -359,6 +361,10 @@ export default function App() {
   const [irmCopyStatus, setIrmCopyStatus] = useState('');
   const [irmBridgeBusy, setIrmBridgeBusy] = useState(false);
   const [inspection, setInspection] = useState(null);
+  // Reference coordinates belong to this exact inspection, including its ZIP member.
+  const [locationRecord, setLocationRecord] = useState(null);
+  const locationReferences = locationRecord?.inspection === inspection
+    ? locationRecord.value : EMPTY_LOCATION_REFERENCES;
   const [drawingExample, setDrawingExample] = useState(null);
   const [packageRecord, setPackageRecord] = useState(null);
   const activePackage = packageRecord?.file === pdf ? packageRecord.manifest : null;
@@ -988,7 +994,7 @@ export default function App() {
     setInspectionError('');
     try {
       const form = createInspectionForm({
-        blueprint: pdf, irm: irmRequired ? irmPdf : null, buildingType, workType, activities,
+        blueprint: pdf, irm: irmPdf, buildingType, workType, activities,
         predioNumber: properties?.n_predio || properties?.predio, packageEntry,
       });
       const response = await fetch(`${API}/api/documents/analyze`, {
@@ -2208,17 +2214,15 @@ export default function App() {
                   <p className="note">En iPhone: pulsa «Elegir archivo» y luego «Explorar» para buscar el DWG o ZIP en Archivos. Si lo tienes en otra aplicación, guárdalo primero en Archivos. El selector muestra todos los archivos para evitar que iOS oculte los DWG; PredioAI valida el formato después de seleccionarlo.</p>
                 </div>
 
-                {irmRequired && (
                 <div className="document-upload">
-                  <label htmlFor="irm-upload"><strong>2. Adjuntar IRM oficial (PDF) · requerido</strong></label>
+                  <label htmlFor="irm-upload"><strong>2. Adjuntar IRM oficial (PDF) · {irmRequired ? 'requerido' : 'opcional'}</strong></label>
                   <input key={`irm-${documentInputVersion}`} id="irm-upload" className="file-input"
                     type="file" accept="application/pdf,.pdf"
                     onChange={(event) => selectDocument(event, 'irm')}
                   />
                   {irmPdf && <p className="note">IRM seleccionado: {irmPdf.name}</p>}
+                  {!irmRequired && <p className="note">Puedes añadirlo para revisar el número de predio y las coordenadas junto al plano. La coincidencia entre ambos documentos debe confirmarse.</p>}
                 </div>
-
-                )}
 
                 <p className="note document-privacy">Al inspeccionar, el archivo se envía al servicio de análisis. Al abrir otro dibujo de un ZIP, se vuelve a enviar el mismo paquete y se procesa solo el dibujo elegido. Para convertir un DWG se crean copias temporales que se eliminan al terminar. Usa copias autorizadas sin datos personales innecesarios. Los archivos y resultados no se guardan como un proyecto permanente.</p>
                 <button type="button" className="primary-action"
@@ -2242,9 +2246,9 @@ export default function App() {
                       {selectedDocumentError ? ' · no se pudo inspeccionar este dibujo' : inspection.blueprint.pages
                         ? ` · ${inspection.blueprint.pages.length} página(s)`
                         : ' · entidades CAD extraídas'}</p>
-                    {irmRequired && <p>IRM: {inspection.irm
+                    <p>IRM: {inspection.irm
                       ? `${inspection.irm.pages.length} página(s)`
-                      : 'No adjuntado'}</p>}
+                      : 'No adjuntado'}</p>
                     {inspection.irm && Object.keys(inspection.irm.candidate_irm_fields || {}).length > 0 && (
                       <dl>
                         {Object.entries(inspection.irm.candidate_irm_fields).map(([key, value]) => (
@@ -2282,6 +2286,12 @@ export default function App() {
               {displayedDrawing?.drawing_views?.length
                 ? <BlueprintViewer key={`${displayedDrawing.package?.selected_entry || ''}:${displayedDrawing.filename}`} views={displayedDrawing.drawing_views} cadLayouts={displayedDrawing.cad_layouts || []} documentFormat={displayedDrawing.format} unitsCode={displayedDrawing.units_code} documentName={displayedDrawing.package?.selected_entry || displayedDrawing.filename} />
                 : <div className="empty"><strong>{inspecting ? 'Abriendo el dibujo…' : selectedDocumentError ? 'Elige otro dibujo o vuelve a intentarlo.' : inspection ? 'No se encontró geometría vectorial seleccionable.' : activePackage ? 'Selecciona un dibujo del paquete.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspecting ? 'La geometría y las medidas aparecerán cuando termine la inspección de este archivo.' : selectedDocumentError ? 'El listado del ZIP sigue disponible arriba. No se muestran medidas ni geometría del archivo anterior.' : inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y contrasta el contenido con el archivo original.' : activePackage ? 'Completa los documentos requeridos y pulsa «Abrir dibujo» para inspeccionar el archivo elegido.' : 'Adjunta un PDF, DXF, DWG o ZIP y pulsa «Inspeccionar». Podrás acercar el dibujo, seleccionar líneas y usar el panel Medidas.'}</p><p className="note">Confirma unidades o calibra una longitud conocida antes de obtener metros o m². Los resultados geométricos requieren revisión con el plano y las condiciones reales.</p></div>}
+              {!drawingExample && inspection && !selectedDocumentError && <DrawingLocationPanel
+                blueprint={inspection.blueprint} irm={inspection.irm}
+                selectedPredio={inspection.predio_number || properties?.n_predio || properties?.predio}
+                apiBase={API} reference={locationReferences}
+                onReferenceChange={value => setLocationRecord({ inspection, value })}
+              />}
             </section>
           </div>
         </section>
@@ -2296,6 +2306,11 @@ export default function App() {
             <div className="property"><h2>Documentos revisados</h2>{inspection.blueprint?.package && <p>Paquete: {inspection.blueprint.package.filename}<br />Dibujo elegido: {inspection.blueprint.package.selected_entry}</p>}<p>Plano: {inspection.blueprint?.filename || pdf?.name || 'Sin archivo'}</p><p>Formato: {inspection.blueprint?.format?.toUpperCase() || 'No disponible'}</p>{selectedDocumentError && <p className="error"><strong>No se pudo inspeccionar el dibujo.</strong> {selectedDocumentError}</p>}{blueprintConversion && <p><strong>{blueprintConversion.title}</strong> {blueprintConversion.detail}</p>}<p>IRM: {inspection.irm ? 'Adjuntado · campos candidatos sin verificar' : 'No adjuntado'}</p><p>Actividades: {inspection.activities?.map(a => a.label).join(', ') || 'No disponible'}</p></div>
             <div className="property"><h2>Estado de mediciones</h2><p>Geometría: {inspection.blueprint?.drawing_views?.length || 0} vista(s) extraída(s)</p><p>Etiquetas originales extraídas: {inspection.blueprint?.drawing_views?.reduce((total, view) => total + (view.extraction?.rendered_text_elements ?? view.source_labels?.length ?? 0), 0) || 0} (sin verificar)</p>{inspection.blueprint?.cad_layouts?.length > 0 && <p>Presentaciones CAD: {inspection.blueprint.cad_layouts.map(layout => layout.name + (layout.displayed ? ' (disponible en el visor)' : ' (sin vista extraída)')).join(' · ')}. Estas presentaciones no identifican automáticamente pisos.</p>}{inspection.blueprint?.drawing_views?.some(view => hasPartialExtraction(view.extraction)) && <p><strong>Integridad de la vista: parcial.</strong> Consulta las omisiones indicadas en el visor.</p>}<p>Unidades y escala: sin verificar</p><p>Áreas, longitudes y costos: no disponibles</p><p>Conformidad municipal: no evaluada</p></div>
           </div>
+          {!selectedDocumentError && <DrawingLocationPanel
+            blueprint={inspection.blueprint} irm={inspection.irm}
+            selectedPredio={inspection.predio_number || properties?.n_predio || properties?.predio}
+            apiBase={API} reference={locationReferences} compact
+          />}
           <p className="source-note">Fuentes: archivos proporcionados por el usuario; la información extraída es preliminar y requiere revisión profesional.</p>
           <div className="report-actions"><button type="button" className="secondary" onClick={() => setStep('project')}>← Revisar planos</button><button type="button" className="secondary" onClick={() => setStep('property')}>{properties ? 'Ver información catastral' : 'Vincular predio (opcional)'}</button></div>
         </section>

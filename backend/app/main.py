@@ -380,6 +380,34 @@ from fastapi import Form
 from .document_analysis import analyze_document, CadImportBusyError
 from .project_package import analyze_project_package, MAX_PACKAGE_BYTES
 from .work_activities import requires_irm, validate_activities
+from .location_analysis import transform_coordinates
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+import math
+
+
+class CoordinateTransformRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    x: float = Field(ge=-1_000_000_000, le=1_000_000_000, allow_inf_nan=False, strict=True)
+    y: float = Field(ge=-1_000_000_000, le=1_000_000_000, allow_inf_nan=False, strict=True)
+    source_crs: str = Field(min_length=4, max_length=24)
+
+    @field_validator("x", "y", mode="before")
+    @classmethod
+    def reject_nonfinite_json(cls, value):
+        # Some JSON parsers accept NaN/Infinity. Normalize them to a rejected
+        # JSON-safe value so FastAPI can serialize the 422 validation error.
+        if isinstance(value, float) and not math.isfinite(value):
+            return None
+        return value
+
+
+@app.post("/api/coordinates/transform")
+async def convert_reference_coordinates(request: CoordinateTransformRequest):
+    """Convert an explicitly referenced point; never register a drawing or parcel."""
+    try:
+        return await run_in_threadpool(transform_coordinates, request.x, request.y, request.source_crs)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/api/documents/analyze")
@@ -462,6 +490,7 @@ async def extract_irm(file: UploadFile = File(...)):
     return {
         "filename": result["filename"],
         "candidate_irm_fields": result.get("candidate_irm_fields", {}),
+        "location": result.get("location"),
         "warnings": result.get("warnings", []),
         "pages": len(result.get("pages", [])),
         "stored": False,
@@ -484,7 +513,6 @@ async def pugs_for_predio(identifier_type: str, identifier: str):
 
 
 # Exploratory PUGS screening: bounded batch, not a citywide zoning count.
-from pydantic import BaseModel, Field
 import asyncio
 
 # Geographic batch PUGS analysis. GeoJSON cadastral polygons come from the
