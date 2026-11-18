@@ -29,6 +29,7 @@ from fastapi import (
 )
 
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from starlette.concurrency import run_in_threadpool
 
 from .dwg_conversion import DwgConversionError, converter_available
@@ -65,6 +66,7 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"]
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
 
 
 # ============================================================
@@ -375,7 +377,7 @@ async def inspect_blueprint(
 # ============================================================
 from typing import Literal
 from fastapi import Form
-from .document_analysis import analyze_document
+from .document_analysis import analyze_document, CadImportBusyError
 from .work_activities import requires_irm, validate_activities
 
 
@@ -410,6 +412,8 @@ async def analyze_project_documents(
             return await run_in_threadpool(analyze_document, content, upload.filename or "", role)
         except DwgConversionError as exc:
             raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+        except CadImportBusyError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 

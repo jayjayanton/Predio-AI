@@ -10,13 +10,29 @@ from __future__ import annotations
 from collections import Counter
 from io import StringIO
 import re
+from threading import BoundedSemaphore
 
 from .dwg_conversion import convert_dwg_to_dxf
+from .drawing_geometry import CadImportBudget, CadImportLimitError
 
 MAX_BYTES = 15 * 1024 * 1024
 MAX_PAGES = 100
 MAX_ENTITIES = 100_000
 MAX_TEXT = 25_000
+MAX_CAD_LAYOUTS = 100
+
+# One complete CAD conversion/parse/geometry import per worker process keeps
+# the native converter from overlapping an already expanded ezdxf document.
+_CAD_IMPORT_SLOT = BoundedSemaphore(1)
+
+
+class CadImportBusyError(ValueError):
+    """The CAD importer is already handling another request."""
+
+    def __init__(self):
+        super().__init__(
+            "Hay otro plano CAD en proceso. Espera un momento y vuelve a intentar."
+        )
 
 IRM_PATTERNS = {
     "predio": r"(?i)(?:n[uú]mero\s+de\s+predio|predio\s*(?:n[°ºo.]*)?)\s*[:#-]?\s*(\d{3,15})",
@@ -104,39 +120,58 @@ def _dxf(data: bytes) -> dict:
         from .drawing_geometry import extract_dxf_primitives, drawing_view
     except ImportError as exc:
         raise ValueError("DXF support requires optional package ezdxf") from exc
+    budget = CadImportBudget()
     try:
         # Match universal-newline file reading: a retained CR corrupts DXF
         # string values, including hexadecimal group-310 binary records.
-        doc = ezdxf.read(StringIO(data.decode('utf-8-sig'), newline=None))
+        doc = ezdxf.read(StringIO(data.decode("utf-8-sig"), newline=None))
+        budget.check_time()
         model = doc.modelspace()
-        primitives, extraction = extract_dxf_primitives(model)
         # A CAD presentation/layout is not necessarily a separate building floor.
-        cad_layouts = [{
-            "name": layout.name,
-            "entity_count": min(len(layout), MAX_ENTITIES),
-            "displayed": layout.name == "Model",
-        } for layout in list(doc.layouts)[:30]]
-        source_labels = extraction.pop("source_labels", [])
-        extraction["omitted_nonempty_layouts"] = sum(
-            1 for layout in doc.layouts if layout.name != "Model" and len(layout)
-        )
-        if extraction["omitted_nonempty_layouts"]:
-            extraction["status"] = "partial"
-        view = {**drawing_view(primitives, invert_y=True, source_labels=source_labels),
-                "extraction": extraction}
+        layouts = [model, *(layout for layout in doc.layouts if not layout.is_modelspace)]
+        if len(layouts) > MAX_CAD_LAYOUTS:
+            raise CadImportLimitError(
+                f"El CAD supera {MAX_CAD_LAYOUTS} presentaciones. "
+                "Divide el archivo; no se devolvió un conjunto de vistas recortado."
+            )
+        cad_layouts = []
+        views = []
+        for layout in layouts:
+            budget.check_time()
+            displayed = layout.is_modelspace or bool(len(layout))
+            scope = "modelspace" if layout.is_modelspace else "paperspace"
+            page = len(views) + 1 if displayed else None
+            cad_layouts.append({
+                "name": layout.name, "entity_count": len(layout),
+                "displayed": displayed, "page": page, "scope": scope,
+                "viewport_contents_displayed": False,
+            })
+            if not displayed:
+                continue
+            primitives, extraction = extract_dxf_primitives(
+                layout, budget=budget, scope=scope, page=page,
+            )
+            source_labels = extraction.pop("source_labels", [])
+            extraction["import_limits"]["layouts"] = MAX_CAD_LAYOUTS
+            views.append({
+                **drawing_view(primitives, invert_y=True, source_labels=source_labels),
+                "extraction": extraction, "page": page,
+                "name": layout.name, "layout_name": layout.name,
+                "label": "Modelo CAD" if layout.is_modelspace else f"Presentación: {layout.name}",
+            })
         counts = Counter()
         layer_counts = Counter()
         annotations = []
         dimension_labels = []
         for index, entity in enumerate(model):
+            budget.check_time()
             if index >= MAX_ENTITIES:
-                raise ValueError("DXF entity limit exceeded")
+                raise CadImportLimitError("El CAD supera el límite de entidades de origen.")
             kind = entity.dxftype()
             counts[kind] += 1
-            layer_counts[entity.dxf.layer] += 1
+            layer_counts[entity.dxf.get("layer", "0")] += 1
             if kind in {"TEXT", "MTEXT"} and len(annotations) < 150:
-                value = (entity.dxf.text if kind == "TEXT"
-                         else entity.text).strip()
+                value = entity.plain_text().strip()
                 if value:
                     annotations.append(value[:300])
             if kind == "DIMENSION" and len(dimension_labels) < 100:
@@ -153,17 +188,26 @@ def _dxf(data: bytes) -> dict:
         "format": "dxf", "role": "blueprint",
         "units_code": doc.header.get("$INSUNITS", 0),
         "cad_layouts": cad_layouts,
-        "display_scope": "modelspace_only",
+        "display_scope": "modelspace_and_paperspace" if len(views) > 1 else "modelspace_only",
         "floor_identification": "unverified",
         "entity_counts": dict(counts),
         "layer_counts": dict(layer_counts),
         "annotations": annotations,
-        "drawing_views": [{**view, "page": 1}],
+        "drawing_views": views,
         "dimensions": dimension_labels,
+        "import_summary": {
+            "views": len(views), "rendered_primitives": budget.elements,
+            "generated_vertices": budget.points, "visited_entity_instances": budget.visits,
+            "text_characters": budget.text_characters,
+            "serialized_element_bytes": budget.element_bytes,
+            "budget_truncated": False,
+        },
         "warnings": [
             "CAD units, drawing scale, layer meaning and dimensions require validation",
-            "Source text and explicitly written dimensions are unverified; no room is assigned from proximity alone",
-            "Only CAD modelspace geometry is rendered; paper layouts may contain other views",
+            "Source text and source dimension labels are unverified; no room is assigned from proximity alone",
+            "Curves and text are display approximations; source fonts, lineweights, linetypes and colors are not reproduced",
+            "Nonempty paper layouts are separate views; their modelspace viewports are not rendered",
+            "Unsupported, clipped, external-reference or nonplanar contents are reported per view",
             "No floor area, setback or regulatory compliance is inferred",
         ],
     }
@@ -175,19 +219,29 @@ def analyze_document(data: bytes, filename: str, role: str) -> dict:
         raise ValueError("role must be irm or blueprint")
     ext = _validate(data, filename, {"pdf"} if role == "irm"
                     else {"pdf", "dxf", "dwg"})
-    if ext == "dwg":
-        converted = convert_dwg_to_dxf(data)
+    if ext in {"dwg", "dxf"}:
+        if not _CAD_IMPORT_SLOT.acquire(blocking=False):
+            raise CadImportBusyError()
         try:
-            result = _dxf(converted.dxf_bytes)
-        except ValueError as exc:
-            raise ValueError(
-                "No se pudo interpretar la conversión del DWG. "
-                "Revisa el archivo original o prueba una exportación PDF/DXF."
-            ) from exc
-        result.update(format="dwg", converted_format="dxf", conversion=converted.metadata)
-        result["warnings"] = [*converted.metadata.get("warnings", []), *result["warnings"]]
+            if ext == "dwg":
+                converted = convert_dwg_to_dxf(data)
+                try:
+                    result = _dxf(converted.dxf_bytes)
+                except CadImportLimitError:
+                    raise
+                except ValueError as exc:
+                    raise ValueError(
+                        "No se pudo interpretar la conversión del DWG. "
+                        "Revisa el archivo original o prueba una exportación PDF/DXF."
+                    ) from exc
+                result.update(format="dwg", converted_format="dxf", conversion=converted.metadata)
+                result["warnings"] = [*converted.metadata.get("warnings", []), *result["warnings"]]
+            else:
+                result = _dxf(data)
+        finally:
+            _CAD_IMPORT_SLOT.release()
     else:
-        result = _pdf(data, role) if ext == "pdf" else _dxf(data)
+        result = _pdf(data, role)
     result["filename"] = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
     result["compliance_checked"] = False
     result["official_approval"] = False

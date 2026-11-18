@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hasPartialExtraction, drawingExtractionMessages, dwgConversionNotice } from '../src/drawingExtraction.js';
+import { hasPartialExtraction, drawingExtractionMessages, drawingRepresentationMessages, dwgConversionNotice } from '../src/drawingExtraction.js';
 
 test('missing metadata and supported geometry do not imply a complete drawing', () => {
   for (const metadata of [undefined, null, {status: 'supported_geometry', rendered_primitives: 370}]) {
@@ -88,4 +88,36 @@ test('a capped source annotation view reports missing text without asserting cov
   const messages = drawingExtractionMessages(extraction);
   assert.ok(messages.some(message => message.includes('250 etiquetas originales')));
   assert.ok(messages.some(message => message.includes('pueden faltar textos o cotas')));
+});
+
+test('a capped legacy label summary does not imply omitted text in a full text-element import', () => {
+  const extraction = {status: 'supported_geometry', source_label_limit_reached: true,
+    source_label_summary_only: true, source_label_summary_omitted: 500,
+    rendered_text_elements: 750, rendered_primitives: 12000, limit_reached: false};
+  assert.equal(hasPartialExtraction(extraction), false);
+  assert.deepEqual(drawingExtractionMessages(extraction), []);
+  assert.ok(drawingRepresentationMessages(extraction).some(message => message.includes('fuente sustituta')));
+});
+
+test('source omissions and incomplete styles remain explicit without claiming quantified coverage', () => {
+  const extraction = {status: 'supported_geometry', partially_rendered_entity_counts: {HATCH: 2},
+    omission_reasons: {gradient_fill_not_rendered: 2, external_reference_not_loaded: 1}, unexpanded_container_instances: 1};
+  assert.equal(hasPartialExtraction(extraction), true);
+  const messages = drawingExtractionMessages(extraction);
+  assert.ok(messages.some(message => message.includes('Entidades representadas parcialmente: tramas: 2')));
+  assert.ok(messages.some(message => message.includes('Degradados no representados')));
+  assert.ok(messages.some(message => message.includes('entidades internas desconocidas')));
+  assert.ok(messages.every(message => !message.includes('%') && !message.includes('gradient_fill')));
+});
+
+test('approximated curves are distinct from source straight segments and font substitution', () => {
+  const messages = drawingRepresentationMessages({approximated_entity_counts: {ARC: 12, TEXT: 4}, rendered_text_elements: 4,
+    rendering_limitations: ['Technical implementation wording']});
+  assert.equal(messages.length, 3);
+  assert.match(messages[0], /arcos: 12/);
+  assert.doesNotMatch(messages[0], /textos: 4/);
+  assert.match(messages[0], /no son segmentos rectos originales/);
+  assert.match(messages[1], /fuente sustituta/);
+  assert.match(messages[2], /vistas 3D/);
+  assert.equal(drawingRepresentationMessages(undefined).length, 0);
 });

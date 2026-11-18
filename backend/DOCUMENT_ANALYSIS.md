@@ -9,16 +9,25 @@ architectural measurements, regulatory compliance or construction approval.
 | Input | Parser | Current output |
 | --- | --- | --- |
 | Architectural PDF | PyMuPDF | Page sizes, text/vector/image counts, OCR-needed flags and supported straight vector paths for the viewer |
-| Architectural DXF | ezdxf | Modelspace entity/layer counts, unit code, unverified source text labels with CAD positions, explicit dimension overrides, and bounded straight geometry including supported transformed INSERT blocks |
+| Architectural DXF | ezdxf | Modelspace and supported layout views, entity/layer counts, unit code, positioned source text, dimension drawing components, straight and approximated curved geometry, transformed CAD blocks and hatch geometry |
 | IRM PDF | PyMuPDF | Page metadata, text evidence and recognizable fields such as predio, COS, floors and setbacks, labelled as unverified extraction |
 | Scanned PDF | PDF inspection only | Image/text metadata and possible OCR-needed flags; no OCR or automatic conversion into selectable walls |
 | Architectural DWG | Local LibreDWG CLI followed by ezdxf | Direct upload; source filename/format retained, conversion status plus DXF evidence and partial-view metadata |
 
 PyMuPDF and ezdxf are both included in `backend/requirements.txt`.
-The viewer renders extracted primitives rather than a complete reproduction
-of the source drawing. PDF curves/images and unsupported CAD entities are not
-converted into architectural elements. A CAD unit code or dimension annotation
-is evidence to review, not a verified physical measurement.
+The viewer presents the imported drawing in an overview and an inspection
+canvas. The overview uses the same imported data; it is not an independent
+rendering of the original file. CAD imports no longer stop at 3,000 display
+elements. All supported geometry is retained when the complete import fits the
+resource limits. Unsupported content remains explicitly reported. PDF
+curves/images and unsupported CAD entities are not converted into architectural
+elements. A CAD unit code or dimension annotation is evidence to review, not a
+verified physical measurement.
+
+**Ver plano de ejemplo** opens a fictional drawing entirely in the frontend.
+It demonstrates layers, curved paths, source labels, zoom and selection without
+uploading or analyzing a user's file. Its illustrative dimensions are not
+verified measurements and it does not bypass the real-upload prerequisites.
 
 ## Combined endpoint
 
@@ -51,9 +60,24 @@ activities and these explicit limits:
 
 PDF/DXF parsing uses memory. DWG input and converted output use a private
 temporary directory removed on success or failure. This endpoint does not save
-permanent projects. Limits are **15 MB per input and converted output**,
-**100 PDF pages**, **100,000 DXF modelspace entities**, **3,000 selectable
-primitives per view**, and **250 positioned source annotations per view**. Block traversal also has visit/depth/cycle guards.
+permanent projects. Inputs and converted output remain limited to **15 MB**;
+PDFs remain limited to **100 pages**, with the existing bounded PDF extraction.
+CAD imports use whole-document limits on entity visits, emitted elements,
+vertices, text, nesting and elapsed traversal time, shared across layouts.
+Crossing a CAD resource limit rejects the import with a clear error rather than
+returning a successful drawing with the remaining elements cut off. CAD import
+work is serialized per API process; a busy service returns a retryable error.
+These cooperative limits do not impose an OS memory sandbox on the DXF parser.
+
+Current aggregate CAD ceilings are 100 layouts, 100,000 visited entity
+instances, 50,000 emitted elements, 500,000 generated vertices, 500,000 source
+components, 500,000 text characters, 32 MiB of serialized element data and
+32 nested block levels. Traversal checks a 30-second cooperative deadline.
+Hatch work also has intersection/dash preflight budgets before the library
+allocates intermediate geometry. Text-summary fields remain capped for backward
+compatibility, but full selectable text elements are not cut at that summary
+limit. Large responses use negotiated gzip compression; compression does not
+remove geometry.
 
 DWG conversion uses a server-managed executable, never a command or URL from
 an uploaded file. It runs in a separate process with a 30-second wall limit,
@@ -67,24 +91,27 @@ does not establish fidelity. Missing or busy conversion returns HTTP 503;
 timeout returns 504; unsupported, malformed or excessive output returns 422.
 Safe user-facing messages omit internal paths and converter diagnostics.
 
-DXF-derived views report `extraction.status`, observed omitted entity types,
-primitive/traversal/depth limits, and excluded nonempty layouts. Omission
-counts refer to observed source instances, including block children; they are
-not coverage percentages. Supported top-level geometry is retained before block
-detail. Curved polylines are omitted instead of being replaced by straight
-chords. Unsupported curves, hatches and complex block cases remain outside the
-selectable geometry rendering. Supported TEXT/MTEXT/ATTRIB text and explicit
-DIMENSION text overrides are now displayed as *source annotations*, with CAD
-coordinates and layer provenance, not calculated values. Automatic dimension
-measurements without an explicit text override are not inferred. An area label
-is not automatically paired with a closed room polygon. Annotation positions
-may not reproduce CAD text rotation, formatting or plotting exactly.
+DXF-derived views report `extraction.status`, observed omitted entity types and
+reasons, approximation information and imported counts. Omission counts refer
+to observed source instances, including block children; they are not coverage
+percentages. Source identifiers and block-instance paths remain available for
+selection. Supported blocks retain their placement, including nested transforms;
+unsupported references, clipping and non-planar content are identified explicitly.
+
+Arcs, circles, ellipses, splines and curved polylines use a display approximation.
+The flattening tolerance is in drawing units and is not a certified total
+geometric error or a measurement tolerance. Hatch boundaries/pattern strokes
+and stored dimension drawing components can contribute selectable elements.
+Fonts, fills and rich text may differ from the original CAD application's plot.
+Text remains *source annotation*, never an independently verified quantity.
+An area label is not automatically paired with a closed room polygon.
 
 The DWG/DXF response lists `cad_layouts` with entity counts and marks which
-layout is displayed. **Only modelspace is rendered.** A single view or the name
-of a paper layout does not establish the building floor count or whether a
-particular view is ground/first/upper floor. PDF text-based annotations are not
-changed by this CAD-specific improvement.
+layouts have an imported view. Modelspace and supported paper-layout content
+are available separately; unsupported viewport content must remain flagged.
+A view or paper-layout name does not establish the building floor count or
+whether a particular view is ground/first/upper floor. PDF text-based annotations
+are not changed by this CAD-specific improvement.
 
 ## Other document paths
 

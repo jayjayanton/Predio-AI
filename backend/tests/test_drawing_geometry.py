@@ -98,7 +98,7 @@ def test_dxf_negative_extrusion_is_transformed_before_display():
     assert elements[0]["points"] == [[-10.0, 20.0], [-12.0, 20.0]]
 
 
-def test_curved_polylines_are_omitted_instead_of_replaced_with_chords():
+def test_bulged_polylines_preserve_the_arc_instead_of_chords():
     doc = ezdxf.new("R2007")
     doc.modelspace().add_lwpolyline([(0, 0, 1), (10, 0, 0)], format="xyb")
     block = doc.blocks.new("CURVE")
@@ -107,33 +107,26 @@ def test_curved_polylines_are_omitted_instead_of_replaced_with_chords():
 
     elements, extraction = drawing_geometry.extract_dxf_primitives(doc.modelspace())
 
-    assert elements == []
-    assert extraction["status"] == "partial"
-    assert extraction["omitted_curved_polylines"] == 2
-    assert extraction["omitted_entity_counts"] == {"LWPOLYLINE": 2}
+    assert len(elements) == 2
+    assert min(p[1] for p in elements[0]["points"]) == pytest.approx(-5)
+    assert min(p[1] for p in elements[1]["points"]) == pytest.approx(15)
+    assert all(len(e["points"]) > 10 for e in elements)
+    assert extraction["status"] == "supported_geometry"
+    assert extraction["omitted_entity_counts"] == {}
+    assert extraction["approximated_entity_counts"] == {"LWPOLYLINE": 2}
 
-
-def test_dxf_primitive_limit_preserves_top_level_before_block_detail(monkeypatch):
-    monkeypatch.setattr(drawing_geometry, "MAX_PRIMITIVES", 3)
+def test_cad_primitive_budget_rejects_instead_of_truncating(monkeypatch):
+    monkeypatch.setattr(drawing_geometry, "MAX_CAD_PRIMITIVES", 3)
     doc = ezdxf.new("R2007")
     block = doc.blocks.new("DETAIL")
     for y in range(5):
         block.add_line((0, y), (1, y))
     doc.modelspace().add_blockref("DETAIL", (10, 10))
-    first = doc.modelspace().add_line((0, 0), (20, 0))
-    second = doc.modelspace().add_line((0, 0), (0, 20))
+    doc.modelspace().add_line((0, 0), (20, 0))
+    with pytest.raises(drawing_geometry.CadImportLimitError, match="demasiado complejo"):
+        drawing_geometry.extract_dxf_primitives(doc.modelspace())
 
-    elements, extraction = drawing_geometry.extract_dxf_primitives(doc.modelspace())
-
-    assert [e["source_handle"] for e in elements[:2]] == [first.dxf.handle, second.dxf.handle]
-    assert len(elements) == extraction["rendered_primitives"] == 3
-    assert extraction["limit_reached"] is True
-    assert extraction["primitive_limit"] == 3
-    assert extraction["omitted_entity_counts"] == {"LINE": 4}
-    assert extraction["status"] == "partial"
-
-
-def test_dxf_cycle_and_depth_guards_report_partial_geometry(monkeypatch):
+def test_dxf_cycle_is_reported_and_depth_budget_rejects(monkeypatch):
     doc = ezdxf.new("R2007")
     block = doc.blocks.new("CYCLE")
     block.add_line((0, 0), (1, 0))
@@ -143,31 +136,25 @@ def test_dxf_cycle_and_depth_guards_report_partial_geometry(monkeypatch):
     elements, extraction = drawing_geometry.extract_dxf_primitives(doc.modelspace())
     assert len(elements) == 1
     assert extraction["omitted_entity_counts"] == {"INSERT": 1}
+    assert extraction["omission_reasons"] == {"recursive_block_reference": 1}
+    assert extraction["unexpanded_container_instances"] == 1
     assert extraction["status"] == "partial"
 
     monkeypatch.setattr(drawing_geometry, "MAX_BLOCK_DEPTH", 1)
-    _, extraction = drawing_geometry.extract_dxf_primitives(doc.modelspace())
-    assert extraction["depth_limit_reached"] is True
+    with pytest.raises(drawing_geometry.CadImportLimitError, match="niveles"):
+        drawing_geometry.extract_dxf_primitives(doc.modelspace())
 
-
-def test_dxf_traversal_budget_does_not_claim_complete_counts(monkeypatch):
+def test_dxf_traversal_budget_rejects_instead_of_partial_counts(monkeypatch):
     monkeypatch.setattr(drawing_geometry, "MAX_DXF_VISITS", 4)
     doc = ezdxf.new("R2007")
     block = doc.blocks.new("DETAIL")
     for y in range(20):
         block.add_line((0, y), (1, y))
     doc.modelspace().add_blockref("DETAIL", (0, 0))
-    doc.modelspace().add_line((0, 0), (2, 0))
+    with pytest.raises(drawing_geometry.CadImportLimitError, match="demasiado complejo"):
+        drawing_geometry.extract_dxf_primitives(doc.modelspace())
 
-    elements, extraction = drawing_geometry.extract_dxf_primitives(doc.modelspace())
-
-    assert len(elements) == 3
-    assert extraction["traversal_limit_reached"] is True
-    assert extraction["limit_reached"] is False
-    assert extraction["status"] == "partial"
-
-
-def test_dxf_nonuniform_block_is_omitted_instead_of_flattening_curves():
+def test_dxf_nonuniform_block_preserves_transformed_bulge():
     doc = ezdxf.new("R2007")
     block = doc.blocks.new("CURVE")
     block.add_lwpolyline([(0, 0, 1), (10, 0, 0)], format="xyb")
@@ -175,12 +162,16 @@ def test_dxf_nonuniform_block_is_omitted_instead_of_flattening_curves():
 
     elements, extraction = drawing_geometry.extract_dxf_primitives(doc.modelspace())
 
-    assert elements == []
-    assert extraction["omitted_entity_counts"] == {"INSERT": 1}
-    assert extraction["status"] == "partial"
+    assert len(elements) == 1
+    points = elements[0]["points"]
+    assert points[0] == [0, 0]
+    assert points[-1] == [20, 0]
+    assert min(p[1] for p in points) == pytest.approx(-5)
+    for x, y in points:
+        assert ((x-10)/10)**2 + (y/5)**2 == pytest.approx(1, abs=1e-4)
+    assert extraction["status"] == "supported_geometry"
 
-
-def test_dxf_nonempty_paper_layout_is_reported_as_omitted():
+def test_dxf_nonempty_paper_layout_has_its_own_view():
     from io import StringIO
 
     doc = ezdxf.new("R2007")
@@ -191,12 +182,14 @@ def test_dxf_nonempty_paper_layout_is_reported_as_omitted():
 
     result = analyze_document(stream.getvalue().encode("utf-8"), "layouts.dxf", "blueprint")
 
-    extraction = result["drawing_views"][0]["extraction"]
-    assert extraction["scope"] == "modelspace"
-    assert extraction["rendered_primitives"] == 1
-    assert extraction["omitted_nonempty_layouts"] == 1
-    assert extraction["status"] == "partial"
-
+    model, paper = result["drawing_views"]
+    assert model["extraction"]["scope"] == "modelspace"
+    assert paper["extraction"]["scope"] == "paperspace"
+    assert model["page"] == 1 and paper["page"] == 2
+    assert model["elements"][0]["id"] != paper["elements"][0]["id"]
+    assert paper["elements"][0]["points"] == [[0, 0], [20, 0]]
+    assert model["extraction"]["omitted_nonempty_layouts"] == 0
+    assert result["display_scope"] == "modelspace_and_paperspace"
 
 def test_original_cad_text_and_block_labels_are_positioned_without_inventing_areas():
     """Original annotation content is evidence, not a computed measurement."""
@@ -234,7 +227,7 @@ def test_original_cad_text_and_block_labels_are_positioned_without_inventing_are
     assert result["display_scope"] == "modelspace_only"
 
 
-def test_paper_layout_is_listed_but_not_treated_as_another_floor():
+def test_paper_layout_is_displayed_but_not_treated_as_another_floor():
     from io import StringIO
 
     doc = ezdxf.new("R2007")
@@ -246,19 +239,22 @@ def test_paper_layout_is_listed_but_not_treated_as_another_floor():
     result = analyze_document(stream.getvalue().encode("utf-8"), "layout.dxf", "blueprint")
     assert result["floor_identification"] == "unverified"
     assert result["cad_layouts"][0]["name"] == "Model"
-    assert any(l["entity_count"] > 0 and not l["displayed"] for l in result["cad_layouts"])
+    assert all(l["displayed"] for l in result["cad_layouts"] if l["entity_count"])
     assert all(label["text"] != "PLANTA ALTA" for label in result["drawing_views"][0]["source_labels"])
-    assert result["drawing_views"][0]["extraction"]["omitted_nonempty_layouts"] == 1
+    assert result["drawing_views"][1]["source_labels"][0]["text"] == "PLANTA ALTA"
+    assert result["drawing_views"][1]["measurements_available"] is False
 
-
-def test_cad_source_label_limit_reports_incomplete_text(monkeypatch):
+def test_cad_label_summary_cap_does_not_remove_rendered_text(monkeypatch):
     monkeypatch.setattr(drawing_geometry, "MAX_SOURCE_LABELS", 1)
     doc = ezdxf.new("R2007")
     model = doc.modelspace()
     model.add_line((0, 0), (10, 10))
     model.add_text("Cocina 17 m²", dxfattribs={"insert": (2, 2)})
     model.add_text("Comedor 11 m²", dxfattribs={"insert": (4, 4)})
-    _, extraction = drawing_geometry.extract_dxf_primitives(model)
+    elements, extraction = drawing_geometry.extract_dxf_primitives(model)
     assert len(extraction["source_labels"]) == 1
     assert extraction["source_label_limit_reached"] is True
-    assert extraction["status"] == "partial"
+    assert extraction["source_label_summary_omitted"] == 1
+    assert extraction["source_label_summary_only"] is True
+    assert len([e for e in elements if e["kind"] == "text"]) == 2
+    assert extraction["status"] == "supported_geometry"

@@ -128,3 +128,43 @@ def test_reject_invalid_predio():
         files={"blueprint": ("plano.pdf", pdf("PLANO"), "application/pdf")},
     )
     assert response.status_code == 422
+
+
+def test_cad_import_contention_is_retryable_503():
+    from app import document_analysis
+
+    assert document_analysis._CAD_IMPORT_SLOT.acquire(blocking=False)
+    try:
+        response = client.post(
+            "/api/documents/analyze",
+            data={"building_type": "house", "work_type": "remodel", "activities": "replace_floor"},
+            files={"blueprint": ("plan.dxf", b"not parsed while busy", "application/dxf")},
+        )
+    finally:
+        document_analysis._CAD_IMPORT_SLOT.release()
+    assert response.status_code == 503
+    assert "vuelve a intentar" in response.json()["detail"]
+
+
+def test_large_document_response_compresses_without_changing_contract():
+    from io import StringIO
+    import ezdxf
+
+    doc = ezdxf.new("R2007")
+    for index in range(30):
+        doc.modelspace().add_line((0, index), (10, index))
+    stream = StringIO()
+    doc.write(stream)
+    arguments = {
+        "data": {"building_type": "house", "work_type": "remodel", "activities": "replace_floor"},
+        "files": {"blueprint": ("plan.dxf", stream.getvalue().encode(), "application/dxf")},
+    }
+    compressed = client.post("/api/documents/analyze", headers={"Accept-Encoding": "gzip"}, **arguments)
+    plain = client.post("/api/documents/analyze", headers={"Accept-Encoding": "identity"}, **arguments)
+    assert compressed.status_code == plain.status_code == 200
+    assert compressed.headers["content-encoding"] == "gzip"
+    assert "content-encoding" not in plain.headers
+    assert compressed.json() == plain.json()
+    assert int(compressed.headers["content-length"]) < int(plain.headers["content-length"])
+    health = client.get("/api/health", headers={"Accept-Encoding": "gzip"})
+    assert "content-encoding" not in health.headers
