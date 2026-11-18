@@ -8,8 +8,8 @@
 4. Submit to **`POST /api/documents/analyze`** with **`review_scope=drawing_study`**. A ZIP produces an inventory and one selected drawing; choose another entry to inspect it separately. The backend returns extraction evidence and supported geometry, with units and measurements unverified. The separate API default `document_review` retains the prerequisites below.
 5. Inspect the extracted drawing in the existing viewer: switch pages, select individual or multiple primitives, show/hide available layers, zoom and pan.
 6. Open **Medidas** and explicitly apply a CAD unit or calibrate against a known length. Eligible selections can produce geometric lengths, perimeters and areas. This does not independently verify physical dimensions.
-7. Open **Figuras** to add a metric table/rectangle, circle or proposed extension. Edit dimensions, role and rotation; drag or nudge, duplicate/delete, and undo/redo. Zoom and pan never alter the declared physical dimensions. Furniture/reference figures do not count as extensions.
-8. In **Huella**, select one valid closed source contour and explicitly declare that it represents the ground footprint. Preserve valid holes. The resulting local polygon can be inspected and exported before a predio exists.
+7. Open **Figuras → Dibujar sobre el plano**. Drag to size a rectangle, square or circle, place three triangle corners, or click successive corners and close a custom polygon. Move or reshape the result, resize the whole figure, and add/remove polygon corners. Edit dimensions, role and rotation; nudge, duplicate/delete, and undo/redo committed edits. Optional furniture presets remain available. Zoom and pan never alter the declared physical dimensions. Furniture/reference figures do not count as extensions.
+8. In **Huella**, select one valid closed source contour and explicitly declare that it represents the ground footprint. Preserve valid holes. The resulting local polygon can be inspected and exported before a predio exists. User-drawn proposal figures are separate from this selected source geometry and cannot establish the existing ground footprint.
 9. Link the actual predio when known. The first link preserves the drawing study; place and rotate its footprint on the parcel map without changing its scale, then confirm that proposed placement. Attach the matching IRM later through **`POST /api/irm/extract`** without reconverting or losing the CAD draft. Review new document candidates and their association.
 10. Use **`POST /api/planning/assess`** to compare the footprint/extension union, parcel boundary and reviewed IRM conditions. Record countable municipal areas separately from geometric footprint area. Missing association, parameters, complete ground footprint or special-condition review leaves the relevant checks pending.
 11. Optionally select one closed exterior contour and open **Ilustración 3D** after applying scale. Edit the assumed height/roof and choose **Actualizar ilustración**. Its front/side views are hypothetical projections, not actual project sections; interiors, openings and storeys are not inferred.
@@ -46,9 +46,12 @@ Apartment work may also involve common property or condominium rules.
 
 ## Drawing state, footprint and placement contract
 
-The browser stores figure dimensions in metres and centres in the exact imported
-view's coordinates. Each view retains its own confirmed scale, figures,
-footprint and bounded undo history for the active session. Returning from the
+The browser stores figure dimensions and custom polygon vertices relative to
+their centre in metres, with centres in the exact imported view's coordinates.
+Direct drawing supports valid concave outlines as well as simple figures;
+crossing or degenerate outlines cannot be committed. Each view retains its own
+confirmed scale, figures, footprint and bounded undo history for the active
+session. Returning from the
 documentary summary restores that draft. A new view or replacement drawing does
 not borrow another view's calibration; a different ZIP inspection is a new
 source. This is not durable storage, a project export/import system or a
@@ -58,17 +61,24 @@ Scale changes preserve figure dimensions in metres, clear incompatible undo
 history and invalidate the accepted footprint; source-relative positions need
 review. Figure visibility affects only the canvas. Proposed extensions remain
 in the scenario until deleted or reclassified as furniture/reference.
+Committing any extension geometry or membership change clears the reviewed
+final countable areas and their equivalence declaration. Furniture geometry
+changes do not clear that review. Unfinished or canceled drawing drafts are not
+included in the planning request.
 
 Ground-footprint extraction is explicit source selection, not automatic building
 recognition. One valid exterior and its holes become a local-metre `Polygon`.
 Open, crossing, disjoint, ambiguous or nested-island contours are rejected.
+Drawing or tracing a custom proposal polygon does not establish a source
+footprint or verified existing construction. Raster recognition is not provided.
 The source display Y axis is reflected to local Y-up, and the footprint bounds
 centre becomes `(0,0)` for both the footprint and figures. The local export has
 no geographic CRS and records source/origin/scale metadata.
 
 The planning endpoint takes the local footprint and role-labelled figure
-polygons, optionally a WGS84 parcel, a latitude/longitude anchor and clockwise
-rotation, reviewed IRM data, final proposal parameters and exterior-edge
+polygons, including valid concave custom proposals, optionally a WGS84 parcel,
+a latitude/longitude anchor and clockwise rotation, reviewed IRM data, final
+proposal parameters and exterior-edge
 classifications. It uses Shapely and a local WGS84 azimuthal-equidistant
 projection for metric calculations. Placement is a user hypothesis: moving the
 anchor does not establish a CAD georeference or modify the source file. Changing
@@ -105,9 +115,10 @@ The response always remains `status: preliminary`, `verified: false` and
 `regulatory_approval: false`. It does not assess structural viability, legal
 rights, current site conditions or final municipal approval.
 
-The viewer caps figures at 60, dimensions at 0.01–200 m, history at 40 undo
-steps, footprint spans at 5 km and source topology at 2,000 segments. The API
-caps requests at 1,000,000 bytes, 100 shapes and 10,000 total polygon positions;
+The viewer caps figures at 60, custom polygons at 128 corners, dimensions at
+0.01–200 m, history at 40 undo steps, footprint spans at 5 km and source topology
+at 2,000 segments. The API caps requests at 1,000,000 bytes, 100 shapes and
+10,000 total polygon positions;
 local coordinates are bounded to ±10 km and parcel coordinates to a 25 km
 projected-coordinate bound around the anchor. It rejects malformed, nonfinite
 or invalid geometry rather than silently repairing it. These are computation
@@ -128,7 +139,7 @@ coordinates to them.
 | ZIP inventory and selected drawing | Available; lazy individual inspection, recoverable selected-member errors, no xref assembly |
 | Interactive primitive selection, pages, available layers, zoom and pan | Available; user applies units/calibration separately |
 | Selected geometric lengths, closed-boundary perimeters and areas | Available after explicit scale confirmation; independent physical verification remains pending |
-| Metric furniture/extension figures and session drafts | Available; exact-view isolation, edit/drag/nudge/rotate, undo/redo and zoom-invariant dimensions |
+| Metric furniture/extension figures and session drafts | Available; direct rectangle/square/circle drawing, three-corner triangles, custom polygons, corner editing/resizing, exact-view isolation, drag/nudge/rotate and undo/redo with zoom-invariant dimensions |
 | Declared ground-footprint extraction | Available for one valid closed source contour with holes; not automatic semantic recognition |
 | Parcel placement and preliminary IRM numeric checks | Available with reviewed association, scope, placement and parameters; pending/conflict states retained |
 | Local JSON and proposed WGS84 GeoJSON | Available; source-labelled unverified study geometry, not technical reports or reopenable projects |
@@ -136,7 +147,7 @@ coordinates to them.
 | On-screen inspection summary | Available; does not contain verified quantities or a compliance verdict |
 | Verified scale/units and physical lengths/surfaces | Planned |
 | Architectural element recognition and geometry corrections | Planned |
-| Freehand tracing and automatic building/raster-footprint recognition | Not implemented |
+| Automatic building/raster-footprint recognition or accepting a drawn proposal as an established source footprint | Not implemented; direct proposal polygon drawing is available separately |
 | Durable project saving, collaboration and final technical certification | Not implemented |
 | Revision tracking, dependent recalculation and traceable technical exports | Planned |
 | Automated material quantities, costs or construction approval | Not provided |
@@ -150,8 +161,11 @@ surface with the reference. Record omissions and corrections before expanding
 to painting or more complex work.
 
 For a demonstration without private files, open **Ver plano de ejemplo**,
-choose **cm** in **Medidas** and click **Aplicar unidad**. Add a table, circle
-or extension and confirm that dimensions remain unchanged through zoom. Select
+choose **cm** in **Medidas** and click **Aplicar unidad**. In **Figuras**, draw a
+custom polygon or drag out a rectangle, then move a corner or resize the result.
+Confirm that dimensions remain unchanged through zoom and that undo restores
+the last committed edit. Classify a proposal as furniture/reference or an
+extension as appropriate. Select
 **Huella de ejemplo**, declare it in **Huella** and inspect/export its local
 polygon. The predio/IRM portions remain pending. For the separate 3D
 demonstration, select **Área de ejemplo** and open **Ilustración 3D**. Height accepts **0.3–12 m**,
