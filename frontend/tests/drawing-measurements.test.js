@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  calibrateScale, cadUnitFromCode, deriveScaleFromUnit, MAX_AREA_SEGMENTS,
-  measureSelection, resetScaleForView, UNIT_OPTIONS,
+  calibrateScale, cadUnitFromCode, deriveScaleFromUnit, getExteriorContour, MAX_AREA_SEGMENTS,
+  measureSelection, pointInExteriorContour, resetScaleForView, UNIT_OPTIONS,
 } from '../src/drawingMeasurements.js';
 import {prepareDrawing} from '../src/drawingGeometry.js';
 import {createExampleDrawing} from '../src/exampleDrawing.js';
@@ -280,4 +280,145 @@ test('fictional measurement fixture produces the advertised area only after expl
   const measured = measureSelection([element], {metresPerUnit: deriveScaleFromUnit(5)});
   close(measured.metric.area, 10.7848);
   close(measured.metric.perimeter, 13.72);
+});
+
+test('exterior measurement retains one actual closed contour and its source metadata', () => {
+  const source = polygon('original', [[0, 0], [5, 0], [5, 2], [3, 2], [3, 4], [0, 4]], {
+    source_id: 'cad-source', source_type: 'LWPOLYLINE', layer: 'Floor',
+    approximation: {method: 'sampled'}, block_path: ['INSERT#42'],
+  });
+  const before = structuredClone(source);
+  const exterior = getExteriorContour(source);
+  assert.equal(exterior.available, true);
+  assert.equal(exterior.reason, null);
+  assert.equal(exterior.sourceElementId, source.id);
+  assert.equal(exterior.ignoredRingCount, 0);
+  close(exterior.rawArea, 16);
+  close(exterior.rawPerimeter, 18);
+  assert.deepEqual(exterior.element, {...source, rings: []});
+  assert.notEqual(exterior.element, source);
+  assert.notEqual(exterior.element.points, source.points);
+  assert.notEqual(exterior.element.points[0], source.points[0]);
+  assert.deepEqual(source, before);
+  assert.deepEqual(measureSelection([exterior.element]).approximate,
+    {length: true, perimeter: true, area: true});
+
+  const repeated = {id: 'repeated', kind: 'polyline', points: [...ring(0, 0, 4, 3), [0, 0]]};
+  assert.equal(getExteriorContour(repeated).rawArea, 12);
+  const open = {...repeated, points: repeated.points.slice(0, -1)};
+  assert.equal(getExteriorContour(open).reason, 'open_path');
+  assert.equal(getExteriorContour({...open, closed: true}).rawArea, 12);
+  assert.equal(getExteriorContour({...open, points: [...open.points, [0, 1e-7]]}).reason, 'open_path');
+});
+
+test('gross exterior ignores interior mask overlaps while default net area remains guarded', () => {
+  const source = compound([ring(2, 2, 4, 4), ring(0, 0, 10, 10).toReversed(),
+    ring(4, 4, 3, 3), ring(7, 4, 1, 1), [[3, 3], [5, 5], [3, 5], [5, 3]]]);
+  const before = structuredClone(source);
+  assert.equal(measureSelection([source]).areaReason, 'overlapping_rings');
+  const exterior = getExteriorContour(source);
+  assert.equal(exterior.available, true);
+  assert.equal(exterior.ignoredRingCount, 4);
+  assert.equal(exterior.rawArea, 100);
+  assert.equal(exterior.rawPerimeter, 40);
+  assert.deepEqual(exterior.element.points, source.rings[1]);
+  assert.deepEqual(exterior.element.rings, []);
+  assert.equal(exterior.element.id, source.id);
+  assert.equal(measureSelection([exterior.element]).raw.area, 100);
+  assert.deepEqual(source, before);
+  assert.equal(measureSelection([source]).areaReason, 'overlapping_rings');
+  const reversed = compound(source.rings.toReversed().map(path => path.toReversed()));
+  assert.equal(getExteriorContour(reversed).rawArea, exterior.rawArea);
+});
+
+test('interior paths may touch the exterior when every segment stays inside it', () => {
+  const outer = ring(0, 0, 10, 10);
+  for (const inside of [ring(0, 2, 3, 3), ring(0, 0, 3, 3), [[0, 4], [3, 2], [3, 6]]]) {
+    const exterior = getExteriorContour(compound([inside, outer]));
+    assert.equal(exterior.available, true);
+    assert.equal(exterior.ignoredRingCount, 1);
+    assert.equal(exterior.rawArea, 100);
+    assert.equal(exterior.rawPerimeter, 40);
+  }
+});
+
+test('exterior measurement rejects outside, disjoint and duplicate source contours', () => {
+  const outer = ring(0, 0, 10, 10);
+  const duplicateWithExtraVertices = [[0, 0], [5, 0], [10, 0], [10, 5], [10, 10], [0, 10]];
+  for (const other of [ring(20, 0, 2, 2), ring(8, 8, 4, 4), ring(-1, 2, 2, 3),
+    outer, outer.toReversed(), duplicateWithExtraVertices]) {
+    const exterior = getExteriorContour(compound([other, outer]));
+    assert.equal(exterior.available, false);
+    assert.equal(exterior.reason, 'multiple_contours');
+    assert.equal(exterior.element, null);
+    assert.equal(exterior.rawArea, null);
+    assert.equal(exterior.rawPerimeter, null);
+  }
+  assert.equal(getExteriorContour(polygon('crossing', [[0, 0], [3, 3], [0, 3], [3, 0]])).reason,
+    'self_intersection');
+});
+
+test('containment checks entire segments crossing concave gaps, not just their endpoints or midpoint', () => {
+  const notched = [[0, 0], [6, 0], [6, 6], [4, 6], [4, 2], [2, 2], [2, 6], [0, 6]];
+  // Every inner vertex is on the boundary, but its top edge crosses the notch.
+  const acrossNotch = [[2, 2], [4, 2], [4, 6], [2, 6]];
+  assert.equal(getExteriorContour(compound([notched, acrossNotch])).reason, 'multiple_contours');
+
+  const twoNotches = [[0, 0], [10, 0], [10, 6], [8, 6], [8, 2], [7, 2], [7, 6],
+    [3, 6], [3, 2], [2, 2], [2, 6], [0, 6]];
+  // Both endpoints and the whole top edge's midpoint are inside/on the outer
+  // contour; two smaller intervals leave it through boundary corners.
+  const acrossBoth = [[1, 0], [9, 0], [9, 6], [1, 6]];
+  assert.equal(getExteriorContour(compound([twoNotches, acrossBoth])).reason, 'multiple_contours');
+  assert.equal(getExteriorContour(compound([notched, ring(0.5, 0.5, 5, 1)])).available, true);
+});
+
+test('exterior measurement rejects annotations, malformed geometry and unsafe numerical ranges', () => {
+  const source = box('source', 0, 0, 4, 3);
+  for (const annotation of [{...source, kind: 'text'}, {...source, source_type: 'DIMENSION'},
+    {...source, block_path: ['DIMENSION#42']}, {...source, hatch_pattern: true}]) {
+    assert.equal(getExteriorContour(annotation).reason, 'no_geometry');
+  }
+  for (const invalid of [null, {}, {...source, points: []},
+    {...source, points: [[0, 0], [Infinity, 0], [0, 1]]},
+    compound([ring(0, 0, 10, 10), [[1, 1], [2, NaN], [2, 2]]])]) {
+    assert.equal(getExteriorContour(invalid).reason, 'invalid_geometry');
+  }
+  for (const size of [1e200, 1e-200]) {
+    const exterior = getExteriorContour(box('range', 0, 0, size, size));
+    assert.equal(exterior.available, false);
+    assert.equal(exterior.reason, 'numerical_range');
+  }
+  const translated = getExteriorContour(box('translated', 1e9, 1e9, 4, 3));
+  assert.equal(translated.rawArea, 12);
+  assert.equal(translated.rawPerimeter, 14);
+});
+
+test('exterior topology work is capped across all source rings before pairwise checks', () => {
+  const manyRings = compound(Array.from({length: MAX_AREA_SEGMENTS}, () => ring(1, 1, 1, 1)));
+  assert.equal(getExteriorContour(manyRings).reason, 'complexity_limit');
+  const count = MAX_AREA_SEGMENTS + 1;
+  const points = Array.from({length: count}, (_, index) =>
+    [Math.cos(index * 2 * Math.PI / count), Math.sin(index * 2 * Math.PI / count)]);
+  assert.equal(getExteriorContour(polygon('complex', points)).reason, 'complexity_limit');
+});
+
+test('exterior hit-testing includes ignored islands, respects concavity and never changes area', () => {
+  const contour = getExteriorContour(compound([ring(0, 0, 10, 10), ring(2, 2, 2, 2)]));
+  const before = structuredClone(contour);
+  for (const point of [[1, 1], [3, 3], [0, 5], [10, 10]]) {
+    assert.equal(pointInExteriorContour(contour, point), true);
+  }
+  assert.equal(pointInExteriorContour(contour, [-0.05, 5]), false);
+  assert.equal(pointInExteriorContour(contour, [-0.05, 5], 0.1), true);
+  assert.equal(pointInExteriorContour(contour, [-0.2, 5], 0.1), false);
+  for (const tolerance of [-1, Infinity, NaN]) assert.equal(pointInExteriorContour(contour, [1, 1], tolerance), false);
+  for (const point of [[Infinity, 0], [0, NaN], null]) assert.equal(pointInExteriorContour(contour, point), false);
+  assert.equal(pointInExteriorContour(getExteriorContour(null), [1, 1]), false);
+  assert.deepEqual(contour, before);
+  const notched = getExteriorContour(polygon('notched',
+    [[0, 0], [6, 0], [6, 6], [4, 6], [4, 2], [2, 2], [2, 6], [0, 6]]));
+  assert.equal(pointInExteriorContour(notched, [3, 4]), false);
+  assert.equal(pointInExteriorContour(notched, [3, 1]), true);
+  assert.equal(pointInExteriorContour(notched, [2, 4]), true);
 });

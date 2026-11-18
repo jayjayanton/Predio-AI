@@ -2,6 +2,8 @@ import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import MeasurementPanel from './MeasurementPanel.jsx';
 import { hasPartialExtraction, drawingExtractionMessages, drawingRepresentationMessages } from '../drawingExtraction.js';
 import { scaleForView } from '../measurementPresentation.js';
+import { getExteriorContour } from '../drawingMeasurements.js';
+import { findClosedContours } from '../contourSelection.js';
 import {
   buildSpatialIndex, filterDrawingItems, fitTransform, hitTest, isText, prepareDrawing,
   rectangle, selectInRectangle, toScreen, toWorld, unionBounds, updateSelection, zoomAt,
@@ -29,7 +31,7 @@ function addPath(context, item, scale) {
   }
 }
 
-function paintDrawing(canvas, size, transform, items, selected, viewport = null) {
+function paintDrawing(canvas, size, transform, items, selected, viewport = null, measurementOutline = null) {
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
   const pixelWidth = Math.max(1, Math.round(size.width * ratio));
   const pixelHeight = Math.max(1, Math.round(size.height * ratio));
@@ -44,10 +46,12 @@ function paintDrawing(canvas, size, transform, items, selected, viewport = null)
   const textItems = []; const normal = []; const hatchPattern = []; const highlighted = [];
   for (const item of items) {
     if (isText(item)) { textItems.push(item); continue; }
-    (selected.has(item.id) ? highlighted : item.hatch_pattern ? hatchPattern : normal).push(item);
+    const exteriorSelected = selected.has(item.id) && item.id === measurementOutline?.id;
+    if (exteriorSelected) { normal.push(item); highlighted.push(measurementOutline); }
+    else (selected.has(item.id) ? highlighted : item.hatch_pattern ? hatchPattern : normal).push(item);
     if (item.filled) {
       context.beginPath(); addPath(context, item, transform.scale);
-      context.fillStyle = selected.has(item.id) ? '#fce2ce' : '#e3eae8'; context.fill('evenodd');
+      context.fillStyle = selected.has(item.id) && !exteriorSelected ? '#fce2ce' : '#e3eae8'; context.fill('evenodd');
     }
   }
   // Batch strokes rather than mount one DOM node per CAD entity.
@@ -98,6 +102,8 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const [transform, setTransform] = useState({scale: 1, x: 0, y: 0});
   const [selectionBox, setSelectionBox] = useState(null);
   const [scaleRecord, setScaleRecord] = useState(null);
+  const [areaModeRecord, setAreaModeRecord] = useState(null);
+  const [contourResult, setContourResult] = useState(null);
   const canvasRef = useRef(null); const stageRef = useRef(null); const overviewRef = useRef(null);
   const measurementRef = useRef(null);
   const drag = useRef(null); const pointers = useRef(new Map()); const pinch = useRef(null); const spacePressed = useRef(false);
@@ -111,6 +117,15 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const visibleIds = useMemo(() => new Set(visible.map(item => item.id)), [visible]);
   const selectedItems = useMemo(() => drawing.items.filter(item => selected.has(item.id)), [drawing, selected]);
   const selectedVisible = useMemo(() => selectedItems.filter(item => visibleIds.has(item.id)), [selectedItems, visibleIds]);
+  const exteriorChoice = useMemo(() => selectedItems.length === 1 ? getExteriorContour(selectedItems[0]) : null, [selectedItems]);
+  // An exterior measurement belongs to this exact selection and imported view.
+  // Changing the selection cannot silently carry its area convention forward.
+  const exteriorActive = areaModeRecord?.view === view && areaModeRecord?.selection === selected
+    && areaModeRecord?.mode === 'exterior' && exteriorChoice?.available;
+  const measurementOutline = exteriorActive ? exteriorChoice.element : null;
+  const measurementItems = useMemo(() => measurementOutline ? [measurementOutline] : selectedItems, [measurementOutline, selectedItems]);
+  const contourFeedback = contourResult?.view === view && contourResult?.selection === selected
+    && contourResult?.visibleIds === visibleIds ? contourResult : null;
   const focused = drawing.byId.get(focusedId) || selectedItems.at(-1);
   const fit = useMemo(() => fitTransform(drawing.bounds, size.width, size.height), [drawing, size]);
   const layers = useMemo(() => {
@@ -139,6 +154,7 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     setSelected(new Set()); setFocusedId(null); setHiddenLayers(new Set()); setQuery('');
     setListPage(1); setListMode('visible'); setLayerQuery(''); setShowText(true);
     setScaleRecord(null);
+    setAreaModeRecord(null); setContourResult(null);
     setSelectionBox(null); drag.current = null; pointers.current.clear(); pinch.current = null;
   }, [view]);
   useEffect(() => { setTransform(fit); }, [fit]);
@@ -158,17 +174,17 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     const frame = requestAnimationFrame(() => {
       if (!canvasRef.current) return;
       const box = rectangle(toWorld([-12, -12], transform), toWorld([size.width + 12, size.height + 12], transform));
-      paintDrawing(canvasRef.current, size, transform, index.query(box).filter(item => visibleIds.has(item.id)), selected);
+      paintDrawing(canvasRef.current, size, transform, index.query(box).filter(item => visibleIds.has(item.id)), selected, null, measurementOutline);
     });
     return () => cancelAnimationFrame(frame);
-  }, [index, size, transform, visibleIds, selected]);
+  }, [index, size, transform, visibleIds, selected, measurementOutline]);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       if (!overviewRef.current) return;
-      paintDrawing(overviewRef.current, {width: 220, height: 135}, overviewTransform, visible, selected);
+      paintDrawing(overviewRef.current, {width: 220, height: 135}, overviewTransform, visible, selected, null, measurementOutline);
     });
     return () => cancelAnimationFrame(frame);
-  }, [overviewTransform, visible, selected, showOverview]);
+  }, [overviewTransform, visible, selected, showOverview, measurementOutline]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
@@ -193,6 +209,18 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     if (bounds) setTransform(zoomAt(fitTransform(bounds, size.width, size.height, 55), 1, [size.width / 2, size.height / 2], fit.scale / 5, fit.scale * 500));
   };
   const choose = (ids, additive = multiple, toggle = false) => setSelected(current => updateSelection(current, ids, {additive, toggle}));
+  const returnToDrawing = () => {
+    stageRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
+    canvasRef.current?.focus({preventScroll: true});
+  };
+  const chooseContour = choice => {
+    const nextSelection = new Set([choice.item.id]);
+    setSelected(nextSelection); setFocusedId(choice.item.id);
+    setAreaModeRecord({view, selection: nextSelection, mode: 'exterior'});
+    setContourResult({view, selection: nextSelection, visibleIds, choices: [],
+      notice: 'Contorno exterior seleccionado. Revisa el borde naranja y abre Medidas para ver su área.'});
+  };
+  const startContourSelection = () => { setTool('contour'); setContourResult(null); returnToDrawing(); };
   const eventPoint = event => { const box = event.currentTarget.getBoundingClientRect(); return [event.clientX - box.left, event.clientY - box.top]; };
   const startPointer = event => {
     if (![0, 1].includes(event.button)) return;
@@ -239,6 +267,15 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     } else if (!current.moved && current.mode !== 'pan') {
       const world = toWorld(point, transform); const tolerance = 7 / transform.scale;
       const candidates = index.query([world[0] - tolerance, world[1] - tolerance, world[0] + tolerance, world[1] + tolerance]).filter(item => visibleIds.has(item.id));
+      if (current.mode === 'contour') {
+        const result = findClosedContours(candidates, world, tolerance);
+        if (result.choices.length === 1) chooseContour(result.choices[0]);
+        else setContourResult({view, selection: selected, visibleIds, choices: result.choices,
+          notice: result.choices.length > 1 ? 'Hay varios contornos en este punto. Elige cuál medir y revisa el borde resaltado.'
+            : result.reason === 'complexity_limit' ? 'Hay demasiados contornos en este punto. Oculta las capas que no necesitas y vuelve a elegir.'
+            : 'No se encontró un contorno cerrado válido en este punto. Prueba dentro de otra zona o revisa las capas visibles.'});
+        return;
+      }
       const item = hitTest(candidates, world, tolerance);
       if (item) { setFocusedId(item.id); choose([item.id], current.additive, current.additive); }
       else if (!current.additive) setSelected(new Set());
@@ -296,10 +333,17 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
               {views.map((item, i) => <option key={`${item.page}-${i}`} value={i}>{viewName(item, i)}</option>)}
             </select></label>}
             <div className="cad-tool-group" aria-label="Herramienta del visor">
-              {[['select', 'Seleccionar'], ['rectangle', 'Rectángulo'], ['pan', 'Mover']].map(([value, label]) => <button key={value} type="button" aria-pressed={tool === value} onClick={() => setTool(value)}>{label}</button>)}
+              {[['select', 'Seleccionar'], ['contour', 'Área de contorno'], ['rectangle', 'Rectángulo'], ['pan', 'Mover']].map(([value, label]) => <button key={value} type="button" aria-pressed={tool === value} onClick={() => { setTool(value); setContourResult(null); }}>{label}</button>)}
             </div>
-            <label className="cad-inline-check"><input type="checkbox" checked={multiple} onChange={event => setMultiple(event.target.checked)} /> Acumular selección</label>
+            <label className="cad-inline-check"><input type="checkbox" checked={multiple} disabled={tool === 'contour'} onChange={event => setMultiple(event.target.checked)} /> Acumular selección</label>
           </div>
+          {tool === 'contour' && <div className="cad-contour-help">
+            <p>Toca dentro de un contorno cerrado del CAD. Se selecciona uno a la vez y se mide su exterior, sin descontar recortes interiores. Revisa el borde naranja; no identifica automáticamente una habitación.</p>
+            {contourFeedback && <p role="status">{contourFeedback.notice}</p>}
+            {contourFeedback?.choices.length > 1 && <div className="cad-contour-choices">{contourFeedback.choices.map(choice => <button type="button" key={choice.item.id} onClick={() => chooseContour(choice)}>
+              {kindName(choice.item)} · {choice.item.source_handle || choice.item.source_id} · {choice.item.layer}
+            </button>)}</div>}
+          </div>}
           <div className={`cad-stage cad-tool-${tool}`} ref={stageRef}>
             <canvas ref={canvasRef} className="cad-drawing-canvas" tabIndex={0} role="img"
               aria-label={`${viewName(view, viewIndex)}. ${visible.length} elementos visibles. Usa la lista para seleccionar con teclado.`}
@@ -324,10 +368,12 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
         </div>
         <aside className="cad-inspector" aria-label="Capas y elementos del dibujo">
           <MeasurementPanel key={`${viewIndex}-${view.page || 1}`} panelId={measurementPanelId} sectionRef={measurementRef}
-            elements={selectedItems} hiddenSelectedCount={selectedItems.length - selectedVisible.length}
+            elements={measurementItems} hiddenSelectedCount={selectedItems.length - selectedVisible.length}
             documentFormat={documentFormat} unitsCode={unitsCode} scope={view.extraction?.scope} viewIdentity={view}
             scale={measurementScale} onScaleChange={next => setScaleRecord(next ? {...next, view} : null)}
-            onReturnToDrawing={() => { stageRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'}); canvasRef.current?.focus({preventScroll: true}); }}
+            areaMode={exteriorActive ? 'exterior' : 'source'} exteriorChoice={exteriorChoice}
+            onAreaModeChange={mode => setAreaModeRecord(mode === 'exterior' ? {view, selection: selected, mode} : null)}
+            onChooseContour={startContourSelection} onReturnToDrawing={returnToDrawing}
             onClearSelection={() => { setSelected(new Set()); setFocusedId(null); }} />
           <details className="cad-layers" open><summary>Capas ({number(layers.length)})</summary>
             <label className="cad-search">Buscar capa<input type="search" value={layerQuery} onChange={event => setLayerQuery(event.target.value)} placeholder="Nombre de capa" /></label>

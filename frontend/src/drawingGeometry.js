@@ -57,8 +57,9 @@ export function prepareDrawing(view = {}) {
   let invalidCount = 0;
   for (let index = 0; index < raw.length; index += 1) {
     const original = raw[index];
-    let id = String(original.id ?? `element-${index + 1}`);
-    if (ids.has(id)) id = `${id}#${index + 1}`;
+    const sourceId = String(original.id ?? `element-${index + 1}`);
+    let id = sourceId; let suffix = index + 1;
+    while (ids.has(id)) { id = `${sourceId}#${suffix}`; suffix += 1; }
     ids.add(id);
     const item = {...original, id, source_id: original.id || id, layer: layerName(original)};
     if (item.kind === 'text') {

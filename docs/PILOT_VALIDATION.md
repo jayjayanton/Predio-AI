@@ -21,6 +21,8 @@ The initial conversation should be with the homeowner and a small architecture/r
 
 During the measurement demonstration, show the selected/compatible/excluded counts and use **Volver al plano** to resume selection without losing the applied scale. For a hatch with nested contours, select its source boundary and compare the area after hole deductions and the perimeter including inner edges. Reimport the file to obtain the grouped source boundaries; previously loaded results retain their earlier representation.
 
+For a floor hatch interrupted by furniture graphics, use **Área de contorno** and click inside its closed source boundary. Check the highlighted exterior against the original drawing, then compare **Solo contorno exterior** with **Trazado CAD con recortes**. A graphic mask is not automatically a physical floor opening. Confirm the CAD coordinate unit, including any mismatch warning; displayed measurements remain in m and m². A printed area label can be compared with the geometric result but never supplies that result.
+
 ## What to request for the first real test
 
 Ask the owner/architect for an authorized vector PDF, DXF or DWG of one existing room or small dwelling. DWG can be submitted directly once the server converter is deployed. Retain the original and any independently exported PDF/DXF for comparison. Remove unrelated personal information and retain the revision date. Confirm whether the drawing describes existing conditions or a proposal.

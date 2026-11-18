@@ -72,11 +72,15 @@ The on-screen **document summary** describes inspection evidence and unresolved 
 
 Open **Medidas** in the drawing inspector. For a CAD model, review the declared units and explicitly apply the appropriate unit. Alternatively, select one eligible line or path, enter its independently known length in metres and apply calibration. PDF pages and paper layouts require known-length calibration. Scale is scoped to the current imported view and is reset when the drawing/view changes.
 
+**Unidad de las coordenadas CAD** describes the units of the imported coordinates, not the desired display units: results are displayed in metres and square metres. A manual unit that differs from the file's declaration shows a persistent warning above the values and an explicit button to apply the declared unit. Metadata remains a suggestion rather than independent verification.
+
 The panel reports selected geometric length and, for a supported simple closed boundary, perimeter and enclosed area. Curved geometry uses the imported sampled paths and is labelled approximate. Text, dimension decorations and hatch-pattern strokes are excluded; explicit hatch boundaries can be measured. Disconnected, branching, crossing, ambiguous or overly complex selections do not produce an area. Selecting the whole drawing does not define a floor surface.
 
 Selected, compatible and excluded counts appear together before the values. **Volver al plano** returns focus to the drawing without changing the selection, zoom or applied scale. Calibration factors retain significant digits and show an approximation sign when their display is rounded; U.S. survey feet are a separate explicit unit choice.
 
 A source hatch's rendered outer and inner boundaries stay in one selectable element, including patterned hatches. Valid nested contours subtract holes from area; perimeter includes their inner edges. Pattern strokes remain separately selectable and excluded from measurement. A smaller item count after reimport can reflect this source grouping without losing drawing segments. Hatch island style is respected before the contours are grouped.
+
+**Área de contorno** selects an existing closed source boundary by clicking inside it. It replaces the selection with one contour and explicitly measures its exterior; when several source hatches contain the point, the user chooses one. This tool does not join open lines, read an area from a label, or identify rooms. A compound selection also offers **Trazado CAD con recortes** (the default) and **Solo contorno exterior**. Exterior mode highlights only the measured outside boundary and does not deduct internal masks, which can represent furniture graphics rather than physical floor openings. Review the boundary and the intended area convention. Changing the selection resets this convention to the source geometry.
 
 **Ver plano de ejemplo** includes a separate **Área de ejemplo** layer. Select its boundary and apply centimetres: the fictional 4.42 × 2.44 m rectangle has perimeter 13.72 m and area 10.7848 m². This is a reproducible arithmetic demonstration, not a real-building measurement.
 
