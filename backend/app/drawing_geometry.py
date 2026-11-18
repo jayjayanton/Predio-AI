@@ -6,9 +6,11 @@ measurements or wall/room classifications are inferred.
 from __future__ import annotations
 
 import math
+import re
 from collections import Counter
 
 MAX_PRIMITIVES = 3000
+MAX_SOURCE_LABELS = 250
 MAX_DXF_VISITS = 100_000
 MAX_BLOCK_DEPTH = 8
 MAX_POLYLINE_POINTS = 10_000
@@ -69,6 +71,8 @@ def extract_dxf_primitives(model):
     from ezdxf.xclip import XClip
 
     items = []
+    source_labels = []
+    source_label_limit_reached = False
     omitted = Counter()
     pending_blocks = []
     visited = 0
@@ -98,9 +102,57 @@ def extract_dxf_primitives(model):
         layer = entity.dxf.get("layer", "0")
         return inherited if layer == "0" else layer
 
+    def capture_source_label(entity, path, block_path, inherited_layer):
+        """Keep author-supplied text at CAD coordinates; never infer room areas."""
+        nonlocal source_label_limit_reached
+        kind = entity.dxftype()
+        if kind not in {"TEXT", "MTEXT", "ATTRIB", "DIMENSION"}:
+            return False
+        try:
+            value = entity.plain_text() if kind == "MTEXT" else entity.dxf.get("text", "")
+            if kind == "DIMENSION" and (not value or "<>" in str(value)):
+                # Automatic CAD dimensions need unit/style evaluation; do not invent a value.
+                return False
+            text = re.sub(r"\s+", " ", str(value or "")).strip()
+            if not text or any(ord(character) < 32 for character in text):
+                return False
+            point = (entity.dxf.get("text_midpoint") or entity.dxf.get("defpoint")
+                     if kind == "DIMENSION" else entity.dxf.get("insert"))
+            if point is None or not math.isfinite(float(point[2])) or abs(float(point[2])) > 1e-7:
+                return False
+            position = _finite_pair(point)
+            if position is None:
+                return False
+            if len(source_labels) >= MAX_SOURCE_LABELS:
+                source_label_limit_reached = True
+                return False
+            height = float(entity.dxf.get("height", entity.dxf.get("char_height", 0)) or 0)
+            if not math.isfinite(height) or height < 0:
+                height = 0
+            source_labels.append({
+                "id": "label-" + path,
+                "text": text[:120],
+                "position": position,
+                "layer": effective_layer(entity, inherited_layer),
+                "kind": ("source_area" if re.search(r"\d+(?:[.,]\d+)?\s*m(?:²|2|\\^2)", text, re.I)
+                         else "source_dimension" if kind == "DIMENSION" else "source_text"),
+                "source_type": kind,
+                "source_handle": handle(entity),
+                "block_path": block_path,
+                "text_height": min(height, 1e5),
+                "verified": False,
+            })
+            return True
+        except (AttributeError, ValueError, TypeError, IndexError, OverflowError):
+            return False
+
     def emit(entity, path, block_path, inherited_layer):
         nonlocal curved_polylines, limit_reached
         kind = entity.dxftype()
+        if kind in {"TEXT", "MTEXT", "ATTRIB", "DIMENSION"}:
+            if not capture_source_label(entity, path, block_path, inherited_layer):
+                omitted[kind] += 1
+            return
         points = None
         if kind == "LINE":
             vertices = [entity.dxf.start, entity.dxf.end]
@@ -176,7 +228,8 @@ def extract_dxf_primitives(model):
             for attribute in insert.attribs:
                 if not take_visit():
                     return
-                omitted[attribute.dxftype()] += 1
+                if not capture_source_label(attribute, f"{path}/a-{handle(attribute)}", instance_path, layer):
+                    omitted[attribute.dxftype()] += 1
             for index, entity in enumerate(insert.virtual_entities(skipped_entity_callback=skipped)):
                 if not take_visit():
                     return
@@ -209,9 +262,13 @@ def extract_dxf_primitives(model):
                 break
 
     return items, {
-        "status": "partial" if omitted or traversal_limit_reached or depth_limit_reached else "supported_geometry",
+        "status": "partial" if omitted or traversal_limit_reached or depth_limit_reached or source_label_limit_reached else "supported_geometry",
         "scope": "modelspace",
         "rendered_primitives": len(items),
+        "source_labels": source_labels,
+        "rendered_source_labels": len(source_labels),
+        "source_label_limit_reached": source_label_limit_reached,
+        "source_label_limit": MAX_SOURCE_LABELS,
         "omitted_entity_counts": dict(omitted),
         "omitted_curved_polylines": curved_polylines,
         "limit_reached": limit_reached,
@@ -227,7 +284,7 @@ def dxf_primitives(model):
     return extract_dxf_primitives(model)[0]
 
 
-def drawing_view(items, bounds=None, invert_y=False):
+def drawing_view(items, bounds=None, invert_y=False, source_labels=None):
     """Return a native-coordinate viewBox and bounded selectable primitives."""
     if bounds is None:
         coordinates = [p for item in items for p in item["points"]]
@@ -257,8 +314,16 @@ def drawing_view(items, bounds=None, invert_y=False):
             for p in item["points"]
         ]
         normalized.append(transformed)
+    visible_labels = []
+    for label in source_labels or []:
+        px, py = label["position"]
+        visible_labels.append({
+            **label,
+            "position": [px, ymin + ymax - py if invert_y else py],
+        })
     return {
         "elements": normalized,
+        "source_labels": visible_labels,
         "bounds": [xmin, ymin, xmax, ymax],
         "units_verified": False,
         "measurements_available": False,
