@@ -196,3 +196,69 @@ def test_dxf_nonempty_paper_layout_is_reported_as_omitted():
     assert extraction["rendered_primitives"] == 1
     assert extraction["omitted_nonempty_layouts"] == 1
     assert extraction["status"] == "partial"
+
+
+def test_original_cad_text_and_block_labels_are_positioned_without_inventing_areas():
+    """Original annotation content is evidence, not a computed measurement."""
+    from io import StringIO
+
+    doc = ezdxf.new("R2007")
+    model = doc.modelspace()
+    model.add_line((0, 0), (20, 0))
+    model.add_line((0, 0), (0, 20))
+    model.add_text("Cocina 17.40 m²", dxfattribs={
+        "insert": (5, 5), "height": 0.5, "layer": "A-ANOT",
+    })
+    block = doc.blocks.new("LABEL_ROOM")
+    block.add_mtext("Vestidor\\P10.19 m²", dxfattribs={
+        "insert": (0, 1), "char_height": 0.4,
+    })
+    model.add_blockref("LABEL_ROOM", (10, 10), dxfattribs={"layer": "ROOM-LABEL"})
+    stream = StringIO()
+    doc.write(stream)
+
+    result = analyze_document(stream.getvalue().encode("utf-8"), "source.dxf", "blueprint")
+    view = result["drawing_views"][0]
+    labels = view["source_labels"]
+    assert len(labels) == 2
+    by_text = {label["text"]: label for label in labels}
+    assert by_text["Cocina 17.40 m²"]["position"] == [5.0, 15.0]
+    assert by_text["Cocina 17.40 m²"]["kind"] == "source_area"
+    assert by_text["Cocina 17.40 m²"]["layer"] == "A-ANOT"
+    assert by_text["Vestidor 10.19 m²"]["position"] == [10.0, 9.0]
+    assert by_text["Vestidor 10.19 m²"]["layer"] == "ROOM-LABEL"
+    assert all(label["verified"] is False for label in labels)
+    assert view["units_verified"] is False
+    assert view["measurements_available"] is False
+    assert result["floor_identification"] == "unverified"
+    assert result["display_scope"] == "modelspace_only"
+
+
+def test_paper_layout_is_listed_but_not_treated_as_another_floor():
+    from io import StringIO
+
+    doc = ezdxf.new("R2007")
+    doc.modelspace().add_line((0, 0), (10, 10))
+    doc.layout().add_text("PLANTA ALTA", dxfattribs={"insert": (5, 5)})
+    stream = StringIO()
+    doc.write(stream)
+
+    result = analyze_document(stream.getvalue().encode("utf-8"), "layout.dxf", "blueprint")
+    assert result["floor_identification"] == "unverified"
+    assert result["cad_layouts"][0]["name"] == "Model"
+    assert any(l["entity_count"] > 0 and not l["displayed"] for l in result["cad_layouts"])
+    assert all(label["text"] != "PLANTA ALTA" for label in result["drawing_views"][0]["source_labels"])
+    assert result["drawing_views"][0]["extraction"]["omitted_nonempty_layouts"] == 1
+
+
+def test_cad_source_label_limit_reports_incomplete_text(monkeypatch):
+    monkeypatch.setattr(drawing_geometry, "MAX_SOURCE_LABELS", 1)
+    doc = ezdxf.new("R2007")
+    model = doc.modelspace()
+    model.add_line((0, 0), (10, 10))
+    model.add_text("Cocina 17 m²", dxfattribs={"insert": (2, 2)})
+    model.add_text("Comedor 11 m²", dxfattribs={"insert": (4, 4)})
+    _, extraction = drawing_geometry.extract_dxf_primitives(model)
+    assert len(extraction["source_labels"]) == 1
+    assert extraction["source_label_limit_reached"] is True
+    assert extraction["status"] == "partial"
