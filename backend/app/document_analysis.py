@@ -110,12 +110,20 @@ def _dxf(data: bytes) -> dict:
         doc = ezdxf.read(StringIO(data.decode('utf-8-sig'), newline=None))
         model = doc.modelspace()
         primitives, extraction = extract_dxf_primitives(model)
+        # A CAD presentation/layout is not necessarily a separate building floor.
+        cad_layouts = [{
+            "name": layout.name,
+            "entity_count": min(len(layout), MAX_ENTITIES),
+            "displayed": layout.name == "Model",
+        } for layout in list(doc.layouts)[:30]]
+        source_labels = extraction.pop("source_labels", [])
         extraction["omitted_nonempty_layouts"] = sum(
             1 for layout in doc.layouts if layout.name != "Model" and len(layout)
         )
         if extraction["omitted_nonempty_layouts"]:
             extraction["status"] = "partial"
-        view = {**drawing_view(primitives, invert_y=True), "extraction": extraction}
+        view = {**drawing_view(primitives, invert_y=True, source_labels=source_labels),
+                "extraction": extraction}
         counts = Counter()
         layer_counts = Counter()
         annotations = []
@@ -144,6 +152,9 @@ def _dxf(data: bytes) -> dict:
     return {
         "format": "dxf", "role": "blueprint",
         "units_code": doc.header.get("$INSUNITS", 0),
+        "cad_layouts": cad_layouts,
+        "display_scope": "modelspace_only",
+        "floor_identification": "unverified",
         "entity_counts": dict(counts),
         "layer_counts": dict(layer_counts),
         "annotations": annotations,
@@ -151,6 +162,8 @@ def _dxf(data: bytes) -> dict:
         "dimensions": dimension_labels,
         "warnings": [
             "CAD units, drawing scale, layer meaning and dimensions require validation",
+            "Source text and explicitly written dimensions are unverified; no room is assigned from proximity alone",
+            "Only CAD modelspace geometry is rendered; paper layouts may contain other views",
             "No floor area, setback or regulatory compliance is inferred",
         ],
     }
