@@ -124,7 +124,7 @@ export function drawingRepresentationMessages(extraction) {
     messages.push('Los textos conservan el contenido del archivo con una fuente sustituta; la tipografía, el ajuste de líneas y el formato pueden diferir del CAD original.');
   }
   if (Array.isArray(extraction.rendering_limitations) && extraction.rendering_limitations.length) {
-    messages.push('Se muestra geometría plana en XY. Los colores, grosores y tipos de línea originales pueden diferir; no se reconstruyen vistas 3D ni ventanas de presentación.');
+    messages.push('Se muestra geometría plana en XY. Los colores, grosores y tipos de línea originales pueden diferir; no se importan vistas 3D ni ventanas de presentación. La ilustración 3D opcional utiliza alturas y cubiertas supuestas.');
   }
   return messages;
 }

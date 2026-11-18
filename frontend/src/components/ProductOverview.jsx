@@ -34,7 +34,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
           <button type="button" className="po-button po-button-secondary" onClick={onConsult}>Consultar mi predio <Arrow diagonal/></button>
         </div>
         <p className="po-hero-footnote">Para propietarios, arquitectos independientes y pequeños equipos de remodelación o construcción.</p>
-        <p className="po-release-note"><strong>Prototipo actual:</strong> consulta catastral, IRM asistido e inspección de PDF, DXF o DWG con medidas geométricas tras confirmar la escala. <strong>En desarrollo:</strong> medidas arquitectónicas verificadas y reportes exportables. La validación de precisión con planos reales sigue pendiente.</p>
+        <p className="po-release-note"><strong>Prototipo actual:</strong> consulta catastral, IRM asistido e inspección de PDF, DXF o DWG, individuales o en un ZIP. Mide geometría tras confirmar la escala y explora un volumen ilustrativo con altura y cubierta supuestas. <strong>En desarrollo:</strong> medidas arquitectónicas verificadas y reportes exportables.</p>
       </div>
       <ProjectGuide/>
     </section>
@@ -82,7 +82,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
     <section className="po-workflow" aria-labelledby="po-workflow-title">
       <div className="po-section-heading"><p className="po-eyebrow">CÓMO FUNCIONA EL PILOTO</p><h2 id="po-workflow-title">Del plano a una revisión con contexto.</h2></div>
       <ol className="po-steps po-home-steps">
-        <li><span className="po-step-number">01</span><h3>Elige la actividad y aporta tu plano</h3><p>PDF, DXF o DWG autorizado. Para pintura o cambio de acabado de piso puedes empezar sin consulta predial ni IRM.</p></li>
+        <li><span className="po-step-number">01</span><h3>Elige la actividad y aporta tu plano</h3><p>PDF, DXF o DWG autorizado; usa un ZIP si tienes varios dibujos. Para pintura o cambio de acabado de piso puedes empezar sin consulta predial ni IRM.</p></li>
         <li><span className="po-step-number">02</span><h3>Inspecciona la geometría</h3><p>Visualiza trazos, selecciona elementos y controla capas. Abre después el resumen documental para revisar qué se extrajo.</p></li>
         <li><span className="po-step-number">03</span><h3>Completa el contexto de tu vivienda</h3><p>Vincula el predio y aporta el IRM cuando corresponda a la revisión. La solicitud de documentos municipales la haces tú o tu representante.</p></li>
       </ol>

@@ -1,14 +1,27 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react';
 import MeasurementPanel from './MeasurementPanel.jsx';
 import { hasPartialExtraction, drawingExtractionMessages, drawingRepresentationMessages } from '../drawingExtraction.js';
 import { scaleForView } from '../measurementPresentation.js';
-import { getExteriorContour } from '../drawingMeasurements.js';
+import { cadUnitFromCode, getExteriorContour } from '../drawingMeasurements.js';
 import { findClosedContours } from '../contourSelection.js';
 import {
   buildSpatialIndex, filterDrawingItems, fitTransform, hitTest, isText, prepareDrawing,
   rectangle, selectInRectangle, toScreen, toWorld, unionBounds, updateSelection, zoomAt,
 } from '../drawingGeometry.js';
 import '../styles/blueprint-viewer.css';
+import '../styles/illustrative-reconstruction.css';
+
+const IllustrativeReconstruction = lazy(() => import('./IllustrativeReconstruction.jsx'));
+
+class IllustrationBoundary extends React.Component {
+  state = {failed: false};
+  static getDerivedStateFromError() { return {failed: true}; }
+  render() {
+    return this.state.failed
+      ? <div className="cad-illustration-error" role="alert"><p>No se pudo abrir la ilustración. El plano y las medidas siguen disponibles. Recarga la página si el problema continúa.</p><button type="button" onClick={this.props.onClose}>Cerrar ilustración y volver al plano</button></div>
+      : this.props.children;
+  }
+}
 
 const EMPTY_VIEWS = [];
 const EMPTY_VIEW = {};
@@ -84,7 +97,7 @@ function paintDrawing(canvas, size, transform, items, selected, viewport = null,
 }
 
 /** Imported geometry, source annotations and estimates with user-confirmed scale. */
-export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPTY_VIEWS, documentFormat = '', unitsCode = null }) {
+export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPTY_VIEWS, documentFormat = '', unitsCode = null, documentName = '' }) {
   const [viewIndex, setViewIndex] = useState(0);
   const [selected, setSelected] = useState(new Set());
   const [focusedId, setFocusedId] = useState(null);
@@ -104,8 +117,10 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const [scaleRecord, setScaleRecord] = useState(null);
   const [areaModeRecord, setAreaModeRecord] = useState(null);
   const [contourResult, setContourResult] = useState(null);
+  const [illustrationRecord, setIllustrationRecord] = useState(null);
   const canvasRef = useRef(null); const stageRef = useRef(null); const overviewRef = useRef(null);
   const measurementRef = useRef(null);
+  const illustrationRef = useRef(null);
   const drag = useRef(null); const pointers = useRef(new Map()); const pinch = useRef(null); const spacePressed = useRef(false);
   const instructionsId = useId();
   const measurementPanelId = useId();
@@ -118,6 +133,16 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const selectedItems = useMemo(() => drawing.items.filter(item => selected.has(item.id)), [drawing, selected]);
   const selectedVisible = useMemo(() => selectedItems.filter(item => visibleIds.has(item.id)), [selectedItems, visibleIds]);
   const exteriorChoice = useMemo(() => selectedItems.length === 1 ? getExteriorContour(selectedItems[0]) : null, [selectedItems]);
+  const canIllustrate = Boolean(exteriorChoice?.available && selectedVisible.length === 1 && measurementScale);
+  const illustrationVisible = canIllustrate && illustrationRecord?.view === view
+    && illustrationRecord?.selection === selected && illustrationRecord?.scale === measurementScale;
+  const declaredUnit = cadUnitFromCode(unitsCode);
+  const illustrationUnitWarning = declaredUnit && measurementScale?.method === 'unit' && measurementScale.unit !== declaredUnit.unit
+    ? `El archivo declara ${declaredUnit.label.toLocaleLowerCase('es')}, pero aplicaste ${measurementScale.unit}. Revisa la unidad en Medidas antes de interpretar el tamaño del volumen.` : '';
+  const illustrationHelp = !exteriorChoice?.available || selectedVisible.length !== 1
+    ? 'Elige un único contorno cerrado y visible para elevar su exterior con una altura supuesta.'
+    : !measurementScale ? 'Confirma la unidad o calibra la escala en Medidas para crear el volumen.'
+      : 'Crea un volumen del contorno seleccionado con altura y cubierta supuestas. No identifica automáticamente el edificio.';
   // An exterior measurement belongs to this exact selection and imported view.
   // Changing the selection cannot silently carry its area convention forward.
   const exteriorActive = areaModeRecord?.view === view && areaModeRecord?.selection === selected
@@ -155,6 +180,7 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     setListPage(1); setListMode('visible'); setLayerQuery(''); setShowText(true);
     setScaleRecord(null);
     setAreaModeRecord(null); setContourResult(null);
+    setIllustrationRecord(null);
     setSelectionBox(null); drag.current = null; pointers.current.clear(); pinch.current = null;
   }, [view]);
   useEffect(() => { setTransform(fit); }, [fit]);
@@ -221,6 +247,17 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
       notice: 'Contorno exterior seleccionado. Revisa el borde naranja y abre Medidas para ver su área.'});
   };
   const startContourSelection = () => { setTool('contour'); setContourResult(null); returnToDrawing(); };
+  const showMeasurements = () => {
+    measurementRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
+    measurementRef.current?.focus({preventScroll: true});
+  };
+  const openIllustration = () => {
+    if (!canIllustrate) return;
+    if (illustrationVisible) {
+      illustrationRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
+      illustrationRef.current?.focus({preventScroll: true});
+    } else setIllustrationRecord({view, selection: selected, scale: measurementScale});
+  };
   const eventPoint = event => { const box = event.currentTarget.getBoundingClientRect(); return [event.clientX - box.left, event.clientY - box.top]; };
   const startPointer = event => {
     if (![0, 1].includes(event.button)) return;
@@ -305,7 +342,8 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
       <div className="blueprint-toolbar cad-toolbar">
         <div><strong>Dibujo importado</strong><p className="cad-subtitle">Inspección de geometría y textos de origen · {measurementScale ? 'estimaciones con escala confirmada por ti' : 'escala pendiente de confirmación'}</p></div>
         <div className="blueprint-tools">
-          <button type="button" className="cad-measurements-shortcut" aria-controls={measurementPanelId} onClick={() => { measurementRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'}); measurementRef.current?.focus({preventScroll: true}); }}>Medidas</button>
+          <button type="button" className="cad-measurements-shortcut" aria-controls={measurementPanelId} onClick={showMeasurements}>Medidas</button>
+          <button type="button" disabled={!canIllustrate} title={illustrationHelp} onClick={openIllustration}>Ilustración 3D</button>
           <button type="button" onClick={() => zoom(1.5)} aria-label="Acercar dibujo">＋</button>
           <button type="button" onClick={() => zoom(1 / 1.5)} aria-label="Alejar dibujo">−</button>
           <button type="button" onClick={() => setTransform(fit)}>Ajustar todo</button>
@@ -362,6 +400,17 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
           </div>
           <p className="cad-help" id={instructionsId}>Clic: seleccionar. Arrastrar: desplazar; en Rectángulo, seleccionar lo que cruza el recuadro. Rueda o dos dedos: zoom. Teclado: flechas, + / − y F para ajustar. La lista ofrece selección sin usar el lienzo.</p>
           <p className="cad-source-note">La vista general y el detalle se generan con los datos importados; no son una reproducción independiente del archivo original. Las áreas, cotas y nombres escritos son anotaciones del plano, sin verificar. Los cálculos geométricos de la selección se muestran por separado en Medidas.</p>
+          {!illustrationVisible && <div className="cad-illustration-entry"><p><strong>Explorar una reconstrucción ilustrativa.</strong> {illustrationHelp}</p><div className="cad-illustration-entry-actions">
+            {(!exteriorChoice?.available || selectedVisible.length !== 1) && <button type="button" onClick={startContourSelection}>Elegir base de la ilustración</button>}
+            {exteriorChoice?.available && !measurementScale && <button type="button" onClick={showMeasurements}>Confirmar escala</button>}
+            {canIllustrate && <button type="button" onClick={openIllustration}>Crear volumen ilustrativo</button>}
+          </div></div>}
+          {illustrationVisible && <IllustrationBoundary onClose={() => { setIllustrationRecord(null); returnToDrawing(); }}><Suspense fallback={<p className="cad-muted" role="status">Preparando la vista ilustrativa…</p>}>
+            <IllustrativeReconstruction element={selectedItems[0]} metresPerUnit={measurementScale.metresPerUnit}
+              sourceViewName={[documentName, viewName(view, viewIndex)].filter(Boolean).join(' · ')} unitWarning={illustrationUnitWarning}
+              sectionRef={illustrationRef}
+              onReturnToDrawing={returnToDrawing} onClose={() => { setIllustrationRecord(null); returnToDrawing(); }} />
+          </Suspense></IllustrationBoundary>}
           {cadLayouts.length > 0 && <details className="cad-layouts"><summary>Vistas y presentaciones del CAD ({cadLayouts.length})</summary>
             <p>{cadLayouts.map(layout => `${layout.name}${layout.displayed ? ' (disponible)' : ' (sin representación)'}`).join(' · ')}</p><p>Las presentaciones son vistas del archivo; sus nombres no confirman cuántos pisos hay.</p>
           </details>}

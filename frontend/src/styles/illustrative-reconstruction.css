@@ -1,0 +1,50 @@
+.cad-illustration { margin: 20px 0 10px; padding: 18px; border: 1px solid #acc7b9; border-radius: 10px; background: #fbfcf9; color: #294b43; scroll-margin-top: 20px; }
+.cad-illustration:focus { outline: 3px solid #1d777b; outline-offset: 3px; }
+.cad-illustration-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cad-illustration-heading h3 { font-size: 21px; margin: 4px 0 0; letter-spacing: -.02em; }
+.cad-illustration-eyebrow { color: #7d5b33; font-size: 10px; font-weight: 750; letter-spacing: .11em; }
+.cad-illustration-intro { font-size: 12px; line-height: 1.65; margin: 12px 0 16px; max-width: 780px; }
+.cad-illustration-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.cad-illustration-form label { display: grid; align-content: start; gap: 6px; font-size: 11px; font-weight: 650; }
+.cad-illustration-form input, .cad-illustration-form select { border: 1px solid #bdcfc4; border-radius: 5px; background: #fff; width: 100%; min-height: 42px; color: #294b43; font-size: 14px; padding: 8px 10px; }
+.cad-illustration-submit { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; }
+.cad-illustration-submit button { background: #176d70; color: #fff; border-color: #176d70; min-height: 42px; font-size: 12px; flex-shrink: 0; }
+.cad-illustration-submit span { color: #67786d; font-size: 11px; line-height: 1.4; }
+.cad-illustration-error { grid-column: 1 / -1; background: #fff0e8; color: #91451e; border-left: 3px solid #b86636; padding: 10px; font-size: 12px; line-height: 1.6; margin: 0; }
+.cad-illustration-views { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.cad-illustration-views button { min-height: 38px; font-size: 11px; }
+.cad-illustration-stage { position: relative; height: 430px; border: 1px solid #d2ddd2; border-radius: 7px; overflow: hidden; background: #f3f5ef; }
+.cad-illustration-renderer { position: absolute; inset: 0; outline-offset: -4px; }
+.cad-illustration-renderer:focus-visible { outline: 3px solid #1d777b; }
+.cad-illustration-renderer canvas, .cad-illustration-renderer svg { display: block; width: 100%; height: 100%; touch-action: none; }
+.cad-illustration-watermark { position: absolute; top: 12px; left: 12px; right: 12px; pointer-events: none; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.cad-illustration-watermark strong { font-size: 9px; letter-spacing: .075em; color: #805429; background: #fff4deed; border: 1px solid #d9be90; border-radius: 4px; padding: 6px 8px; }
+.cad-illustration-watermark span { background: #f7faf2e6; color: #486155; font-size: 10px; line-height: 1.4; padding: 4px 7px; border-radius: 3px; }
+.cad-illustration-camera { position: absolute; bottom: 10px; left: 10px; right: 10px; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 5px; pointer-events: none; }
+.cad-illustration-camera button { pointer-events: auto; background: #ffffffed; min-height: 36px; min-width: 36px; font-size: 12px; }
+.cad-illustration-render-error { position: absolute; top: 40%; left: 20px; right: 20px; padding: 14px; background: #fff5e6; color: #805429; border: 1px solid #d9be90; font-size: 13px; line-height: 1.6; }
+.cad-illustration-help { margin: 7px 0 12px; font-size: 10px; line-height: 1.6; color: #61786b; }
+.cad-illustration-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+.cad-illustration-metrics > div { border: 1px solid #d8e3d8; padding: 12px; background: #fff; border-radius: 6px; min-width: 0; }
+.cad-illustration-metrics span { font-size: 10px; display: block; color: #627467; line-height: 1.5; }
+.cad-illustration-metrics strong { display: block; margin: 6px 0; font-size: 24px; font-variant-numeric: tabular-nums; font-weight: 600; overflow-wrap: anywhere; }
+.cad-illustration-metrics strong small { font-size: 12px; }
+.cad-illustration-metrics > div > small { font-size: 9px; color: #718274; line-height: 1.5; display: block; }
+.cad-illustration-warning { padding: 9px 11px; background: #fff7e9; border-left: 3px solid #c69f65; color: #79552a; font-size: 11px; line-height: 1.6; margin: 10px 0; }
+.cad-illustration-source { border-top: 1px solid #d8e3d8; padding-top: 12px; display: flex; align-items: center; gap: 12px; }
+.cad-illustration-source p { flex: 1; min-width: 0; margin: 0; font-size: 10px; line-height: 1.65; overflow-wrap: anywhere; }
+.cad-illustration-source button { min-height: 40px; font-size: 11px; flex-shrink: 0; }
+.cad-illustration-session { margin: 12px 0 0; color: #6c7e70; font-size: 10px; line-height: 1.5; }
+.cad-illustration-entry { margin: 12px 0; padding: 12px; background: #f1f6ee; border: 1px solid #d6e2ce; border-radius: 7px; display: flex; align-items: center; gap: 12px; }
+.cad-illustration-entry p { margin: 0; font-size: 11px; line-height: 1.6; flex: 1; }
+.cad-illustration-entry-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.cad-illustration-entry button { font-size: 11px; min-height: 38px; }
+@container cad-viewer (max-width: 650px) {
+  .cad-illustration { padding: 12px; }
+  .cad-illustration-heading h3 { font-size: 18px; }
+  .cad-illustration-stage { height: 350px; }
+  .cad-illustration-submit, .cad-illustration-source, .cad-illustration-entry { align-items: stretch; flex-direction: column; }
+  .cad-illustration-metrics { grid-template-columns: 1fr; }
+  .cad-illustration-metrics > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; }
+  .cad-illustration-metrics strong { grid-column: 2; grid-row: 1 / 3; margin: 0; }
+}
