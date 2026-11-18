@@ -40,7 +40,7 @@ before(async () => {
     ResizeObserver: class { observe() {} disconnect() {} },
     IS_REACT_ACT_ENVIRONMENT: true,
     fetch: (url, options) => {
-      assert.match(url, /\/api\/documents\/analyze$/, 'this workflow only requests document inspection');
+      assert.match(url, /\/api\/(?:documents\/analyze|coordinates\/transform)$/, 'this workflow only inspects documents and converts explicit references');
       return new Promise((resolve, reject) => requests.push({ url, ...options, resolve, reject }));
     },
   };
@@ -236,6 +236,53 @@ test('package navigation respects the same activity and IRM gate as individual d
   assert.equal(requests[1].body.get('work_type'), 'structural');
   assert.deepEqual(requests[1].body.getAll('activities'), ['modify_structural_wall']);
   await finish(requests[1], inspectionFor());
+});
+
+test('an optional IRM travels with a repair drawing and each subsequent ZIP member', async () => {
+  const archive = await upload();
+  assert.match(container.querySelector('label[for="irm-upload"]').textContent, /opcional/);
+  assert.equal(button('Inspeccionar mi proyecto').disabled, false);
+  const irm = await upload('IRM-opcional.pdf', '#irm-upload');
+  await click('Inspeccionar mi proyecto');
+  assert.equal(requests[0].body.get('blueprint'), archive);
+  assert.equal(requests[0].body.get('irm'), irm);
+  assert.equal(requests[0].body.get('work_type'), 'repair');
+  const result = inspectionFor();
+  result.irm = { filename: 'IRM-opcional.pdf', format: 'pdf', pages: [{ page: 1 }], candidate_irm_fields: {} };
+  await finish(requests[0], result);
+  assert.ok(container.querySelector('.drawing-location-panel'));
+  await setValue(container.querySelector('.project-package-files'), entryPaths[1]);
+  await click('Abrir dibujo');
+  assert.equal(requests[1].body.get('irm'), irm, 'the optional IRM remains part of the project analysis');
+  assert.equal(container.querySelector('.drawing-location-panel'), null, 'location evidence clears while the next member is inspected');
+  await finish(requests[1], { ...inspectionFor(entryPaths[1]), irm: result.irm });
+  assert.ok(container.querySelector('.drawing-location-panel'));
+});
+
+test('a declared location survives the documentary summary but cannot transfer to another drawing', async () => {
+  await openPackage();
+  await setValue(container.querySelector('[aria-label="Latitud de referencia"]'), '0');
+  await setValue(container.querySelector('[aria-label="Longitud de referencia"]'), '-78,5');
+  await setValue(container.querySelector('.drawing-location-form-grid input[id$="-source"]'), 'Referencia ficticia para prueba');
+  await click('Usar referencia');
+  assert.match(requests[1].url, /\/coordinates\/transform$/);
+  assert.deepEqual(JSON.parse(requests[1].body), {x: -78.5, y: 0, source_crs: 'EPSG:4326'});
+  await finish(requests[1], {
+    crs: {id: 'EPSG:4326', name: 'WGS 84', source: 'user_supplied'}, point: {x: -78.5, y: 0},
+    geographic: {latitude: 0, longitude: -78.5, crs: 'EPSG:4326', point_role: 'reference_point', provenance: 'user_supplied_crs'},
+    verified: false, warnings: [],
+  });
+  assert.match(container.querySelector('.drawing-location-declared').textContent, /Referencia ficticia para prueba/);
+  await click('Ver resumen documental →');
+  assert.ok(container.querySelector('.drawing-location-compact .drawing-location-declared'));
+  assert.equal(container.querySelector('.drawing-location-reference-form'), null, 'the summary presents the applied reference');
+  await click('← Revisar planos');
+  assert.ok(container.querySelector('.drawing-location-declared'), 'returning to the same inspection preserves the reference');
+  await setValue(container.querySelector('.project-package-files'), entryPaths[1]);
+  await click('Abrir dibujo');
+  await finish(requests[2], inspectionFor(entryPaths[1]));
+  assert.equal(container.querySelector('.drawing-location-declared'), null, 'the next ZIP member has its own location context');
+  assert.equal(container.querySelector('[aria-label="Latitud de referencia"]').value, '');
 });
 
 test('an inspection HTTP error leaves the existing package available for another entry', async () => {

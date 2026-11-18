@@ -14,6 +14,7 @@ from threading import BoundedSemaphore
 
 from .dwg_conversion import convert_dwg_to_dxf
 from .drawing_geometry import CadImportBudget, CadImportLimitError
+from .location_analysis import cad_location, native_geometry_extents, text_location
 
 MAX_BYTES = 15 * 1024 * 1024
 MAX_PAGES = 100
@@ -104,9 +105,14 @@ def _pdf(data: bytes, role: str) -> dict:
                     "raw": match.group(1),
                     "status": "unverified_extraction",
                 }
+    location = text_location(enumerate(fragments, 1), "irm" if role == "irm" else "pdf")
+    location_predios = {item["value"] for item in location["candidates"] if item["kind"] == "predio"}
+    if role == "irm" and "predio" not in candidates and len(location_predios) == 1:
+        candidates["predio"] = {"raw": next(iter(location_predios)), "status": "unverified_extraction"}
     return {
         "format": "pdf", "role": role, "pages": pages,
         "candidate_irm_fields": candidates,
+        "location": location,
         "drawing_views": views if role == "blueprint" else [],
         "text_excerpt": combined[:3000] if role == "irm" else "",
         "warnings": (["Scanned pages may require OCR"]
@@ -136,6 +142,8 @@ def _dxf(data: bytes) -> dict:
             )
         cad_layouts = []
         views = []
+        model_extents = None
+        model_text_fragments = []
         for layout in layouts:
             budget.check_time()
             displayed = layout.is_modelspace or bool(len(layout))
@@ -152,6 +160,9 @@ def _dxf(data: bytes) -> dict:
                 layout, budget=budget, scope=scope, page=page,
             )
             source_labels = extraction.pop("source_labels", [])
+            if layout.is_modelspace:
+                model_extents = native_geometry_extents(primitives)
+                model_text_fragments = [(1, label.get("text", "")) for label in source_labels]
             extraction["import_limits"]["layouts"] = MAX_CAD_LAYOUTS
             views.append({
                 **drawing_view(primitives, invert_y=True, source_labels=source_labels),
@@ -187,6 +198,7 @@ def _dxf(data: bytes) -> dict:
     return {
         "format": "dxf", "role": "blueprint",
         "units_code": doc.header.get("$INSUNITS", 0),
+        "location": cad_location(doc, model_extents=model_extents, text_fragments=model_text_fragments),
         "cad_layouts": cad_layouts,
         "display_scope": "modelspace_and_paperspace" if len(views) > 1 else "modelspace_only",
         "floor_identification": "unverified",

@@ -118,6 +118,18 @@ This does not infer interior walls, doors/windows, openings, additional storeys,
 
 **Fictional demonstration:** open **Ver plano de ejemplo**, select the closed boundary on **Área de ejemplo**, open **Medidas**, choose **cm** and click **Aplicar unidad**. Open **Ilustración 3D**, edit the height and roof assumptions, then click **Actualizar ilustración**. Compare the 3D/front/side views and return with **Volver al plano fuente**. The example demonstrates geometry and editable assumptions without using a private drawing or claiming that an actual building has those heights or roof.
 
+### Drawing location and IRM coordinates
+
+Document inspection includes **Ubicación y vínculo con el IRM** in the drawing workspace and documentary summary. Each source keeps its own coordinate system, original point, geographic reference and extraction status. The IRM can be attached optionally for repair, maintenance and floor-finish work; existing requirements for other activities remain in place.
+
+- CAD analysis exposes original modelspace coordinate extents and their provenance. Recorded header extents are cached drawing metadata, not surveyed parcel limits. Viewer coordinates, user-confirmed measurement scale and illustrative 3D coordinates are not geographic coordinates.
+- Supported CAD geolocation metadata can produce a WGS84 reference point. Standalone CAD latitude/longitude header settings are excluded as location evidence, including the documented AutoCAD default pair. An absent or unsupported reference remains pending.
+- Clearly labeled IRM coordinates retain page and source evidence. Explicit **SIRES-DMQ** (including the IRM spelling **SIRES MDQ**) uses Quito's published WGS84 modified Transverse Mercator definition: central meridian −78.5°, latitude of origin 0°, scale 1.0004584, false easting 500,000 m and false northing 10,000,000 m. This is not standard UTM zone 17S. Extraction and conversion do not independently verify the property.
+- Users can add a temporary, attributed reference using WGS84 latitude/longitude or projected X/Y with a supported, explicitly supplied CRS. `POST /api/coordinates/transform` performs a bounded local conversion; it does not accept arbitrary projection pipelines or download transformation grids. A reference point does not translate, rotate, scale or georeference the CAD geometry.
+- The panel compares explicit predio candidates and geographic reference points when available. Matching identifiers or nearby points do not certify that the drawing and IRM describe the same building. Filename digits never become a cadastral identifier. References reset with a new inspection or ZIP member and are not saved as a permanent project.
+
+Projection source: [GeoQuito's municipal SIRES-DMQ definition](https://geoquito.quito.gob.ec/server/rest/services/web_reference_dmot/division_politica_administrativa/MapServer?f=pjson). CAD defaults: [Autodesk LATITUDE](https://help.autodesk.com/cloudhelp/2024/ENU/AutoCAD-LT/files/GUID-BBA986D3-9BA8-4160-9471-55DAC9EDCA70.htm) and [LONGITUDE](https://help.autodesk.com/cloudhelp/2024/ENU/AutoCAD-LT/files/GUID-C745C49D-3646-4C3E-B32E-7AC0F89E854E.htm).
+
 ### Geographic discovery
 
 - Search by land-area range, cadastral urban/rural classification and multiple parishes, including a shortcut for the valleys.
