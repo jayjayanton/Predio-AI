@@ -1,13 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createDesignHistory, commitDesign, createPlanningShape, createPlanningSnapshot, extractPlanningFootprint,
-  hitPlanningShape, normalizeRotation, parseDimension, redoDesign, shapeBounds, shapeDrawingRing, undoDesign} from '../src/scaledPlanning.js';
+import {PLANNING_LIMITS, createDesignHistory, commitDesign, createDrawnPlanningShape, createPlanningShape,
+  createPlanningSnapshot, createPolygonPlanningShape, extractPlanningFootprint, hitPlanningShape, insertPlanningVertex,
+  normalizeRotation, parseDimension, planningEditHandles, planningShapeMetrics, redoDesign, removePlanningVertex,
+  resizePlanningShape, shapeBounds, shapeDrawingRing, undoDesign, updatePlanningShape, validPlanningShape} from '../src/scaledPlanning.js';
 import {toScreen, toWorld, zoomAt} from '../src/drawingGeometry.js';
 
 const rectangle = (x = 0, y = 0, w = 10000, h = 6000) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
 const element = (points = rectangle(), extra = {}) => ({id: 'ground', kind: 'polyline', closed: true, source_type: 'LWPOLYLINE', layer: 'Footprint', points, ...extra});
 const near = (a, b, tolerance = 1e-8) => assert.ok(Math.abs(a - b) < tolerance, `${a} ≠ ${b}`);
 const extent = ring => ring.reduce((b, [x, y]) => [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)], [Infinity, Infinity, -Infinity, -Infinity]);
+const nearPoint = (actual, expected, tolerance) => actual.forEach((value, i) => near(value, expected[i], tolerance));
+const drawingPoint = (shape, point, factor) => {
+  const radians = shape.rotationDegrees * Math.PI / 180, c = Math.cos(radians), s = Math.sin(radians);
+  return [shape.center[0] + (point[0] * c - point[1] * s) / factor,
+    shape.center[1] + (point[0] * s + point[1] * c) / factor];
+};
+const ringArea = ring => ring.reduce((total, p, i) => {
+  const next = ring[(i + 1) % ring.length];
+  return total + p[0] * next[1] - next[0] * p[1];
+}, 0) / 2;
 
 test('table and circle dimensions are metric regardless of CAD units or viewport zoom', () => {
   const shape = createPlanningShape('table', 'table-1', [11000, -3500]);
@@ -102,4 +114,194 @@ test('dimensions reject nonfinite, unit-suffixed and malformed values but accept
   for (const value of ['', null, '0', '-1', '1e3', '1m', '1,000.0', 'Infinity', 'NaN', '201', '0.001']) assert.equal(parseDimension(value), null);
   assert.equal(normalizeRotation(-90), 270); assert.equal(normalizeRotation(450), 90);
   assert.equal(shapeDrawingRing({...createPlanningShape('circle', 'c', [0, 0]), depthMetres: 2}, 1), null);
+});
+
+test('dragged figures follow source coordinates at any CAD scale or viewport zoom', () => {
+  for (const factor of [1, 0.01, 0.001, 0.3048]) {
+    const start = [1200, -800], end = [1200 - 4 / factor, -800 + 2.5 / factor];
+    for (const transform of [{scale: 0.07, x: 200, y: 170}, {scale: 3.5, x: -600, y: 850}]) {
+      const drawn = createDrawnPlanningShape('rectangle', 'drag', toWorld(toScreen(start, transform), transform),
+        toWorld(toScreen(end, transform), transform), factor, {role: 'extension', label: 'Estudio'});
+      assert.ok(drawn); near(drawn.widthMetres, 4); near(drawn.depthMetres, 2.5);
+      nearPoint(shapeBounds(drawn, factor), [end[0], start[1], start[0], end[1]]);
+      near(planningShapeMetrics(drawn).areaM2, 10); near(planningShapeMetrics(drawn).perimeterM, 13);
+      assert.equal(drawn.role, 'extension'); assert.equal(drawn.label, 'Estudio');
+    }
+  }
+  const square = createDrawnPlanningShape('square', 'square', [10, 10], [8, 13], 1);
+  assert.equal(square.kind, 'rectangle'); assert.equal(square.widthMetres, 3); assert.equal(square.depthMetres, 3);
+  assert.deepEqual(shapeBounds(square, 1), [7, 10, 10, 13]);
+  const circle = createDrawnPlanningShape('circle', 'circle', [0, 0], [2, 3], 1);
+  assert.equal(circle.widthMetres, 3); assert.equal(circle.depthMetres, 3);
+  near(planningShapeMetrics(circle).areaM2, Math.PI * 2.25);
+  near(planningShapeMetrics(circle).perimeterM, Math.PI * 3);
+  for (const [kind, end, scale] of [['rectangle', [0, 3], 1], ['rectangle', [0.001, 1], 1],
+    ['rectangle', [201, 1], 1], ['circle', [1, 1], 0], ['square', [NaN, 3], 1], ['triangle', [3, 4], 1]]) {
+    assert.equal(createDrawnPlanningShape(kind, 'invalid', [0, 0], end, scale), null);
+  }
+});
+
+test('custom concave polygons have true area and hit targets that exclude the empty notch', () => {
+  const points = [[0, 0], [6, 0], [6, 2], [2, 2], [2, 5], [0, 5]];
+  const original = structuredClone(points);
+  for (const factor of [1, 0.001, 0.3048]) {
+    const world = points.map(([x, y]) => [10000 + x / factor, -5000 + y / factor]);
+    const shape = createPolygonPlanningShape('concave', world, factor, {role: 'extension'});
+    assert.ok(shape); assert.equal(shape.kind, 'polygon'); assert.equal(shape.verticesMetres.length, 6);
+    near(shape.widthMetres, 6); near(shape.depthMetres, 5);
+    const metrics = planningShapeMetrics(shape);
+    near(metrics.areaM2, 18); near(metrics.perimeterM, 22);
+    shapeDrawingRing(shape, factor).slice(0, -1).forEach((point, i) => nearPoint(point, world[i]));
+    assert.equal(hitPlanningShape([shape], [10000 + 1 / factor, -5000 + 4 / factor], factor)?.id, 'concave');
+    assert.equal(hitPlanningShape([shape], [10000 + 4 / factor, -5000 + 4 / factor], factor), null);
+    assert.equal(hitPlanningShape([shape], [10000 + 2.02 / factor, -5000 + 3 / factor], factor, 0.03 / factor)?.id, 'concave');
+    const rotated = updatePlanningShape(shape, {rotationDegrees: 37});
+    assert.equal(hitPlanningShape([rotated], drawingPoint(rotated, [-2, 1.5], factor), factor)?.id, 'concave');
+    assert.equal(hitPlanningShape([rotated], drawingPoint(rotated, [1, 1.5], factor), factor), null);
+  }
+  assert.deepEqual(points, original);
+  const triangle = createPolygonPlanningShape('triangle', [[0, 0], [4, 0], [0, 3]], 1);
+  assert.equal(triangle.label, 'Triángulo');
+  assert.deepEqual(planningShapeMetrics(triangle), {areaM2: 6, perimeterM: 12});
+});
+
+test('polygon validation rejects crossings, repeated corners, overlaps, degeneracy and excessive size', () => {
+  const invalid = [
+    [[0, 0], [4, 4], [0, 4], [4, 0]],
+    [[0, 0], [4, 0], [4, 0], [4, 4], [0, 4]],
+    [[0, 0], [4, 0], [4, 4], [0, 4], [4, 0]],
+    [[0, 0], [4, 0], [2, 0], [4, 4], [0, 4]],
+    [[0, 0], [4, 0], [2, 2], [4, 4], [0, 4], [2, 2]],
+    [[0, 0], [1, 1], [2, 2]],
+    [[0, 0], [0.001, 0], [0, 1]],
+    [[0, 0], [201, 0], [0, 1]],
+    [[0, 0], [4, 0], [0, Infinity]],
+    [[0, 0], [4, 0]],
+  ];
+  for (const points of invalid) assert.equal(createPolygonPlanningShape('invalid', points, 1), null, JSON.stringify(points));
+  const closed = [[0, 0], [3, 0], [0, 4], [0, 0]];
+  const shape = createPolygonPlanningShape('closed', closed, 1);
+  assert.equal(shape.verticesMetres.length, 3); assert.equal(closed.length, 4);
+  assert.equal(validPlanningShape({...shape, widthMetres: 7}), false, 'dimensions cannot disagree with polygon geometry');
+  const many = count => Array.from({length: count}, (_, i) => [20 * Math.cos(2 * Math.PI * i / count), 20 * Math.sin(2 * Math.PI * i / count)]);
+  const limit = createPolygonPlanningShape('limit', many(PLANNING_LIMITS.maxVertices), 1);
+  assert.ok(limit); assert.equal(insertPlanningVertex(limit, 0), null);
+  assert.equal(planningEditHandles(limit, 1).some(handle => handle.kind === 'insert'), false);
+  assert.equal(createPolygonPlanningShape('excess', many(PLANNING_LIMITS.maxVertices + 1), 1), null);
+});
+
+test('rotated rectangle resizing holds the opposite corner and supports proportional resizing', () => {
+  for (const factor of [1, 0.001]) {
+    const shape = {...createDrawnPlanningShape('rectangle', 'r', [0, 0], [4 / factor, 2 / factor], factor),
+      center: [700, -300], rotationDegrees: 37};
+    const original = structuredClone(shape);
+    const handles = planningEditHandles(shape, factor);
+    for (let index = 0; index < 4; index++) {
+      const xSign = index === 1 || index === 2 ? 1 : -1;
+      const ySign = index >= 2 ? 1 : -1;
+      const target = drawingPoint(shape, [4 * xSign, 2 * ySign], factor);
+      const resized = resizePlanningShape(shape, handles[index], target, factor);
+      assert.ok(resized); near(resized.widthMetres, 6); near(resized.depthMetres, 3);
+      nearPoint(planningEditHandles(resized, factor)[index].point, target);
+      nearPoint(planningEditHandles(resized, factor)[(index + 2) % 4].point, handles[(index + 2) % 4].point);
+      assert.equal(resized.rotationDegrees, 37);
+    }
+    const proportional = resizePlanningShape(shape, handles[2], drawingPoint(shape, [6, 1.25], factor), factor, {preserveAspect: true});
+    near(proportional.widthMetres / proportional.depthMetres, 2);
+    nearPoint(planningEditHandles(proportional, factor)[0].point, handles[0].point);
+    assert.equal(resizePlanningShape(shape, handles[2], handles[0].point, factor), null);
+    assert.deepEqual(shape, original);
+  }
+});
+
+test('circle handles resize the diameter around a stationary centre', () => {
+  const shape = {...createPlanningShape('circle', 'c', [2000, 3000]), rotationDegrees: 61};
+  const handle = planningEditHandles(shape, 0.001)[0];
+  const resized = resizePlanningShape(shape, handle, [5000, 7000], 0.001);
+  near(resized.widthMetres, 10); assert.equal(resized.depthMetres, resized.widthMetres);
+  assert.deepEqual(resized.center, shape.center);
+  const numeric = updatePlanningShape(shape, {depthMetres: 4});
+  assert.equal(numeric.widthMetres, 4); assert.equal(numeric.depthMetres, 4);
+  assert.equal(updatePlanningShape(shape, {widthMetres: 4, depthMetres: 3}), null);
+});
+
+test('dragging a rotated polygon corner preserves all other vertices and rejects a crossing edit', () => {
+  const factor = 0.001;
+  const shape = updatePlanningShape(createPolygonPlanningShape('p', rectangle(0, 0, 4000, 3000), factor), {rotationDegrees: 28});
+  const original = structuredClone(shape), before = shapeDrawingRing(shape, factor);
+  const handle = planningEditHandles(shape, factor).find(item => item.kind === 'vertex' && item.index === 0);
+  const target = drawingPoint(shape, [-3, -2], factor);
+  const resized = resizePlanningShape(shape, handle, target, factor);
+  assert.ok(resized); assert.equal(resized.rotationDegrees, shape.rotationDegrees);
+  assert.deepEqual(resized.center, shape.center);
+  const after = shapeDrawingRing(resized, factor);
+  nearPoint(after[0], target);
+  for (let i = 1; i < before.length - 1; i++) nearPoint(after[i], before[i]);
+  near(resized.widthMetres, 5); near(resized.depthMetres, 3.5);
+  const crossingTarget = drawingPoint(shape, [3, 0], factor);
+  assert.equal(resizePlanningShape(shape, handle, crossingTarget, factor), null);
+  assert.deepEqual(shape, original);
+});
+
+test('polygon corner insertion and removal preserve geometry and can be undone as complete edits', () => {
+  const shape = updatePlanningShape(createPolygonPlanningShape('p', [[0, 0], [4, 0], [4, 3], [0, 3]], 1), {rotationDegrees: 35});
+  const original = structuredClone(shape);
+  const insertion = planningEditHandles(shape, 1).find(handle => handle.kind === 'insert' && handle.index === 0);
+  const withCorner = insertPlanningVertex(shape, 0);
+  assert.equal(withCorner.verticesMetres.length, 5);
+  nearPoint(shapeDrawingRing(withCorner, 1)[1], insertion.point);
+  near(planningShapeMetrics(withCorner).areaM2, 12); near(planningShapeMetrics(withCorner).perimeterM, 14);
+  const dragged = resizePlanningShape(shape, insertion, drawingPoint(shape, [0, -2.5], 1), 1);
+  assert.ok(dragged); assert.equal(dragged.verticesMetres.length, 5);
+  near(planningShapeMetrics(dragged).areaM2, 14);
+  const removed = removePlanningVertex(withCorner, 1);
+  assert.deepEqual(removed, original);
+  const triangle = removePlanningVertex(shape, 0);
+  assert.equal(triangle.verticesMetres.length, 3); assert.equal(removePlanningVertex(triangle, 0), null);
+  const triangleRing = shapeDrawingRing(triangle, 1), originalRing = shapeDrawingRing(shape, 1);
+  triangleRing.slice(0, -1).forEach((point, i) => nearPoint(point, originalRing[i + 1]));
+  let history = commitDesign(createDesignHistory({shapes: [shape], footprint: null}), {shapes: [dragged], footprint: null});
+  history = undoDesign(history); assert.deepEqual(history.present.shapes[0], original);
+  history = redoDesign(history); assert.deepEqual(history.present.shapes[0], dragged);
+  assert.deepEqual(shape, original);
+});
+
+test('numeric dimensions and bounding handles reshape actual polygon vertices', () => {
+  const factor = 0.001;
+  const base = createPolygonPlanningShape('p', [[0, 0], [6, 0], [6, 2], [2, 2], [2, 5], [0, 5]], 1);
+  const shape = updatePlanningShape(base, {center: [2000, 4000], rotationDegrees: 53});
+  const doubled = updatePlanningShape(shape, {widthMetres: 12, depthMetres: 10});
+  near(planningShapeMetrics(doubled).areaM2, 72); near(planningShapeMetrics(doubled).perimeterM, 44);
+  doubled.verticesMetres.forEach((point, i) => nearPoint(point, shape.verticesMetres[i].map(value => value * 2)));
+  const handles = planningEditHandles(shape, factor, 'resize');
+  const target = drawingPoint(shape, [9, 7.5], factor);
+  const resized = resizePlanningShape(shape, handles[2], target, factor);
+  near(resized.widthMetres, 12); near(resized.depthMetres, 10);
+  near(planningShapeMetrics(resized).areaM2, 72);
+  nearPoint(planningEditHandles(resized, factor, 'resize')[0].point, handles[0].point);
+  nearPoint(planningEditHandles(resized, factor, 'resize')[2].point, target);
+  assert.deepEqual(resized.center, shape.center);
+  for (const patch of [{widthMetres: null}, {depthMetres: NaN}, {widthMetres: 201}, {center: [Infinity, 0]},
+    {rotationDegrees: NaN}, {role: 'unknown'}, {verticesMetres: [[0, 0], [1, 0], [0, 0]]}]) {
+    assert.equal(updatePlanningShape(shape, patch), null);
+  }
+});
+
+test('custom polygon exports share footprint origin and keep valid exterior winding in either drawing direction', () => {
+  const scale = {metresPerUnit: 0.001, method: 'unit', unit: 'mm'};
+  const offset = [1e9, -1e9];
+  const footprint = extractPlanningFootprint(element(rectangle(...offset)), scale.metresPerUnit);
+  const points = [[10500, 1000], [14500, 1000], [14500, 3000], [12500, 3000], [12500, 5000], [10500, 5000]]
+    .map(([x, y]) => [offset[0] + x, offset[1] + y]);
+  for (const sourcePoints of [points, [...points].reverse()]) {
+    const shape = createPolygonPlanningShape('extension', sourcePoints, scale.metresPerUnit, {role: 'extension'});
+    const snapshot = createPlanningSnapshot({footprint, shapes: [shape], scale, source: {documentName: 'ground.dwg'}});
+    const proposal = snapshot.shapes[0], ring = proposal.geometry.coordinates[0];
+    assert.equal(proposal.role, 'extension'); assert.equal(proposal.kind, 'polygon');
+    assert.equal(proposal.dimensions.vertexCount, 6);
+    assert.deepEqual(extent(ring), [5.5, -2, 9.5, 2]);
+    assert.deepEqual(ring[0], ring.at(-1)); near(ringArea(ring), 12);
+    assert.equal(snapshot.source.entityId, 'ground');
+    assert.deepEqual(snapshot.origin, footprint.origin);
+  }
 });
