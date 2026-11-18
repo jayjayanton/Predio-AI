@@ -133,10 +133,19 @@ def test_explicit_municipal_crs_extracts_reference_with_page_and_provenance(labe
 
 
 def test_sires_is_pinned_to_municipal_definition_and_is_not_utm():
-    assert CRS.from_wkt(SIRES_DMQ_WKT).equals(CRS.from_user_input("ESRI:103985"))
+    # Older PROJ databases do not contain ESRI:103985. The application uses the
+    # pinned municipal definition, so validate its published parameters without
+    # requiring an optional registry entry in the host's installed database.
+    municipal_definition = CRS.from_proj4(
+        "+proj=tmerc +lat_0=0 +lon_0=-78.5 +k=1.0004584 "
+        "+x_0=500000 +y_0=10000000 +datum=WGS84 +units=m +no_defs"
+    )
+    assert CRS.from_wkt(SIRES_DMQ_WKT).equals(municipal_definition)
     result = transform_coordinates(500000, 10000000, "SIRES-DMQ")
+    alias = transform_coordinates(500000, 10000000, "ESRI:103985")
     utm = transform_coordinates(500000, 10000000, "EPSG:32717")
     assert result["geographic"]["longitude"] == pytest.approx(-78.5)
+    assert alias["geographic"] == result["geographic"]
     assert utm["geographic"]["longitude"] == pytest.approx(-81)
 
 
