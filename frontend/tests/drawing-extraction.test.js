@@ -75,3 +75,17 @@ test('a generic review reminder does not mislabel a clean DWG conversion', () =>
   }});
   assert.equal(notice.title, 'DWG convertido para inspección.');
 });
+
+
+test('a capped source annotation view reports missing text without asserting coverage', () => {
+  const extraction = {
+    status: 'partial',
+    source_label_limit_reached: true,
+    source_label_limit: 250,
+    rendered_source_labels: 250,
+  };
+  assert.equal(hasPartialExtraction(extraction), true);
+  const messages = drawingExtractionMessages(extraction);
+  assert.ok(messages.some(message => message.includes('250 etiquetas originales')));
+  assert.ok(messages.some(message => message.includes('pueden faltar textos o cotas')));
+});
