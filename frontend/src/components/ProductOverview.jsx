@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import '../styles/overview.css';
 import '../styles/positioning.css';
 import '../styles/homeowner-focus.css';
@@ -9,16 +9,33 @@ function Arrow({ diagonal = false }) {
 }
 
 function ProjectGuide() {
+  const [proposal, setProposal] = useState('table');
   return <aside className="po-project-guide" aria-labelledby="po-guide-title">
-    <div className="po-guide-top"><span>EL PUNTO DE PARTIDA</span><span className="po-stage">Piloto</span></div>
-    <h2 id="po-guide-title">Tu vivienda.<br /><em>Un proyecto con contexto.</em></h2>
-    <p className="po-guide-intro">Conectar lo que sabes del inmueble con lo que muestran sus planos.</p>
-    <ol className="po-project-documents">
-      <li><span className="po-file-label" aria-hidden="true">01</span><div><strong>Tus planos PDF / DXF / DWG</strong><span>Elige una actividad y revisa el archivo</span></div></li>
-      <li><span className="po-file-label" aria-hidden="true">02</span><div><strong>El predio, cuando lo necesites</strong><span>Ubicación y datos catastrales como contexto</span></div></li>
-      <li><span className="po-file-label" aria-hidden="true">03</span><div><strong>El IRM, cuando corresponda</strong><span>Información urbanística para contrastar</span></div></li>
-    </ol>
-    <div className="po-guide-result"><strong>Un espacio para explorar y revisar</strong><p>Seleccionar geometría · mostrar capas · acercar el plano</p><small>Visor experimental. Unidades y escala aún sin verificar.</small></div>
+    <div className="po-guide-top"><span>DEL PLANO A LA IDEA</span><span className="po-stage">Ejemplo conceptual</span></div>
+    <h2 id="po-guide-title">Dale espacio<br /><em>a lo que imaginas.</em></h2>
+    <div className="po-plan-preview">
+      <svg viewBox="0 0 360 265" role="img" aria-label={`Planta ficticia con ${proposal === 'table' ? 'mesa de 1,60 por 0,90 metros' : proposal === 'circle' ? 'círculo de 1,20 metros de diámetro' : 'ampliación propuesta de 2 por 2,80 metros'}`}>
+        <defs><pattern id="studio-preview-grid" width="15" height="15" patternUnits="userSpaceOnUse"><path d="M15 0H0V15" fill="none" stroke="#d5ded5" strokeWidth=".55" /></pattern></defs>
+        <rect width="360" height="265" rx="10" fill="#f5f6f0" /><rect x="15" y="15" width="330" height="230" fill="url(#studio-preview-grid)" />
+        <path d="M44 48H272V200H44Z" fill="#fffdf6" stroke="#315b50" strokeWidth="4" />
+        <path d="M188 48V112M188 142V200M44 92H188" fill="none" stroke="#315b50" strokeWidth="3" />
+        <path d="M188 112H158M158 112A30 30 0 0 0 188 142" fill="none" stroke="#8fa798" strokeWidth="1.2" />
+        <path d="M66 48H118M44 125V165M216 200H250" fill="none" stroke="#adc5bb" strokeWidth="5" />
+        <rect x="59" y="64" width="50" height="15" rx="3" fill="#e5ebe2" stroke="#a7b9aa" />
+        <rect x="204" y="64" width="47" height="65" rx="3" fill="#e5ebe2" stroke="#a7b9aa" />
+        <path d="M209 80H246M229 68V79" fill="none" stroke="#a7b9aa" />
+        <text x="67" y="180" fontSize="9" fill="#648075" letterSpacing="1.8">SALA</text><text x="205" y="178" fontSize="8" fill="#648075" letterSpacing="1">ESTUDIO</text>
+        {proposal === 'table' && <g><rect x="94" y="116" width="48" height="27" rx="3" fill="#cee6d8" stroke="#246c52" strokeWidth="2" /><path d="M94 107V101M142 107V101M94 104H142" stroke="#246c52" strokeWidth=".8"/><text x="118" y="98" textAnchor="middle" fontSize="10" fill="#246c52">1,60 m</text><text x="150" y="133" fontSize="9" fill="#246c52">0,90 m</text></g>}
+        {proposal === 'circle' && <g><circle cx="118" cy="130" r="18" fill="#cee6d8" stroke="#246c52" strokeWidth="2"/><path d="M100 130H136" stroke="#246c52" strokeWidth=".8"/><text x="118" y="104" textAnchor="middle" fontSize="10" fill="#246c52">Ø 1,20 m</text></g>}
+        {proposal === 'extension' && <g><path d="M272 116H332V200H272Z" fill="#f6debd" fillOpacity=".85" stroke="#b96d34" strokeWidth="2" strokeDasharray="5 3"/><path d="M272 108V101M332 108V101M272 104H332" stroke="#b96d34" strokeWidth=".8"/><text x="302" y="98" textAnchor="middle" fontSize="10" fill="#9e592a">2,00 m</text><text x="302" y="154" textAnchor="middle" fontSize="11" fill="#9e592a">5,60 m²</text><text x="302" y="170" textAnchor="middle" fontSize="8" fill="#9e592a">PROPUESTA</text></g>}
+        <path d="M44 220H104M44 216V224M74 217V223M104 216V224" stroke="#6d8277" fill="none"/><text x="44" y="236" fontSize="8" fill="#6d8277">0</text><text x="101" y="236" fontSize="8" fill="#6d8277">2 m</text>
+        <text x="333" y="35" textAnchor="end" fontSize="8" fill="#809489">PLANTA · EJEMPLO FICTICIO</text>
+      </svg>
+    </div>
+    <div className="po-preview-options" role="group" aria-label="Probar una idea en el ejemplo">
+      {[['table','Mesa'],['circle','Círculo'],['extension','Ampliación']].map(([value,label]) => <button type="button" key={value} aria-pressed={proposal === value} onClick={() => setProposal(value)}>{label}</button>)}
+    </div>
+    <div className="po-guide-result" aria-live="polite"><strong>{proposal === 'extension' ? 'Explora una nueva superficie.' : 'Comprueba cómo encaja.'}</strong><p>{proposal === 'extension' ? 'La huella, el predio y el IRM aportan contexto a la propuesta.' : 'Introduce medidas reales. Mueve la figura sobre tu plano.'}</p><small>Esquema ficticio. Tu proyecto empieza con su propio archivo.</small></div>
   </aside>;
 }
 
@@ -28,13 +45,13 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
       <div className="po-hero-copy">
         <p className="po-eyebrow"><span aria-hidden="true" /> PARA TU CASA Y TU PRÓXIMO PROYECTO <span className="po-pilot-label">PILOTO · QUITO</span></p>
         <h1 id="po-hero-title">Entiende tus planos.<br/><em>Prepara tu reforma.</em></h1>
-        <p className="po-hero-description">¿Quieres pintar, cambiar pisos, reparar, remodelar o ampliar? PredioAI te ayuda a revisar planos de tu vivienda y consultar su información predial. Estamos desarrollando mediciones verificadas para preparar mejor cada intervención.</p>
+        <p className="po-hero-description">¿Quieres pintar, cambiar pisos, reparar, remodelar o ampliar? Explora los planos de tu vivienda, prueba ideas con medidas reales y reúne la información que necesitas para conversar con tu arquitecto.</p>
         <div className="po-hero-actions">
           <button type="button" className="po-button po-button-primary" onClick={onBlueprints}>Iniciar mi proyecto <Arrow/></button>
           <button type="button" className="po-button po-button-secondary" onClick={onConsult}>Consultar mi predio <Arrow diagonal/></button>
         </div>
         <p className="po-hero-footnote">Para propietarios, arquitectos independientes y pequeños equipos de remodelación o construcción.</p>
-        <p className="po-release-note"><strong>Prototipo actual:</strong> consulta catastral, IRM asistido e inspección de PDF, DXF o DWG, individuales o en un ZIP. Mide geometría tras confirmar la escala y explora un volumen ilustrativo con altura y cubierta supuestas. <strong>En desarrollo:</strong> medidas arquitectónicas verificadas y reportes exportables.</p>
+        <p className="po-release-note"><strong>Disponible en el piloto:</strong> planos PDF / CAD / ZIP, mediciones con escala confirmada, figuras con dimensiones reales y estudios de implantación con datos del predio e IRM revisados. La verificación arquitectónica y municipal requiere revisión profesional.</p>
       </div>
       <ProjectGuide/>
     </section>
@@ -47,7 +64,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
           <div className="po-choice-top"><span className="po-choice-icon" aria-hidden="true">▧</span><span className="po-stage">Flujo experimental disponible</span></div>
           <h3>Quiero revisar los planos de mi casa</h3>
           <p>Para una reforma, reparación, pintura, cambio de pisos o ampliación. Empieza con un plano autorizado y explora lo que contiene. Puedes agregar después la información del predio.</p>
-          <p className="po-choice-note">Selecciona líneas o contornos y confirma la escala para calcular longitudes y áreas. La identificación automática de muros y la validación arquitectónica siguen en desarrollo.</p>
+          <p className="po-choice-note">Mide un contorno, coloca una mesa o dibuja una ampliación. Después, extrae la huella para estudiar su implantación.</p>
           <button type="button" className="po-choice-action" onClick={onBlueprints}>Ir a Analizar planos <Arrow/></button>
         </article>
         <article className="po-choice">
@@ -73,8 +90,8 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
       <div className="po-use-case-grid">
         <article><span className="po-case-number">01 / PINTURA</span><h3>Pintar paredes y techos</h3><p>Futura medición de superficies seleccionadas tras verificar alturas y aberturas.</p></article>
         <article><span className="po-case-number">02 / PISOS</span><h3>Cambiar el piso</h3><p>Mide un contorno cerrado con una escala confirmada y revisa qué superficie representa.</p></article>
-        <article><span className="po-case-number">03 / REPARACIÓN</span><h3>Reorganizar o reparar</h3><p>Revisar el plano existente y documentar las zonas que requieren intervención.</p></article>
-        <article><span className="po-case-number">04 / AMPLIACIÓN</span><h3>Reconstruir o ampliar</h3><p>Consultar planos, predio e IRM antes de revisar la propuesta con un profesional.</p></article>
+        <article><span className="po-case-number">03 / DISTRIBUCIÓN</span><h3>Hacer espacio para tus ideas</h3><p>Coloca círculos y rectángulos con dimensiones reales para explorar muebles y nuevas distribuciones.</p></article>
+        <article><span className="po-case-number">04 / AMPLIACIÓN</span><h3>Estudiar una ampliación</h3><p>Extrae una huella, ubícala en el predio y contrasta la propuesta con los parámetros del IRM revisados.</p></article>
       </div>
       <p className="po-section-description">Estas son aplicaciones previstas del análisis de planos; PredioAI aún no entrega automáticamente medidas arquitectónicas certificadas.</p>
     </section>
@@ -83,7 +100,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
       <div className="po-section-heading"><p className="po-eyebrow">CÓMO FUNCIONA EL PILOTO</p><h2 id="po-workflow-title">Del plano a una revisión con contexto.</h2></div>
       <ol className="po-steps po-home-steps">
         <li><span className="po-step-number">01</span><h3>Elige la actividad y aporta tu plano</h3><p>PDF, DXF o DWG autorizado; usa un ZIP si tienes varios dibujos. Para pintura o cambio de acabado de piso puedes empezar sin consulta predial ni IRM.</p></li>
-        <li><span className="po-step-number">02</span><h3>Inspecciona la geometría</h3><p>Visualiza trazos, selecciona elementos y controla capas. Abre después el resumen documental para revisar qué se extrajo.</p></li>
+        <li><span className="po-step-number">02</span><h3>Mide y prueba tu propuesta</h3><p>Confirma la escala, explora los elementos y añade figuras con medidas reales. Selecciona la huella de planta baja para continuar con la implantación.</p></li>
         <li><span className="po-step-number">03</span><h3>Completa el contexto de tu vivienda</h3><p>Vincula el predio y aporta el IRM cuando corresponda a la revisión. La solicitud de documentos municipales la haces tú o tu representante.</p></li>
       </ol>
       <p className="po-workflow-note"><strong>Estado del producto:</strong> inspección disponible, pero no es un sistema de diseño automático, gestión de obras, cotizaciones ni cálculo de materiales. Las cantidades confiables requieren comprobar escala, dimensiones y condiciones reales.</p>

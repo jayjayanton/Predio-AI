@@ -10,12 +10,15 @@ export function inspectionTimeoutMs(file) {
   return /\.(dwg|zip)$/i.test(file?.name || '') ? 120000 : 90000;
 }
 
-export function createInspectionForm({ blueprint, irm, buildingType, workType, activities, predioNumber, packageEntry }) {
+export function createInspectionForm({ blueprint, irm, buildingType, workType, activities, predioNumber, packageEntry, reviewScope = 'drawing_study' }) {
   const form = new FormData();
   form.append('blueprint', blueprint);
   if (irm) form.append('irm', irm);
   form.append('building_type', buildingType);
   form.append('work_type', workType);
+  // Visual studies remain available before an IRM exists. Regulatory checks
+  // have their own evidence gates and are never enabled by this scope.
+  form.append('review_scope', reviewScope);
   activities.forEach(activity => form.append('activities', activity));
   if (predioNumber) form.append('predio_number', String(predioNumber));
   // Entry paths come from the server's inventory; preserve the full relative path.

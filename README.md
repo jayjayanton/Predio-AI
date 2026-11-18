@@ -8,7 +8,7 @@ The intended platform connects **predio + architectural PDF/CAD + relevant IRM i
 
 **Public-facing message:** “Entiende tus planos. Prepara tu reforma.”
 
-**Working pilot with geometric measurements, ZIP drawing packages and illustrative 3D.** Cadastral lookup, document inspection, selectable vector geometry and a measurement panel exist. Users can confirm drawing units or calibrate against a known length, then calculate selected lengths, closed-boundary perimeters and enclosed areas. A ZIP can organize separate drawings for individual inspection. A selected exterior contour can also become an illustrative volume with explicitly assumed height and roof. Architectural interpretation, independently validated measurements, corrections with authoritative recalculation and exportable technical reports remain further milestones. Explainable parcel scoring and unsupervised segmentation remain planned on a parallel analytics track.
+**Working pilot with geometric measurements, scaled layout studies, footprint placement, ZIP drawing packages and illustrative 3D.** Confirm drawing units or calibrate a known length, measure supported source geometry, and place editable metric furniture or extension figures on the plan. A user-declared ground footprint can be extracted, positioned on a linked parcel and compared with reviewed IRM parameters. These are preliminary geometric studies; architectural recognition, independent physical validation and certified technical reports remain further milestones. A ZIP organizes separate drawings for individual inspection, and illustrative 3D retains explicit height/roof assumptions. Explainable parcel scoring and unsupervised segmentation remain planned on a parallel analytics track.
 
 [Open the application](https://jayjayanton.github.io/Predio-AI/) · [Architectural methodology and product scope](docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md) · [Pilot presentation and real-document validation](docs/PILOT_VALIDATION.md) · [Deployment guide](DEPLOYMENT.md)
 
@@ -35,13 +35,13 @@ The interface is in Spanish and the initial municipal-data scope is Quito's Dist
 | Section | Purpose |
 | --- | --- |
 | **Inicio** | One clear proposition, two choices (plans or property), what's implemented, what's not, and everyday use cases |
-| **Analizar planos** | Choose an activity, inspect an authorized PDF/DXF/DWG or a drawing from a ZIP, and explore geometry; link cadastral context optionally |
+| **Analizar planos** | Inspect an authorized drawing, confirm scale, arrange metric figures, extract a declared ground footprint and optionally review its placement with a predio and IRM |
 | **Mi predio** | Look up a predio, inspect its cadastral information and continue to IRM review or the document workflow |
 | **Explorar mapa** | Find cadastral records, browse the map and open a property sheet |
 | **Selección** | Manage up to 100 predios, import labelled IDs from PDF/CSV/DOCX/XLSX or pasted list, open each for IRM, compare four at a time, export CSV |
 | **Analítica (secondary)** | Roadmap for future parcel scoring and unsupervised segmentation, linked under complementary capabilities; no active scores |
 
-The architectural journey is **select the work → supply plans and relevant IRM → inspect/explore geometry → review the document summary**, with optional property linking. Opening or reloading `#planos` enters the same document workspace. After a successful inspection, the drawing stays visible; the user opens **Resumen documental** explicitly. File errors appear beside the upload controls, unsupported/empty/oversized files are rejected before sending, and changed inputs invalidate an in-flight analysis. Verified measurements and technical report export are planned, not completed steps.
+The architectural journey is **select the work → supply a plan → confirm scale and study the layout → optionally link a predio and matching IRM → review the evidence**. Opening or reloading `#planos` enters the same document workspace. After inspection, the drawing stays visible in the full-width studio; document intake can be collapsed and **Resumen documental** opens explicitly. File errors appear beside the upload controls, unsupported/empty/oversized files are rejected before sending, and changed inputs invalidate an in-flight analysis. Local footprint JSON and proposed WGS84 GeoJSON exports are available; verified architectural reports remain planned.
 
 ## One product foundation, multiple applications
 
@@ -64,9 +64,9 @@ For a wall affected by an earthquake, a possible workflow would link the documen
 
 The project workflow accepts PDF, DXF and DWG drawings or a ZIP containing those formats, a building type and repair/maintenance/remodeling/structural/expansion activities. DWG files are converted locally on the API server to DXF before extraction; deployment must install the pinned converter described in [DEPLOYMENT.md](DEPLOYMENT.md). The drawing workspace pairs an overview with a detailed inspection canvas, layer controls, individual/rectangle selection and a searchable source-element list. **Ver plano de ejemplo** opens a clearly fictional drawing without uploading a file. CAD imports retain all supported geometry within explicit whole-import resource limits, rather than stopping the display at 3,000 elements. Curves are approximated for display with their source identity retained; unsupported content and conversion warnings remain visible. A selected polyline is not automatically a recognized wall, a measured room or an editable construction design.
 
-Project documents are submitted to the FastAPI `/api/documents/analyze` endpoint. PDF/DXF parsing uses memory; DWG conversion uses a private temporary directory cleaned up after processing. Files are not saved as permanent projects. This is separate from the browser-only developer IRM parser described below. Repair, maintenance and a remodeling request containing **only `replace_floor`** can be inspected without an IRM. Other remodeling activities, mixed flooring/remodeling requests, structural modification and expansion retain the pilot's IRM prerequisite. This software rule applies to preliminary document inspection; it does not establish permit requirements or verify that a proposed intervention is nonstructural.
+Project documents are submitted to the FastAPI `/api/documents/analyze` endpoint. PDF/DXF parsing uses memory; DWG conversion uses a private temporary directory cleaned up after processing. Files are not saved as permanent projects. This is separate from the browser-only developer IRM parser described below. The visual studio sends **`review_scope=drawing_study`**, allowing any valid activity, including an extension study, to be visualized without an IRM. The API default **`document_review`** preserves its existing prerequisites: repair, maintenance and remodeling containing only `replace_floor` may omit an IRM; other remodeling, mixed requests, structural modification and expansion require one. Neither scope establishes permit requirements or certifies the intervention as nonstructural.
 
-The on-screen **document summary** describes inspection evidence and unresolved architectural quantities. It identifies when no predio is linked. The separate **Medidas** panel calculates geometric lengths and areas after explicit unit confirmation or known-length calibration, independently of the API's extraction-only result. User-confirmed scale is not independent physical verification. Verified wall heights, opening deductions, architectural classification, reviewed corrections and traceable measurement exports remain future work. Heights and roofs entered in **Ilustración 3D** are hypotheses for that illustration. The system does not automatically estimate material requirements, construction costs, market prices or regulatory compliance. Validation against independently checked real-project dimensions remains pending.
+The on-screen **document summary** describes inspection evidence, layout-study quantities and unresolved architectural information. It identifies when no predio is linked. **Medidas** calculates geometric lengths and areas after explicit unit confirmation or known-length calibration, independently of the API's extraction-only result. User-confirmed scale is not independent physical verification. Verified wall heights, opening deductions, architectural classification and reviewed measurement reports remain future work. Heights and roofs entered in **Ilustración 3D** are hypotheses for that illustration. The system does not automatically estimate materials, construction costs, market prices or certify regulatory compliance. Validation against independently checked real-project dimensions remains pending.
 
 ### ZIP drawing packages
 
@@ -85,7 +85,7 @@ The package is an ephemeral drawing inventory. It is not saved as a project, and
 
 ### Selection measurements
 
-Open **Medidas** in the drawing inspector. For a CAD model, review the declared units and explicitly apply the appropriate unit. Alternatively, select one eligible line or path, enter its independently known length in metres and apply calibration. PDF pages and paper layouts require known-length calibration. Scale is scoped to the current imported view and is reset when the drawing/view changes.
+Open **Medidas** in the drawing inspector. For a CAD model, review the declared units and explicitly apply the appropriate unit. Alternatively, select one eligible line or path, enter its independently known length in metres and apply calibration. PDF pages and paper layouts require known-length calibration. Each exact imported view retains its own confirmed scale and layout draft during the active session; an unseen view starts unconfirmed and returning to a previously visited view restores only its own state. Replacing the drawing or inspecting a different ZIP member does not transfer that calibration or draft. Reloading the page does not restore a saved project.
 
 **Unidad de las coordenadas CAD** describes the units of the imported coordinates, not the desired display units: results are displayed in metres and square metres. A manual unit that differs from the file's declaration shows a persistent warning above the values and an explicit button to apply the declared unit. Metadata remains a suggestion rather than independent verification.
 
@@ -100,6 +100,34 @@ A source hatch's rendered outer and inner boundaries stay in one selectable elem
 **Ver plano de ejemplo** includes a separate **Área de ejemplo** layer. Select its boundary and apply centimetres: the fictional 4.42 × 2.44 m rectangle has perimeter 13.72 m and area 10.7848 m². This is a reproducible arithmetic demonstration, not a real-building measurement.
 
 Unit-code and layout context references: [Autodesk INSUNITS](https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-A58A87BB-482B-4042-A00A-EEF55A2B4FD8.htm) and [ezdxf DXF units](https://ezdxf.readthedocs.io/en/stable/concepts/units.html). Unit metadata suggests an interpretation; the panel still requires explicit confirmation or calibration.
+
+### Scaled figures and ground-footprint extraction
+
+The inspector separates **Medidas**, **Figuras**, **Huella** and **Capas**. After confirming scale, add a **1.60 × 0.90 m table**, **1 m diameter circle**, or **3 × 4 m extension rectangle**. Edit their names, dimensions, rotation and role. Drag figures on the canvas, use the 10 cm adjustment controls or keyboard arrows (5 cm; Shift + arrow = 50 cm), duplicate/delete, and undo/redo committed edits. Zoom and pan change only the viewport: the figures retain their metric dimensions. The CAD source is not rewritten. Furniture/reference figures are excluded from added building occupation; hiding a figure affects display only.
+
+For **Huella de planta**, select one valid closed CAD contour and explicitly declare that it represents the ground footprint being studied. The extracted local-metre polygon preserves valid interior holes. Open, intersecting, disjoint, ambiguous or nested-island contours remain unavailable; this does not automatically identify a building, assemble wall lines or trace a raster image. Reconfirm the footprint after changing scale: figures retain their metre dimensions, but their positions and the newly scaled source need review.
+
+The opaque draft and scale survive a documentary-summary round trip for the same imported drawing/view. First linking a predio retains that drawing, but still requires an explicit document-to-parcel association. A matching IRM can be attached later through `/api/irm/extract` without reconverting the CAD or discarding its layout. An updated IRM clears document-review confirmations and requires its new values to be checked. These states are temporary application memory, not durable project storage.
+
+### Parcel placement and preliminary IRM comparison
+
+**Implantación y ampliación** first shows the local footprint and figures. Link the actual predio when known, then position the local origin on its map by dragging the anchor, entering coordinates or using metric adjustment controls. Rotation is clockwise; scale is never changed to make a footprint fit the parcel. Review and explicitly confirm the position/orientation. This is a **manual proposed placement**, not a recovered CAD georeference or verified survey. Editing its position or orientation clears that confirmation.
+
+`POST /api/planning/assess` performs bounded deterministic comparisons in metres. Extension polygons are unioned with the existing footprint, so overlaps are counted once; furniture is excluded. With a reviewed placement, the service reports the proposed footprint's area outside the supplied parcel. IRM values remain extracted candidates until reviewed. The following checks have separate pending, conflict or within-reviewed-limits states:
+
+- The selected predio, IRM identifier and any explicit drawing identifier must agree, with the document association confirmed by the user.
+- The reviewer must establish a complete ground footprint for the individual lot, the applicable single parameter set and the absence of unresolved special conditions. PH, multiple assignments and restriction evidence keep the general numeric review pending.
+- **Geometric footprint area is not automatically municipal countable area.** For COS PB, enter the reviewed final ground-floor countable area or explicitly confirm that it equals the combined footprint. Existing construction and the proposed addition must both be included. Total countable floor area, maximum height and number of floors are separate inputs; none is inferred from the ground plan.
+- Front, side and rear parcel edges must be classified by the user before checking their reviewed setbacks. The front is not inferred from north. Incomplete edge classification, parcel holes and special boundaries prevent a complete setback result.
+- A difference greater than 5% between the projected parcel area and reviewed documentary land area keeps normative comparisons pending. A successful numeric comparison never constitutes permission to build, structural feasibility or municipal certification.
+
+**Exports:** local footprint JSON records metre coordinates, the source origin, scale, figures and `geographic_crs: null`. Once a proposed placement is available, GeoJSON contains WGS84 coordinates, placement provenance and `verified: false`; it is not a verified geospatial registration. Neither export is a finished architectural report or a project file that the app can reopen.
+
+Current bounds: the viewer allows 60 figures, dimensions from 0.01 to 200 m, up to 40 undo steps and footprint spans up to 5 km, with the existing 2,000-segment source-topology limit. The assessment API caps JSON at 1,000,000 bytes, 100 shapes and 10,000 total positions across submitted polygons, and rejects invalid geometry instead of repairing it silently. Parcel calculations use a 25 km projected-coordinate bound around the placement anchor. These limits describe computational scope, not surveying accuracy.
+
+**Example separation:** the supplied Campolivar DWG has no associated IRM or confirmed predio. The built-in fictional drawing also has neither. Both remain useful standalone layout studies; an IRM from another example must never supply their location or regulatory parameters.
+
+Automatic building recognition, freehand/raster boundary tracing, persistent project saving and final technical certification are not implemented. Existing source geometry and user-created proposal figures retain separate meanings throughout this workflow.
 
 ### Illustrative reconstruction
 
@@ -120,7 +148,7 @@ This does not infer interior walls, doors/windows, openings, additional storeys,
 
 ### Drawing location and IRM coordinates
 
-Document inspection includes **Ubicación y vínculo con el IRM** in the drawing workspace and documentary summary. Each source keeps its own coordinate system, original point, geographic reference and extraction status. The IRM can be attached optionally for repair, maintenance and floor-finish work; existing requirements for other activities remain in place.
+Document inspection includes **Ubicación y vínculo con el IRM** in the drawing workspace and documentary summary. Each source keeps its own coordinate system, original point, geographic reference and extraction status. The visual drawing study can proceed without an IRM for any activity; the default API document-review prerequisites remain separate. Attach the corresponding IRM when available.
 
 - CAD analysis exposes original modelspace coordinate extents and their provenance. Recorded header extents are cached drawing metadata, not surveyed parcel limits. Viewer coordinates, user-confirmed measurement scale and illustrative 3D coordinates are not geographic coordinates.
 - Supported CAD geolocation metadata can produce a WGS84 reference point. Standalone CAD latitude/longitude header settings are excluded as location evidence, including the documented AutoCAD default pair. An absent or unsupported reference remains pending.
@@ -205,6 +233,8 @@ Validate before release. Passing CI does not verify municipal service availabili
 | Experimental PDF/DXF/DWG analysis | PyMuPDF, ezdxf and a bounded local LibreDWG conversion process |
 | ZIP project packages | Bounded archive inventory and one selected drawing per request; no xref assembly or permanent storage |
 | Illustrative reconstruction | Browser-local Three.js scene from a selected exterior contour and explicit user assumptions |
+| Scaled layout and footprint | Browser-local metric shapes, per-view draft/history, validated selected contour and local JSON export |
+| Placement and numeric IRM study | Shapely polygon operations and pyproj local metric projection, reviewed inputs and proposed WGS84 GeoJSON export |
 | Hosting | GitHub Pages frontend + Render FastAPI backend |
 | Optional desktop IRM assistant | Local Python bridge + Playwright / Chromium |
 
@@ -263,8 +293,10 @@ The explorer queries its municipal ArcGIS source directly. Changing backend `QUI
 | POST | `/api/pugs/spatial-screen` | Screen up to 100 supplied parcel polygons |
 | POST | `/api/pugs/screen` | Compatibility endpoint for up to 20 identifiers; not used by advanced explorer |
 | POST | `/api/blueprints/inspect` | Basic PDF metadata and drawing/text counts |
-| POST | `/api/documents/analyze` | Experimental PDF/DXF/DWG or selected ZIP drawing inspection, with conditional IRM extraction |
-| POST | `/api/irm/extract` | Backend IRM extraction; not used by browser developer IRM workflow |
+| POST | `/api/documents/analyze` | PDF/DXF/DWG or selected ZIP inspection; `drawing_study` permits visualization without IRM, while default `document_review` retains conditional prerequisites |
+| POST | `/api/irm/extract` | Attach/review an IRM after drawing inspection without reprocessing the CAD; separate from the browser developer IRM parser |
+| POST | `/api/coordinates/transform` | Convert an explicitly referenced point without registering CAD geometry |
+| POST | `/api/planning/assess` | Bounded footprint, placement, parcel and reviewed IRM comparisons; no regulatory approval |
 
 Individual document uploads and supported drawings inside a ZIP have a **15 MiB limit**; a ZIP blueprint upload has a **30 MiB limit**. ZIP requests can include `package_entry` to select an exact supported path from the returned inventory. PDF inspection limits documents to **100 pages**. Extraction is evidence, not verified measurements, certification or completed technical reports. Browser-local illustrative assumptions are not submitted to the extraction endpoint.
 
@@ -284,7 +316,7 @@ Backend, from `backend/`:
 python -m pytest tests -q
 ```
 
-Frontend tests cover selection normalization, persistence validation, CSV export, direct-plan routing, upload validation, conditional IRM requirements, ZIP selection/error state, illustrative geometry and product-positioning guards. The positioning checks are content regression checks, not end-to-end drawing tests. Backend tests cover API, document and spatial processing, including ZIP archive boundaries, lazy member inspection, recoverable member errors, the isolated-flooring exception and mixed-activity prerequisites. Browser review should check homepage actions, direct `#planos` reload, navigation, upload errors, switching ZIP drawings, drawing interaction, illustrative assumptions and view changes, map/list selection, opening a property, comparison, responsive layouts and failed municipal requests.
+Frontend tests cover selection normalization, persistence validation, CSV export, direct-plan routing, upload validation, review scopes, ZIP selection/error state, illustrative geometry and product-positioning guards. Scaled-study tests exercise metric dimensions through zoom, pointer drag commits, undo/redo, footprint holes, scale invalidation, exact-view restoration and replacement isolation. Planning tests cover candidate review, association gates, exports and stale-result handling. Backend tests cover document/spatial processing, ZIP boundaries, retained `document_review` prerequisites, `drawing_study`, polygon union/containment, countable-area distinctions, setbacks, projection and input limits. Browser review should check these connected workflows at desktop and narrow widths as well as existing map/list selection and failed-request states. Passing numerical tests does not establish real-building accuracy or municipal approval.
 
 CI runs backend tests and frontend tests/build. The Pages workflow tests/builds the frontend and deploys on pushes to **`main`** or manual dispatch. Its backend test job is separate; publication is not proof that the API or upstream municipal services are healthy.
 

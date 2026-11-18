@@ -25,6 +25,39 @@ def test_irm_extracts_unverified_candidates():
     assert result["compliance_checked"] is False
 
 
+def test_irm_parameters_keep_page_evidence_without_joining_pages():
+    doc = fitz.open()
+    doc.new_page().insert_text((72, 72), "COS PB:")
+    doc.new_page().insert_text((72, 72), "40%\nCOS total: 120%")
+    result = analyze_document(doc.tobytes(), "irm.pdf", "irm")
+    doc.close()
+    assert "cos_pb" not in result["candidate_irm_fields"]
+    field = result["candidate_irm_fields"]["cos_total"]
+    assert field["raw"] == "120" and field["page"] == 2
+    assert field["evidence"] == "COS total: 120%"
+
+
+def test_competing_irm_assignments_are_withheld_instead_of_choosing_first():
+    result = analyze_document(make_pdf("COS PB: 40%\nCOS PB: 60%\nCOS total: 120%"), "irm.pdf", "irm")
+    assert "cos_pb" not in result["candidate_irm_fields"]
+    flags = result["planning_evidence"]["flags"]
+    assert any(flag["kind"] == "multiple_parameter_sets" and flag["values"] == ["40", "60"] for flag in flags)
+
+
+def test_repeated_equivalent_parameters_remain_one_candidate():
+    result = analyze_document(make_pdf("COS PB: 40%\nCOS PB: 40.0%"), "irm.pdf", "irm")
+    assert result["candidate_irm_fields"]["cos_pb"]["raw"] == "40"
+    assert not result["planning_evidence"]["flags"]
+
+
+def test_irm_specific_risk_evidence_remains_explicit():
+    result = analyze_document(make_pdf("PROPIEDAD HORIZONTAL\nQUEBRADA ABIERTA\nCOS PB: 40%"), "irm.pdf", "irm")
+    assert result["planning_evidence"]["property_regime"] == "horizontal"
+    assert {flag["kind"] for flag in result["planning_evidence"]["flags"]} == {"horizontal_property", "special_restrictions"}
+    generic = analyze_document(make_pdf("Revisar posibles afectaciones por vias. Este informe no autoriza obras."), "irm.pdf", "irm")
+    assert not generic["planning_evidence"]["flags"]
+
+
 def test_blueprint_pdf_vector_metadata():
     result = analyze_document(make_pdf("PLANTA BAJA"), "plano.pdf", "blueprint")
     assert result["pages"][0]["text_characters"] > 0

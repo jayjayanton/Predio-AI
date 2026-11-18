@@ -40,7 +40,7 @@ before(async () => {
     ResizeObserver: class { observe() {} disconnect() {} },
     IS_REACT_ACT_ENVIRONMENT: true,
     fetch: (url, options) => {
-      assert.match(url, /\/api\/(?:documents\/analyze|coordinates\/transform)$/, 'this workflow only inspects documents and converts explicit references');
+      assert.match(url, /\/api\/(?:documents\/analyze|coordinates\/transform|irm\/extract)$/, 'this workflow only inspects selected documents and converts explicit references');
       return new Promise((resolve, reject) => requests.push({ url, ...options, resolve, reject }));
     },
   };
@@ -204,7 +204,7 @@ test('replacing the source aborts the package request and ignores a late respons
   assert.equal(container.querySelector('.cad-measurement-length > strong').textContent, '8.000u');
 });
 
-test('choosing the example cancels pending package work and reopening the ZIP starts a fresh inventory', async () => {
+test('choosing the example cancels pending package work and retains the ZIP inventory', async () => {
   await openPackage();
   await setValue(container.querySelector('.project-package-files'), entryPaths[1]);
   await click('Abrir dibujo');
@@ -217,25 +217,71 @@ test('choosing the example cancels pending package work and reopening the ZIP st
   await click('Cerrar ejemplo');
   assert.equal(container.querySelector('.cad-measurements'), null);
   await click('Inspeccionar mi proyecto');
-  assert.equal(requests[2].body.has('package_entry'), false, 'example selection cleared the package selection');
+  assert.equal(requests[2].body.get('package_entry'), entryPaths[0], 'the last completed ZIP member stays available');
   await finish(requests[2], inspectionFor());
   assert.ok(container.querySelector('.project-package'));
 });
 
-test('package navigation respects the same activity and IRM gate as individual drawings', async () => {
+test('trying the fictional example preserves the real drawing scale and figures', async () => {
+  await openPackage();
+  await click('Aplicar unidad');
+  await click('▭ Mesa');
+  assert.equal(container.querySelector('[aria-label="Figura activa"]').options.length, 2);
+  await click('Ver plano de ejemplo');
+  assert.equal(button('▭ Mesa').disabled, true, 'the fictional drawing needs its own scale');
+  await click('Volver a mi plano');
+  assert.ok(container.querySelector('.cad-scale-current'));
+  await click('Figuras');
+  assert.equal(container.querySelector('[aria-label="Figura activa"]').options.length, 2, 'the real table was retained');
+  assert.ok(container.querySelector('.project-package'), 'the real ZIP selection was retained');
+});
+
+test('a standalone structural drawing study works before an IRM exists and retains its geometry', async () => {
   const archive = await openPackage();
   await setValue(container.querySelector('#work-type'), 'structural');
-  assert.equal(button('Abrir dibujo').disabled, true);
-  assert.equal(button('Inspeccionar mi proyecto').disabled, true);
-  assert.equal(container.querySelector('.cad-measurements'), null);
+  assert.equal(button('Abrir dibujo').disabled, false);
+  assert.equal(button('Inspeccionar mi proyecto').disabled, false);
+  assert.ok(container.querySelector('.cad-measurements'), 'activity edits preserve the current CAD geometry');
   const irm = await upload('IRM.pdf', '#irm-upload');
   assert.equal(button('Abrir dibujo').disabled, false);
   await click('Abrir dibujo');
   assert.equal(requests[1].body.get('blueprint'), archive);
   assert.equal(requests[1].body.get('irm'), irm);
   assert.equal(requests[1].body.get('work_type'), 'structural');
+  assert.equal(requests[1].body.get('review_scope'), 'drawing_study');
   assert.deepEqual(requests[1].body.getAll('activities'), ['modify_structural_wall']);
   await finish(requests[1], inspectionFor());
+});
+
+test('an IRM can be incorporated after inspection without discarding the drawing or its confirmed scale', async () => {
+  await openPackage();
+  await click('Aplicar unidad');
+  const irm = await upload('IRM-correspondiente.pdf', '#irm-upload');
+  assert.ok(container.querySelector('.cad-scale-current'), 'selecting the IRM retains the measured drawing');
+  await click('Incorporar IRM al plano actual');
+  assert.match(requests[1].url, /\/api\/irm\/extract$/);
+  assert.equal(requests[1].body.get('file'), irm);
+  assert.equal(requests[1].body.has('blueprint'), false, 'the original CAD does not get re-uploaded');
+  await finish(requests[1], {filename: 'IRM-correspondiente.pdf', pages: 2, candidate_irm_fields: {}, location: {status: 'not_found', candidates: [], warnings: []}});
+  assert.ok(container.querySelector('.cad-scale-current'));
+  assert.match(container.querySelector('.drawing-location-source-irm').textContent, /Documento aportado/);
+  assert.match(container.textContent, /IRM incorporado/);
+  await click('Ver resumen documental →');
+  assert.match(container.textContent, /Estudio a escala/);
+  await click('← Revisar planos');
+  assert.ok(container.querySelector('.cad-scale-current'), 'the same drawing restores its scale after the summary');
+});
+
+test('replacing a drawing cancels an in-flight IRM attachment and prevents stale evidence', async () => {
+  await openPackage();
+  await upload('IRM-anterior.pdf', '#irm-upload');
+  await click('Incorporar IRM al plano actual');
+  const pending = requests[1];
+  await upload('Nuevo-plano.dxf');
+  assert.equal(pending.signal.aborted, true);
+  await finish(pending, {filename: 'IRM-anterior.pdf', pages: 1, candidate_irm_fields: {predio: {raw: '12345'}}});
+  assert.equal(container.querySelector('.drawing-location-panel'), null);
+  assert.equal(container.querySelector('.cad-scale-current'), null);
 });
 
 test('an optional IRM travels with a repair drawing and each subsequent ZIP member', async () => {

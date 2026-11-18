@@ -381,8 +381,13 @@ from .document_analysis import analyze_document, CadImportBusyError
 from .project_package import analyze_project_package, MAX_PACKAGE_BYTES
 from .work_activities import requires_irm, validate_activities
 from .location_analysis import transform_coordinates
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from .footprint_analysis import PlanningRequest, PlanningBusyError, assess_planning, MAX_REQUEST_BYTES
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from fastapi import Request
+from pyproj.exceptions import ProjError
+from shapely.errors import GEOSException
 import math
+import json
 
 
 class CoordinateTransformRequest(BaseModel):
@@ -410,6 +415,32 @@ async def convert_reference_coordinates(request: CoordinateTransformRequest):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@app.post("/api/planning/assess")
+async def assess_ground_footprint(request: Request):
+    """Compare a bounded user-positioned footprint; never authorize construction."""
+    content = bytearray()
+    async for chunk in request.stream():
+        content.extend(chunk)
+        if len(content) > MAX_REQUEST_BYTES:
+            raise HTTPException(status_code=413, detail="El estudio supera 1 MB; reduce los contornos o las figuras.")
+    try:
+        def reject_nonfinite(value):
+            raise ValueError("El estudio contiene un número no finito.")
+        payload = json.loads(content, parse_constant=reject_nonfinite)
+        study = PlanningRequest.model_validate(payload)
+        return await run_in_threadpool(assess_planning, study)
+    except PlanningBusyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValidationError as exc:
+        # Never echo source geometry or non-JSON-safe error inputs.
+        raise HTTPException(status_code=422, detail={"message": "Revisa los datos del estudio.",
+            "errors": exc.errors(include_input=False, include_context=False)}) from exc
+    except (ValueError, TypeError, RecursionError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc) or "El estudio no contiene geometría válida.") from exc
+    except (ProjError, GEOSException) as exc:
+        raise HTTPException(status_code=422, detail="No se pudo comparar esta geometría; revisa los contornos, sus unidades y la implantación.") from exc
+
+
 @app.post("/api/documents/analyze")
 async def analyze_project_documents(
     blueprint: UploadFile = File(...),
@@ -419,6 +450,7 @@ async def analyze_project_documents(
     predio_number: str | None = Form(default=None),
     activities: list[str] = Form(...),
     package_entry: str | None = Form(default=None),
+    review_scope: Literal["document_review", "drawing_study"] = Form(default="document_review"),
 ):
     """Inspect one drawing or selected ZIP member and a conditionally required IRM PDF.
 
@@ -429,7 +461,7 @@ async def analyze_project_documents(
         selected_activities = validate_activities(work_type, activities)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    if requires_irm(work_type, activities) and irm is None:
+    if review_scope == "document_review" and requires_irm(work_type, activities) and irm is None:
         raise HTTPException(status_code=422, detail="IRM required for the selected remodeling, structural, or expansion activities")
     if predio_number and (not predio_number.isdigit() or len(predio_number) > 25):
         raise HTTPException(status_code=422, detail="Invalid predio number")
@@ -462,6 +494,8 @@ async def analyze_project_documents(
         "building_type": building_type,
         "work_type": work_type,
         "activities": selected_activities,
+        "review_scope": review_scope,
+        "irm_required_for_regulatory_review": requires_irm(work_type, activities),
         "blueprint": blueprint_result,
         "irm": irm_result,
         "status": "extraction_only",
@@ -490,6 +524,7 @@ async def extract_irm(file: UploadFile = File(...)):
     return {
         "filename": result["filename"],
         "candidate_irm_fields": result.get("candidate_irm_fields", {}),
+        "planning_evidence": result.get("planning_evidence", {}),
         "location": result.get("location"),
         "warnings": result.get("warnings", []),
         "pages": len(result.get("pages", [])),

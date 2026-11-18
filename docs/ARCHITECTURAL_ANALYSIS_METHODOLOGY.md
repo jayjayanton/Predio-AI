@@ -1,7 +1,7 @@
 # PredioAI — Property, Plans and Intervention Intelligence
 
 **Product scope, methodology and development roadmap**  
-**Scope revised:** 17 November 2026
+**Scope revised:** 18 November 2026
 
 **Companion document:** [Project README](../README.md)
 
@@ -13,7 +13,7 @@ PredioAI originated in **improving an existing home**, not in trading land. Pain
 
 **Homepage message:** “Entiende tu casa. Planea su transformación.”
 
-**Conceptual workflow:** predio → authorized PDF/CAD plans and relevant IRM → structured document evidence → interactive drawings → reviewed measurements → reports for the owner, contractor or professional client.
+**Current working sequence:** authorized PDF/CAD → inspected geometry and confirmed scale → metric layout/footprint study → optional predio and matching IRM → preliminary comparisons and source-labelled geometry exports. The broader roadmap adds independently verified architectural quantities and professional reports.
 
 The map is context, not the whole product. “Multi-purpose” means several uses of this same evidence model, not a claim that every proposed use is already built. Do not recast remodeling as a secondary feature of a real-estate platform in later redesigns.
 
@@ -42,6 +42,11 @@ PredioAI extracts information and derives measurements/quantities from verified 
 | ZIP drawing-package inventory and selection | Implemented; one selected PDF/DXF/DWG inspected per request, without automatic xref assembly or persistent projects |
 | Drawing overview/detail viewer, zoom, layout switching, layer visibility, individual and rectangle selection | Implemented; imported geometry with explicit limitations |
 | Selected geometric lengths, closed-boundary perimeters and enclosed areas | Implemented in the browser after explicit unit confirmation or known-length calibration; sampled curves are approximate |
+| Metric circles and rectangles for furniture/extension studies | Implemented; editing, drag/nudge, rotation, undo/redo and zoom-independent physical dimensions |
+| Ground-footprint extraction | Implemented from one valid selected source contour with an explicit ground-footprint declaration; valid holes preserved |
+| Per-view session drafts | Implemented for exact imported views, including scale and layout history; not durable or shared project storage |
+| Manual parcel placement and preliminary IRM comparisons | Implemented with explicit association, scope, placement and parameter review; no approval or independently established georeference |
+| Local footprint JSON and proposed WGS84 GeoJSON exports | Implemented with source/scale/placement metadata and unverified status; not a technical report or reopenable project |
 | Illustrative exterior volume and front/side projections | Implemented from one selected contour and applied scale; height/roof are explicit user assumptions, not extracted building evidence |
 | Preliminary on-screen document-inspection summary | Implemented; not a verified measurement report |
 | Automatic wall/room/roof classification | Not implemented |
@@ -52,7 +57,7 @@ PredioAI extracts information and derives measurements/quantities from verified 
 | Parcel scoring and unsupervised segmentation | Planned parallel analytics track |
 | Damage-evidence workflow for insurance/peritaje | Potential extension; not implemented |
 
-The current **Analizar planos** entry opens the document workspace directly. A cadastral lookup is optional context, with a visible unlinked state until a predio is selected. Inspection results remain in the viewer, and the documentary summary is opened separately. Repair, maintenance and an isolated floor-finish replacement can proceed without an IRM; other remodeling activities, mixed requests, structural modification and expansion retain the pilot's IRM prerequisite. These are software inspection requirements, not a determination of municipal permits.
+The current **Analizar planos** entry opens the document workspace directly. A cadastral lookup is optional context, with a visible unlinked state until a predio is selected. Inspection results remain in the viewer, and the documentary summary is opened separately. The hosted visual studio requests `review_scope=drawing_study`, so any validated activity can be visualized without an IRM. The API default `document_review` still allows repair, maintenance and isolated floor-finish replacement without an IRM and requires it for other remodeling, mixed requests, structural modification and expansion. These are software review scopes, not a determination of municipal permits.
 
 The developer IRM parser runs locally in the browser. The remodeling/project document workflow sends files to the backend: PDF/DXF parsing uses memory and DWG conversion uses temporary files removed after processing. ZIP selection resends the archive and inspects only its chosen drawing; no archive is extracted to disk and no package is saved as a project. Illustrative geometry and assumptions are computed in the browser and are temporary. Do not promise that all uploaded files stay on-device. Existing local IRM automation is optional desktop tooling, not automatic municipal retrieval by the hosted app.
 
@@ -64,8 +69,9 @@ The developer IRM parser runs locally in the browser. The remodeling/project doc
 4. **Inspect before inferring.** Determine available text, vector geometry, pages/layers and explicit dimensions. A raster scan needs a distinct validated extraction path. An IRM provides urban-planning context, not room dimensions.
 5. **Explore interactively.** Use the overview to keep context while zooming into the detail canvas. Show/hide layers, search source identifiers or text, and select individual elements or a rectangular area. The built-in fictional drawing demonstrates the controls without an upload. Imported CAD curves use an explicit display approximation; units, source annotations and layer names remain evidence to review. Future semantic associations connect these elements to walls, rooms, floors or openings; selection alone is not recognition.
 6. **Validate measurement inputs.** Confirm scale/units per drawing, dimensions, heights, face conventions, openings and evidence that the drawing corresponds to the current building. Mark unknowns and conflicts explicitly.
-7. **Calculate and correct.** The current browser panel computes supported geometric lengths and simple closed-boundary areas with the user's confirmed scale. Changing selection or applying a new scale recalculates the panel; switching drawing/view resets calibration. Architectural quantities, reviewed corrections and authoritative report recalculation remain future work. A future correction must invalidate dependent quantities before a report is treated as current.
-8. **Review and communicate.** Assemble traceable quantities and missing information into a report reviewed by the responsible person/professional, then export/share through an authorized workflow when implemented.
+7. **Measure and study the layout.** The browser computes supported lengths and closed-boundary areas with the user's confirmed scale. Metric furniture and extension figures are independent overlays. Exact views retain their own scale/draft in the session; a replacement source starts without the previous view's calibration. A scale edit preserves the figures' metre dimensions but invalidates the footprint and requires their placement to be reviewed.
+8. **Extract and place a declared footprint.** Select a valid closed contour, confirm that it represents the ground footprint and retain its holes. Review the exported local geometry. When the actual predio is known, link it, place and orient the footprint without rescaling, and confirm the proposed placement. A first parcel link or later matching IRM attachment preserves the CAD study; the association remains a separate explicit declaration.
+9. **Compare reviewed evidence.** Review IRM candidates, documentary identity, scope, countable areas and parcel-edge classifications. Missing inputs and special conditions remain pending. The current outputs are preliminary numeric checks, a documentary summary and source-labelled JSON/GeoJSON. Independently verified architectural quantities, revisioned corrections and professional technical reports remain further work.
 
 Use an in-app workspace. Do not send a user to a separate browser tab to inspect drawing geometry. Secure project persistence requires authentication, access controls, retention and deletion policies first.
 
@@ -76,6 +82,49 @@ A single CAD document may contain multiple plan drawings, sections or elevations
 The current package limit is **30 MiB** uploaded, with at most **1,000 archive entries**, **100 supported drawings**, **15 MiB per supported drawing** and **150 MiB** advertised uncompressed content. The server validates the inventory and opens only the requested entry, or the first supported path in sorted order. Unsupported files, macOS auxiliary files and nested archives are skipped with notices. Unsafe paths, links, encryption and excessive expansion are rejected. A member inspection error preserves the package browser, including retryable converter errors. There is no recursive extraction or automatic assembly of external CAD references.
 
 Request actual sections, elevations and roof drawings when height or roof evidence is needed. A plan-view cutting marker locates a referenced section; it does not provide that profile. Another floor is visible only if its geometry is present in the supplied documents and successfully imported. Missing source geometry remains missing after packaging files together.
+
+## Delivered layout and footprint study
+
+### Coordinate and source model
+
+Figure centres are stored in the imported view's display coordinates, while their declared widths, depths and diameters are stored in metres. Canvas zoom is a view transform, never part of the physical scale. Tables begin at 1.60 × 0.90 m, circles at 1 m diameter and extension rectangles at 3 × 4 m; users can edit these dimensions and distinguish furniture/reference objects from extensions. Dragging commits one position edit, keyboard controls support fine placement, and bounded undo/redo handles committed layout edits. These overlays do not alter the original CAD entities.
+
+The **Huella** tool requires one eligible closed source contour and an explicit user statement that it represents the ground footprint. It preserves a valid exterior and its holes, rejecting crossing, open, disjoint or nested-island geometries. A hatch opening may be a graphical mask rather than a real building opening; the reviewer must establish the meaning of the selected contour. This is neither automatic ground-floor recognition nor freehand/raster tracing.
+
+The planning snapshot translates the selected footprint's bounding-box centre to local `(0,0)` and converts drawing units to metres. It reflects the viewer's downward Y axis so local X points right and local Y points up. Figures and the footprint share that same origin. Up is not proven geographic north until the proposed orientation is reviewed. The local JSON export explicitly has no geographic CRS and retains source, origin, unit/calibration and figure-role metadata.
+
+### Session scope and progressive evidence
+
+Confirmed scale, figures, accepted footprint and undo history are tied to each exact imported view. Switching to a new view does not borrow another view's scale; returning to the same view restores its own draft. A documentary-summary round trip restores this state for the same drawing. Replacement imports and newly inspected ZIP members do not inherit a previous drawing's state. There is no durable project save, cross-device synchronization or import of an exported study as a project.
+
+The first predio link can add context without reimporting the drawing. A matching IRM can be attached later through `/api/irm/extract`; its extraction does not reprocess the CAD. Updating the IRM invalidates its review/association confirmations and countable-area review while retaining the drawing study. Changing the proposed extensions requires final countable areas to be checked again. No earlier IRM may be substituted solely because a drawing has no municipal information.
+
+The supplied **Campolivar DWG has no associated IRM or confirmed predio**. The built-in fictional example also has neither. Their coordinates, identity and regulatory constraints remain unresolved. The previously discussed PH example is separate evidence and must not be attached to either drawing by implication.
+
+### Proposed placement and preliminary checks
+
+The map places the local origin at an editable WGS84 reference point and applies a user-selected clockwise rotation. It never stretches the footprint to fit the lot. Position/orientation changes clear placement confirmation. The FastAPI `/api/planning/assess` service uses a local WGS84 azimuthal-equidistant projection for metric calculations and emits proposed WGS84 GeoJSON with provenance and `verified: false`. This coordinate conversion records a user-positioned hypothesis; it does not recover a missing CAD-to-survey transformation.
+
+Shapely unions extension polygons with the selected existing footprint, deducts holes and counts overlaps once. Furniture does not contribute to added occupation. A confirmed placement enables comparison with the parcel boundary, including outside area. That geometric result is separate from municipal buildability:
+
+| Review | Inputs and current boundary |
+| --- | --- |
+| Documentary association | Matching selected predio and IRM identifiers, any explicit drawing identifier, and user-confirmed correspondence; a filename is not identity evidence |
+| Scope | Complete ground footprint of an individual lot, one applicable parameter set, reviewed restrictions and no unresolved special conditions; PH/multiple-zone/restriction flags keep numeric regulation review pending |
+| COS PB | Reviewed final municipal countable ground area and documentary lot area; geometric footprint may be used only after the user explicitly confirms their equivalence |
+| Setbacks | User-classified front, side and rear exterior edges and reviewed requirements; no inferred road frontage, automatic special boundaries or complete result for parcel holes |
+| Height, floors and COS total | Explicit final building height, floor count and countable area across all floors; never inferred from a ground-floor drawing |
+| Area consistency | Projected parcel area versus reviewed documentary area; a discrepancy above 5% keeps normative checks pending |
+
+**Geometric area and municipal countable area remain separate fields.** The selected footprint may contain gross walls, roof projections or other surfaces whose regulatory treatment is not established by the CAD polygon. The reviewer can enter a final countable ground area directly or confirm that it equals the combined geometric footprint. Missing countable area keeps COS PB pending. A final multi-floor countable area smaller than the ground-floor countable area also prevents a COS-total conclusion.
+
+Each check reports pending, conflict or within the reviewed numeric limits. `regulatory_approval` remains false. The system does not determine structural feasibility, legal building rights, final municipal permission, site conditions or the completeness of a survey. Quito's [PUGS manual](https://habitat.quito.gob.ec/wp-content/uploads/2025/07/MANUAL-PUGS.pdf) and the actual property-specific IRM provide the municipal context; the geometry engine does not replace them.
+
+### Computational bounds and unavailable features
+
+The viewer currently supports 60 figures, 0.01–200 m dimensions, 40 undo steps and an extracted footprint span of at most 5 km. Source topology work retains the 2,000-segment limit. The planning request is bounded to 1,000,000 bytes, 100 shapes and 10,000 total polygon positions; local coordinates are limited to ±10 km and parcel coordinates to a 25 km projected-coordinate bound around the anchor. Invalid geometry is rejected rather than silently repaired, and backend calculation concurrency is bounded.
+
+Automatic building recognition, joining arbitrary wall segments into a building, freehand boundary tracing, raster footprint inference, persistent project saving and final technical certification are not implemented. JSON/GeoJSON exports describe the current study; they are not professional measurement reports, permits or an app project-recovery format.
 
 ## Illustrative reconstruction and evidence status
 
@@ -99,7 +148,7 @@ Verify a room boundary and scale, then measure the selected floor polygon. Ident
 
 ### Reorganizing, remodeling, reconstructing or expanding
 
-Record the existing documented configuration, the user's intended intervention and relevant municipal information. Proposed design changes must stay separate from source/as-built evidence. The current viewer does not move walls, redesign a floor plan or authorize demolition. Structural roles, hidden conditions, geometry/retreat compliance and permission require appropriate professional review; insufficient evidence produces a pending item, not a positive feasibility result.
+Record the existing documented configuration, the user's intended intervention and relevant municipal information. Metric furniture and extension figures can now visualize a proposal, while the selected ground footprint supports a separate parcel-placement study. These overlays do not move source walls or establish that a proposed demolition or structural change is possible. Numeric IRM comparisons require the reviewed inputs described above. Structural roles, hidden conditions and permission require appropriate professional review; insufficient evidence remains pending.
 
 ## Potential insurance and damage-documentation extension
 
@@ -176,9 +225,10 @@ For multiple heights, faces or roof planes, calculate each supported part separa
 | Layer | Existing capabilities | Further work |
 | --- | --- | --- |
 | React project workspace | Activity inputs, temporary ZIP inventory, selected drawing, layers, zoom and source selection | Independently verified architectural interpretation and reviewed corrections |
-| Browser geometry | User-applied scale, geometric measurements and temporary illustrative volume from explicit assumptions | Authoritative architectural quantities and report preparation |
+| Browser geometry | User-applied scale, measurements, metric figures/history, selected ground footprint and temporary illustrative volume | Authoritative architectural quantities and reviewed report preparation |
 | Property context | Predio/municipal review, discovery and comparison | Explainable scoring and unsupervised segmentation |
 | FastAPI document services | PDF/DXF extraction, local DWG conversion and bounded ZIP inventory with lazy member inspection | Versioned evidence profiles and secure project storage |
+| FastAPI planning service | Bounded local-metric polygon union, manual placement and reviewed IRM comparisons; proposed WGS84 export | Independent survey/architectural validation and broader municipal condition modelling |
 | Other services | Municipal/PUGS lookup and browser developer IRM parsing | Reviewed technical exports and an optional grounded assistant |
 | Potential extension | No current damage-evidence workflow | Professional damage review with separately validated evidence |
 
@@ -263,7 +313,7 @@ Given an authorized dimensioned vector plan: identify usable views and elements;
 ## Scope guardrails for future changes
 
 - Lead with homeowners and improvement projects; keep professionals prominent and real estate complementary.
-- Keep existing geometry interaction visible; distinguish it from semantic recognition, editing and real-world measurement.
+- Keep geometry interaction and proposal editing visible; distinguish editable overlays from source editing, semantic recognition and independently verified measurements.
 - Insurance/peritaje is a possible future extension, never a currently operating automated claims service.
 - Parcel scoring and unsupervised ML are distinct from architectural extraction and damage detection.
 - Never invent dimensions, quantities, regulatory values, materials, costs, customers, partnerships or achieved savings.

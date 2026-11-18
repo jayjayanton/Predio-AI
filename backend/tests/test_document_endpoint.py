@@ -64,6 +64,29 @@ def test_expansion_requires_irm():
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("work,activity", [("expansion", "expand_room"), ("structural", "modify_slab"), ("remodel", "change_layout")])
+def test_explicit_drawing_study_allows_visualization_without_irm(work, activity):
+    response = client.post(
+        "/api/documents/analyze",
+        data={"building_type": "house", "work_type": work, "activities": activity, "review_scope": "drawing_study"},
+        files={"blueprint": ("plano.pdf", pdf("PLANO"), "application/pdf")},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["irm"] is None and body["predio_number"] is None
+    assert body["review_scope"] == "drawing_study"
+    assert body["irm_required_for_regulatory_review"] is True
+    assert body["compliance_checked"] is False
+
+
+def test_irm_only_endpoint_preserves_planning_evidence_when_attached_later():
+    response = client.post("/api/irm/extract", files={"file": ("irm.pdf", pdf("PROPIEDAD HORIZONTAL\nCOS PB: 40%"), "application/pdf")})
+    assert response.status_code == 200
+    result = response.json()
+    assert result["planning_evidence"]["property_regime"] == "horizontal"
+    assert result["candidate_irm_fields"]["cos_pb"]["page"] == 1
+
+
 def test_floor_finish_inspection_without_irm_or_predio():
     response = client.post(
         "/api/documents/analyze",

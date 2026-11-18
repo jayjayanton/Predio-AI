@@ -51,6 +51,58 @@ IRM_PATTERNS = {
 }
 
 
+def _irm_evidence(fragments: list[str]) -> tuple[dict, dict]:
+    """Keep page provenance and withhold competing parameter sets.
+
+    Extracted values remain candidates. Neither a first PDF match nor the
+    largest buildability value establishes which assignment applies to a lot.
+    """
+    candidates = {}
+    flags = []
+    regime = "unknown"
+    for field, pattern in IRM_PATTERNS.items():
+        matches = []
+        for page, fragment in enumerate(fragments, 1):
+            for match in re.finditer(pattern, fragment):
+                raw = match.group(1)
+                matches.append({"raw": raw, "page": page,
+                    "evidence": match.group(0)[:180], "status": "unverified_extraction"})
+        distinct = {}
+        for match in matches:
+            raw = match["raw"].replace(",", ".")
+            try:
+                key = float(raw) if field != "predio" else raw.lstrip("0") or "0"
+            except ValueError:
+                key = raw.upper()
+            distinct.setdefault(key, match)
+        if len(distinct) == 1:
+            candidates[field] = next(iter(distinct.values()))
+        elif len(distinct) > 1 and field not in {"predio", "vivienda_tipo"}:
+            first = matches[0]
+            flags.append({"kind": "multiple_parameter_sets", "field": field,
+                "page": first["page"], "evidence": first["evidence"],
+                "values": [match["raw"] for match in list(distinct.values())[:8]]})
+    for page, fragment in enumerate(fragments, 1):
+        ph = re.search(r"\bPROPIEDAD\s+HORIZONTAL\b", fragment, re.IGNORECASE)
+        individual = re.search(r"\b(?:UNIPROPIEDAD|PROPIEDAD\s+INDIVIDUAL)\b", fragment, re.IGNORECASE)
+        if ph:
+            regime = "horizontal"
+            flags.append({"kind": "horizontal_property", "page": page, "evidence": ph.group(0)})
+        elif individual and regime == "unknown":
+            regime = "individual"
+        # Explicit positive statements only: generic notes saying that risks
+        # must be reviewed do not establish an actual property restriction.
+        special = re.search(
+            r"\b(?:AFECTACI[OÓ]N(?:ES)?\s*(?:POR\s+V[IÍ]AS)?\s*[:=]\s*S[IÍ]\b|"
+            r"QUEBRADA\s+ABIERTA|PROTECCI[OÓ]N\s+ECOL[OÓ]GICA\s*\(\s*PE\s*\)|"
+            r"AFECTADO\s+POR\s+(?:FALLA|QUEBRADA|V[IÍ]A)|"
+            r"PROHIBID[AO]\s+(?:EDIFICAR|CONSTRUIR))", fragment, re.IGNORECASE,
+        )
+        if special:
+            flags.append({"kind": "special_restrictions", "page": page, "evidence": special.group(0)[:180]})
+    return candidates, {"property_regime": regime, "flags": flags[:32], "review_required": True}
+
+
 def _validate(data: bytes, filename: str, allowed: set[str]) -> str:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if ext not in allowed:
@@ -97,21 +149,19 @@ def _pdf(data: bytes, role: str) -> dict:
         doc.close()
     combined = "\n".join(fragments)
     candidates = {}
+    planning_evidence = None
     if role == "irm":
-        for field, pattern in IRM_PATTERNS.items():
-            match = re.search(pattern, combined)
-            if match:
-                candidates[field] = {
-                    "raw": match.group(1),
-                    "status": "unverified_extraction",
-                }
+        candidates, planning_evidence = _irm_evidence(fragments)
     location = text_location(enumerate(fragments, 1), "irm" if role == "irm" else "pdf")
     location_predios = {item["value"] for item in location["candidates"] if item["kind"] == "predio"}
     if role == "irm" and "predio" not in candidates and len(location_predios) == 1:
-        candidates["predio"] = {"raw": next(iter(location_predios)), "status": "unverified_extraction"}
+        evidence = next(item for item in location["candidates"] if item["kind"] == "predio")
+        candidates["predio"] = {"raw": next(iter(location_predios)), "status": "unverified_extraction",
+                               "page": evidence.get("page"), "evidence": evidence.get("evidence", "")}
     return {
         "format": "pdf", "role": role, "pages": pages,
         "candidate_irm_fields": candidates,
+        **({"planning_evidence": planning_evidence} if role == "irm" else {}),
         "location": location,
         "drawing_views": views if role == "blueprint" else [],
         "text_excerpt": combined[:3000] if role == "irm" else "",
