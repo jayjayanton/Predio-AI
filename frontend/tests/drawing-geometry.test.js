@@ -31,6 +31,20 @@ test('invalid vertices do not connect unrelated endpoints or silently count as i
   assert.equal(drawing.items[0].source_id, 'valid');
 });
 
+test('colliding source IDs and generated suffixes still select exactly one source element', () => {
+  const drawing = prepareDrawing({elements: [
+    line('wall#3', [[0, 0], [1, 0]]), line('wall', [[0, 0], [2, 0]]),
+    line('wall', [[0, 0], [3, 0]]), line('wall#4', [[0, 0], [4, 0]]),
+  ]});
+  assert.equal(drawing.byId.size, 4);
+  assert.equal(new Set(drawing.items.map(item => item.id)).size, 4);
+  assert.deepEqual(drawing.items.map(item => item.source_id), ['wall#3', 'wall', 'wall', 'wall#4']);
+  const selected = new Set([drawing.items[2].id]);
+  const items = drawing.items.filter(item => selected.has(item.id));
+  assert.equal(items.length, 1);
+  assert.equal(measureSelection(items, {metresPerUnit: 1}).metric.length, 3);
+});
+
 test('letterboxed fit and anchored zoom retain the world point beneath the cursor', () => {
   const transform = fitTransform([100, -50, 1100, 150], 400, 700, 20);
   near(transform.scale, 0.36);
