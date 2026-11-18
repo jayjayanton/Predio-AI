@@ -1,7 +1,10 @@
 import React, { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react';
 import MeasurementPanel from './MeasurementPanel.jsx';
+import ScaledDesignPanel, {GroundFootprintPanel} from './ScaledDesignPanel.jsx';
+import {commitDesign, createDesignHistory, createPlanningShape, createPlanningSnapshot, extractPlanningFootprint,
+  hitPlanningShape, paintPlanningOverlay, PLANNING_LIMITS, redoDesign, shapeBounds, undoDesign} from '../scaledPlanning.js';
 import { hasPartialExtraction, drawingExtractionMessages, drawingRepresentationMessages } from '../drawingExtraction.js';
-import { scaleForView } from '../measurementPresentation.js';
+import { formatDrawingNumber, scaleForView } from '../measurementPresentation.js';
 import { cadUnitFromCode, getExteriorContour } from '../drawingMeasurements.js';
 import { findClosedContours } from '../contourSelection.js';
 import {
@@ -10,6 +13,7 @@ import {
 } from '../drawingGeometry.js';
 import '../styles/blueprint-viewer.css';
 import '../styles/illustrative-reconstruction.css';
+import '../styles/scaled-planning.css';
 
 const IllustrativeReconstruction = lazy(() => import('./IllustrativeReconstruction.jsx'));
 
@@ -26,6 +30,8 @@ class IllustrationBoundary extends React.Component {
 const EMPTY_VIEWS = [];
 const EMPTY_VIEW = {};
 const PAGE_SIZE = 20;
+const EMPTY_DESIGN_HISTORY = createDesignHistory();
+const INSPECTOR_TABS = [['measure', 'Medidas'], ['design', 'Figuras'], ['footprint', 'Huella'], ['layers', 'Capas']];
 const number = value => value.toLocaleString('es-EC');
 const kindName = item => ({line: 'Línea', polyline: 'Polilínea', curve: 'Curva', hatch_boundary: 'Trama / contorno', text: 'Texto original'}[item.kind] || 'Geometría');
 const viewName = (view, index) => view.name || view.label || (view.extraction?.scope === 'modelspace' ? 'Espacio modelo' : `Página ${view.page || index + 1}`);
@@ -44,7 +50,7 @@ function addPath(context, item, scale) {
   }
 }
 
-function paintDrawing(canvas, size, transform, items, selected, viewport = null, measurementOutline = null) {
+function paintDrawing(canvas, size, transform, items, selected, viewport = null, measurementOutline = null, planning = null) {
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
   const pixelWidth = Math.max(1, Math.round(size.width * ratio));
   const pixelHeight = Math.max(1, Math.round(size.height * ratio));
@@ -89,6 +95,8 @@ function paintDrawing(canvas, size, transform, items, selected, viewport = null,
       context.strokeStyle = '#d45c1e'; context.lineWidth = 1.5 / transform.scale; context.stroke();
     }
   }
+  if (planning) paintPlanningOverlay(context, transform, planning.shapes, planning.metresPerUnit,
+    planning.selectedId, planning.footprint, planning.showShapes);
   if (viewport) {
     context.fillStyle = '#176d7040'; context.strokeStyle = '#176d70'; context.lineWidth = 1.5 / transform.scale;
     context.fillRect(viewport[0], viewport[1], viewport[2] - viewport[0], viewport[3] - viewport[1]);
@@ -97,8 +105,13 @@ function paintDrawing(canvas, size, transform, items, selected, viewport = null,
 }
 
 /** Imported geometry, source annotations and estimates with user-confirmed scale. */
-export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPTY_VIEWS, documentFormat = '', unitsCode = null, documentName = '' }) {
-  const [viewIndex, setViewIndex] = useState(0);
+export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPTY_VIEWS, documentFormat = '', unitsCode = null, documentName = '',
+  onPlanningChange, draftState = null, onDraftStateChange }) {
+  const initialDraft = draftState?.views === views ? draftState : null;
+  const initialIndex = initialDraft?.viewIndex || 0;
+  const initialView = views[initialIndex] || views[0] || EMPTY_VIEW;
+  const initialRecord = initialDraft?.records?.find(record => record.view === initialView);
+  const [viewIndex, setViewIndex] = useState(initialIndex);
   const [selected, setSelected] = useState(new Set());
   const [focusedId, setFocusedId] = useState(null);
   const [hiddenLayers, setHiddenLayers] = useState(new Set());
@@ -114,24 +127,45 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const [size, setSize] = useState({width: 800, height: 560});
   const [transform, setTransform] = useState({scale: 1, x: 0, y: 0});
   const [selectionBox, setSelectionBox] = useState(null);
-  const [scaleRecord, setScaleRecord] = useState(null);
+  const [scaleRecord, setScaleRecord] = useState(initialRecord?.scaleRecord || null);
+  const [designRecord, setDesignRecord] = useState(() => ({view: initialView, history: initialRecord?.history || createDesignHistory()}));
+  const [selectedShapeId, setSelectedShapeId] = useState(initialRecord?.selectedShapeId || null);
+  const [showShapes, setShowShapes] = useState(initialRecord?.showShapes !== false);
+  const [shapePreview, setShapePreview] = useState(null);
+  const [inspectorTab, setInspectorTab] = useState('measure');
+  const [planningNotice, setPlanningNotice] = useState('');
   const [areaModeRecord, setAreaModeRecord] = useState(null);
   const [contourResult, setContourResult] = useState(null);
   const [illustrationRecord, setIllustrationRecord] = useState(null);
   const canvasRef = useRef(null); const stageRef = useRef(null); const overviewRef = useRef(null);
   const measurementRef = useRef(null);
   const illustrationRef = useRef(null);
+  const inspectorRef = useRef(null);
+  const measurementFocusRequested = useRef(false);
+  const designCache = useRef(new Map((initialDraft?.records || []).map(record => [record.view, record])));
+  const sourceViews = useRef(views);
+  const planningCallbacks = useRef({onPlanningChange, onDraftStateChange});
+  planningCallbacks.current = {onPlanningChange, onDraftStateChange};
+  const nextShapeNumber = useRef(1);
   const drag = useRef(null); const pointers = useRef(new Map()); const pinch = useRef(null); const spacePressed = useRef(false);
   const instructionsId = useId();
   const measurementPanelId = useId();
   const view = views[viewIndex] || views[0] || EMPTY_VIEW;
   const measurementScale = scaleForView(scaleRecord, view);
+  const designHistory = designRecord.view === view ? designRecord.history : EMPTY_DESIGN_HISTORY;
+  const design = designHistory.present;
+  const activeFootprint = design.footprint?.metresPerUnit === measurementScale?.metresPerUnit ? design.footprint : null;
+  const displayShapes = useMemo(() => shapePreview ? design.shapes.map(shape => shape.id === shapePreview.id ? shapePreview : shape) : design.shapes, [design.shapes, shapePreview]);
+  const planningPaint = useMemo(() => ({shapes: displayShapes, selectedId: selectedShapeId, metresPerUnit: measurementScale?.metresPerUnit,
+    footprint: activeFootprint, showShapes}), [displayShapes, selectedShapeId, measurementScale, activeFootprint, showShapes]);
   const drawing = useMemo(() => prepareDrawing(view), [view]);
   const index = useMemo(() => buildSpatialIndex(drawing.items, drawing.bounds), [drawing]);
   const visible = useMemo(() => filterDrawingItems(drawing.items, {hiddenLayers, showText}), [drawing, hiddenLayers, showText]);
   const visibleIds = useMemo(() => new Set(visible.map(item => item.id)), [visible]);
   const selectedItems = useMemo(() => drawing.items.filter(item => selected.has(item.id)), [drawing, selected]);
   const selectedVisible = useMemo(() => selectedItems.filter(item => visibleIds.has(item.id)), [selectedItems, visibleIds]);
+  const selectedFootprintElement = selectedItems.length === 1 && selectedVisible.length === 1 ? selectedItems[0] : null;
+  const footprintChoice = useMemo(() => extractPlanningFootprint(selectedFootprintElement, measurementScale?.metresPerUnit), [selectedFootprintElement, measurementScale]);
   const exteriorChoice = useMemo(() => selectedItems.length === 1 ? getExteriorContour(selectedItems[0]) : null, [selectedItems]);
   const canIllustrate = Boolean(exteriorChoice?.available && selectedVisible.length === 1 && measurementScale);
   const illustrationVisible = canIllustrate && illustrationRecord?.view === view
@@ -173,16 +207,39 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const viewport = rectangle(toWorld([0, 0], transform), toWorld([size.width, size.height], transform));
   const overviewTransform = useMemo(() => fitTransform(drawing.bounds, 220, 135, 10), [drawing]);
   const overviewViewport = rectangle(toScreen(viewport.slice(0, 2), overviewTransform), toScreen(viewport.slice(2), overviewTransform));
+  const planningSnapshot = useMemo(() => createPlanningSnapshot({footprint: activeFootprint, shapes: design.shapes, scale: measurementScale,
+    source: {documentName, viewName: viewName(view, viewIndex), viewIndex, unitsCode}}), [activeFootprint, design.shapes, measurementScale, documentName, view, viewIndex, unitsCode]);
+  const scaleBarMetres = measurementScale ? 10 ** Math.floor(Math.log10(90 * measurementScale.metresPerUnit / transform.scale)) : null;
+  const scaleBarWidth = scaleBarMetres ? scaleBarMetres / measurementScale.metresPerUnit * transform.scale : null;
 
-  useEffect(() => { setViewIndex(0); }, [views]);
+  useEffect(() => { setViewIndex(draftState?.views === views ? draftState.viewIndex || 0 : 0); }, [views]);
   useEffect(() => {
+    if (sourceViews.current !== views) { designCache.current.clear(); sourceViews.current = views; }
     setSelected(new Set()); setFocusedId(null); setHiddenLayers(new Set()); setQuery('');
     setListPage(1); setListMode('visible'); setLayerQuery(''); setShowText(true);
-    setScaleRecord(null);
+    const saved = designCache.current.get(view);
+    setScaleRecord(saved?.scaleRecord || null);
+    setDesignRecord({view, history: saved?.history || createDesignHistory()});
+    setSelectedShapeId(saved?.selectedShapeId || null); setShapePreview(null); setShowShapes(saved?.showShapes !== false);
+    setPlanningNotice(''); setTool('select');
     setAreaModeRecord(null); setContourResult(null);
     setIllustrationRecord(null);
     setSelectionBox(null); drag.current = null; pointers.current.clear(); pinch.current = null;
-  }, [view]);
+  }, [view, views]);
+  useEffect(() => {
+    if (designRecord.view !== view) return;
+    designCache.current.set(view, {view, history: designHistory, scaleRecord, selectedShapeId, showShapes});
+    const records = [...designCache.current.values()].filter(record => views.includes(record.view));
+    planningCallbacks.current.onDraftStateChange?.({views, viewIndex, records});
+  }, [views, view, viewIndex, designRecord, designHistory, scaleRecord, selectedShapeId, showShapes]);
+  useEffect(() => { planningCallbacks.current.onPlanningChange?.(planningSnapshot); }, [planningSnapshot]);
+  useEffect(() => {
+    if (inspectorTab === 'measure' && measurementFocusRequested.current) {
+      measurementFocusRequested.current = false;
+      measurementRef.current?.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      measurementRef.current?.focus({preventScroll: true});
+    }
+  }, [inspectorTab]);
   useEffect(() => { setTransform(fit); }, [fit]);
   useEffect(() => { setListPage(1); }, [query, listMode, hiddenLayers, showText, view]);
   useEffect(() => {
@@ -200,17 +257,17 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     const frame = requestAnimationFrame(() => {
       if (!canvasRef.current) return;
       const box = rectangle(toWorld([-12, -12], transform), toWorld([size.width + 12, size.height + 12], transform));
-      paintDrawing(canvasRef.current, size, transform, index.query(box).filter(item => visibleIds.has(item.id)), selected, null, measurementOutline);
+      paintDrawing(canvasRef.current, size, transform, index.query(box).filter(item => visibleIds.has(item.id)), selected, null, measurementOutline, planningPaint);
     });
     return () => cancelAnimationFrame(frame);
-  }, [index, size, transform, visibleIds, selected, measurementOutline]);
+  }, [index, size, transform, visibleIds, selected, measurementOutline, planningPaint]);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       if (!overviewRef.current) return;
-      paintDrawing(overviewRef.current, {width: 220, height: 135}, overviewTransform, visible, selected, null, measurementOutline);
+      paintDrawing(overviewRef.current, {width: 220, height: 135}, overviewTransform, visible, selected, null, measurementOutline, planningPaint);
     });
     return () => cancelAnimationFrame(frame);
-  }, [overviewTransform, visible, selected, showOverview, measurementOutline]);
+  }, [overviewTransform, visible, selected, showOverview, measurementOutline, planningPaint]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
@@ -234,11 +291,63 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     const bounds = unionBounds(items.map(item => item.bounds));
     if (bounds) setTransform(zoomAt(fitTransform(bounds, size.width, size.height, 55), 1, [size.width / 2, size.height / 2], fit.scale / 5, fit.scale * 500));
   };
+  const fitAll = () => {
+    const bounds = unionBounds([drawing.bounds, ...(measurementScale && showShapes ? design.shapes.map(shape => shapeBounds(shape, measurementScale.metresPerUnit)) : [])]);
+    setTransform(fitTransform(bounds || drawing.bounds, size.width, size.height));
+  };
   const choose = (ids, additive = multiple, toggle = false) => setSelected(current => updateSelection(current, ids, {additive, toggle}));
+  const updateDesign = update => setDesignRecord(current => {
+    const history = current.view === view ? current.history : createDesignHistory();
+    const present = typeof update === 'function' ? update(history.present) : update;
+    return {view, history: commitDesign(history, present)};
+  });
+  const historyAction = action => { setShapePreview(null); setDesignRecord(current => current.view === view ? {view, history: action(current.history)} : current); };
+  const changeScale = next => {
+    const previousFactor = measurementScale?.metresPerUnit;
+    setScaleRecord(next ? {...next, view} : null);
+    if (previousFactor !== next?.metresPerUnit) {
+      setDesignRecord(current => ({view, history: createDesignHistory({shapes: current.view === view ? current.history.present.shapes : [], footprint: null})}));
+      setShapePreview(null);
+      if (design.shapes.length || design.footprint) setPlanningNotice('La escala cambió. Las figuras conservan sus medidas en metros; revisa su posición y vuelve a confirmar la huella.');
+    }
+  };
   const returnToDrawing = () => {
     stageRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
     canvasRef.current?.focus({preventScroll: true});
   };
+  const openInspector = tab => {
+    setInspectorTab(tab);
+    requestAnimationFrame(() => inspectorRef.current?.scrollIntoView({behavior: 'smooth', block: 'nearest'}));
+  };
+  const addShape = preset => {
+    if (!measurementScale || design.shapes.length >= PLANNING_LIMITS.maxShapes) { showMeasurements(); return; }
+    let id;
+    do { id = `figure-${nextShapeNumber.current++}`; } while (design.shapes.some(shape => shape.id === id));
+    const shape = createPlanningShape(preset, id, toWorld([size.width / 2, size.height / 2], transform));
+    if (!shape) return;
+    const duplicates = design.shapes.filter(item => item.label === shape.label || item.label.startsWith(`${shape.label} `)).length;
+    if (duplicates) shape.label += ` ${duplicates + 1}`;
+    updateDesign(current => ({...current, shapes: [...current.shapes, shape]}));
+    setSelectedShapeId(id); setShowShapes(true); setTool('design'); setInspectorTab('design'); setPlanningNotice('');
+    returnToDrawing();
+  };
+  const updateShape = (id, patch) => updateDesign(current => ({...current, shapes: current.shapes.map(shape => shape.id === id ? {...shape, ...patch} : shape)}));
+  const deleteShape = id => { updateDesign(current => ({...current, shapes: current.shapes.filter(shape => shape.id !== id)})); setSelectedShapeId(null); };
+  const duplicateShape = id => {
+    const source = design.shapes.find(shape => shape.id === id);
+    if (!source || !measurementScale || design.shapes.length >= PLANNING_LIMITS.maxShapes) return;
+    let newId;
+    do { newId = `figure-${nextShapeNumber.current++}`; } while (design.shapes.some(shape => shape.id === newId));
+    const offset = 0.2 / measurementScale.metresPerUnit;
+    const duplicate = {...source, id: newId, label: `${source.label.slice(0, 53)} copia`, center: [source.center[0] + offset, source.center[1] + offset]};
+    updateDesign(current => ({...current, shapes: [...current.shapes, duplicate]})); setSelectedShapeId(newId); setShowShapes(true);
+  };
+  const moveShape = (xMetres, yMetres) => {
+    const shape = design.shapes.find(item => item.id === selectedShapeId);
+    if (!shape || !measurementScale) return;
+    updateShape(shape.id, {center: [shape.center[0] + xMetres / measurementScale.metresPerUnit, shape.center[1] + yMetres / measurementScale.metresPerUnit]});
+  };
+  const selectShape = id => { setSelectedShapeId(id || null); setShowShapes(true); setTool('design'); };
   const chooseContour = choice => {
     const nextSelection = new Set([choice.item.id]);
     setSelected(nextSelection); setFocusedId(choice.item.id);
@@ -248,8 +357,11 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   };
   const startContourSelection = () => { setTool('contour'); setContourResult(null); returnToDrawing(); };
   const showMeasurements = () => {
-    measurementRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'});
-    measurementRef.current?.focus({preventScroll: true});
+    if (inspectorTab === 'measure') {
+      measurementRef.current?.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      measurementRef.current?.focus({preventScroll: true});
+    } else measurementFocusRequested.current = true;
+    setInspectorTab('measure');
   };
   const openIllustration = () => {
     if (!canIllustrate) return;
@@ -267,10 +379,14 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
       pinch.current = {distance: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), center: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], transform};
-      drag.current = null; setSelectionBox(null); return;
+      drag.current = null; setShapePreview(null); setSelectionBox(null); return;
     }
+    const requestedMode = event.button === 1 || spacePressed.current ? 'pan' : tool;
+    const shape = requestedMode === 'design' && showShapes && measurementScale
+      ? hitPlanningShape(design.shapes, toWorld(point, transform), measurementScale.metresPerUnit, 5 / transform.scale) : null;
+    if (requestedMode === 'design') { setSelectedShapeId(shape?.id || null); setInspectorTab('design'); }
     drag.current = {point, last: point, transform, pointerId: event.pointerId,
-      mode: event.button === 1 || spacePressed.current ? 'pan' : tool,
+      mode: shape ? 'shape' : requestedMode, shape,
       additive: multiple || event.shiftKey || event.ctrlKey || event.metaKey, moved: false};
   };
   const movePointer = event => {
@@ -287,15 +403,23 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     current.last = point;
     if (Math.hypot(point[0] - current.point[0], point[1] - current.point[1]) > 4) current.moved = true;
     if (!current.moved) return;
-    if (current.mode === 'rectangle') setSelectionBox(rectangle(current.point, point));
+    if (current.mode === 'shape') setShapePreview({...current.shape, center: [current.shape.center[0] + (point[0] - current.point[0]) / current.transform.scale,
+      current.shape.center[1] + (point[1] - current.point[1]) / current.transform.scale]});
+    else if (current.mode === 'rectangle') setSelectionBox(rectangle(current.point, point));
     else setTransform({...current.transform, x: current.transform.x + point[0] - current.point[0], y: current.transform.y + point[1] - current.point[1]});
   };
   const endPointer = (event, cancelled = false) => {
     pointers.current.delete(event.pointerId);
-    if (pinch.current) { pinch.current = null; drag.current = null; return; }
-    const current = drag.current; drag.current = null; setSelectionBox(null);
+    if (pinch.current) { pinch.current = null; drag.current = null; setShapePreview(null); return; }
+    const current = drag.current; drag.current = null; setSelectionBox(null); setShapePreview(null);
     if (!current || current.pointerId !== event.pointerId || cancelled) return;
     const point = eventPoint(event);
+    if (current.mode === 'shape') {
+      if (current.moved) updateShape(current.shape.id, {center: [current.shape.center[0] + (point[0] - current.point[0]) / current.transform.scale,
+        current.shape.center[1] + (point[1] - current.point[1]) / current.transform.scale]});
+      return;
+    }
+    if (current.mode === 'design') return;
     if (current.mode === 'rectangle' && current.moved) {
       const box = rectangle(toWorld(current.point, current.transform), toWorld(point, current.transform));
       const items = selectInRectangle(index.query(box).filter(item => visibleIds.has(item.id)), box);
@@ -320,10 +444,19 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   };
   const canvasKey = event => {
     if (event.key === ' ') { event.preventDefault(); spacePressed.current = true; return; }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); historyAction(event.shiftKey ? redoDesign : undoDesign); return; }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); historyAction(redoDesign); return; }
+    if (tool === 'design' && selectedShapeId) {
+      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteShape(selectedShapeId); return; }
+      if (event.key.startsWith('Arrow')) {
+        event.preventDefault(); const step = event.shiftKey ? 0.5 : 0.05;
+        moveShape(event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0, event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0); return;
+      }
+    }
     if (['+', '='].includes(event.key)) { event.preventDefault(); zoom(1.5); }
     else if (event.key === '-') { event.preventDefault(); zoom(1 / 1.5); }
-    else if (event.key.toLowerCase() === 'f') { event.preventDefault(); setTransform(fit); }
-    else if (event.key === 'Escape') { setSelected(new Set()); setSelectionBox(null); }
+    else if (event.key.toLowerCase() === 'f') { event.preventDefault(); fitAll(); }
+    else if (event.key === 'Escape') { setSelected(new Set()); setSelectedShapeId(null); setSelectionBox(null); setShapePreview(null); }
     else if (event.key.toLowerCase() === 'a' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); choose(visible.map(item => item.id), false); }
     else if (event.key.startsWith('Arrow')) {
       event.preventDefault(); const step = event.shiftKey ? 120 : 40;
@@ -343,10 +476,12 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
         <div><strong>Dibujo importado</strong><p className="cad-subtitle">Inspección de geometría y textos de origen · {measurementScale ? 'estimaciones con escala confirmada por ti' : 'escala pendiente de confirmación'}</p></div>
         <div className="blueprint-tools">
           <button type="button" className="cad-measurements-shortcut" aria-controls={measurementPanelId} onClick={showMeasurements}>Medidas</button>
+          <button type="button" onClick={() => { setTool('design'); openInspector('design'); }}>Figuras a escala</button>
+          <button type="button" onClick={() => openInspector('footprint')}>Huella de planta</button>
           <button type="button" disabled={!canIllustrate} title={illustrationHelp} onClick={openIllustration}>Ilustración 3D</button>
           <button type="button" onClick={() => zoom(1.5)} aria-label="Acercar dibujo">＋</button>
           <button type="button" onClick={() => zoom(1 / 1.5)} aria-label="Alejar dibujo">−</button>
-          <button type="button" onClick={() => setTransform(fit)}>Ajustar todo</button>
+          <button type="button" onClick={fitAll}>Ajustar todo</button>
           <button type="button" disabled={!selectedVisible.length} onClick={() => frameItems(selectedVisible)}>Ajustar selección</button>
           <button type="button" onClick={() => setExpanded(value => !value)}>{expanded ? 'Cerrar ampliación' : 'Ampliar visor'}</button>
         </div>
@@ -371,10 +506,13 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
               {views.map((item, i) => <option key={`${item.page}-${i}`} value={i}>{viewName(item, i)}</option>)}
             </select></label>}
             <div className="cad-tool-group" aria-label="Herramienta del visor">
-              {[['select', 'Seleccionar'], ['contour', 'Área de contorno'], ['rectangle', 'Rectángulo'], ['pan', 'Mover']].map(([value, label]) => <button key={value} type="button" aria-pressed={tool === value} onClick={() => { setTool(value); setContourResult(null); }}>{label}</button>)}
+              {[['select', 'Seleccionar CAD'], ['contour', 'Área de contorno'], ['rectangle', 'Selección rectangular'], ['design', 'Mover figuras'], ['pan', 'Mover plano']].map(([value, label]) => <button key={value} type="button" aria-pressed={tool === value} onClick={() => { setTool(value); setContourResult(null); if (value === 'design') setInspectorTab('design'); }}>{label}</button>)}
             </div>
             <label className="cad-inline-check"><input type="checkbox" checked={multiple} disabled={tool === 'contour'} onChange={event => setMultiple(event.target.checked)} /> Acumular selección</label>
           </div>
+          <div className="cad-design-toolbar"><div><span>Añadir a escala</span><button type="button" disabled={!measurementScale || design.shapes.length >= PLANNING_LIMITS.maxShapes} onClick={() => addShape('table')}>▭ Mesa</button><button type="button" disabled={!measurementScale || design.shapes.length >= PLANNING_LIMITS.maxShapes} onClick={() => addShape('circle')}>○ Círculo</button><button type="button" className="is-extension" disabled={!measurementScale || design.shapes.length >= PLANNING_LIMITS.maxShapes} onClick={() => addShape('extension')}>＋ Ampliación</button></div>{measurementScale ? <small>Medidas en metros · zoom independiente</small> : <button type="button" onClick={showMeasurements}>Confirmar escala</button>}</div>
+          {tool === 'design' && <div className="cad-design-mode-help"><p>Arrastra una figura para colocarla. Flechas: 5 cm · Mayús + flechas: 50 cm. Arrastra el fondo para desplazar el plano.</p><button type="button" onClick={() => openInspector('design')}>Editar medidas</button></div>}
+          {planningNotice && <p className="cad-planning-notice" role="status">{planningNotice}</p>}
           {tool === 'contour' && <div className="cad-contour-help">
             <p>Toca dentro de un contorno cerrado del CAD. Se selecciona uno a la vez y se mide su exterior, sin descontar recortes interiores. Revisa el borde naranja; no identifica automáticamente una habitación.</p>
             {contourFeedback && <p role="status">{contourFeedback.notice}</p>}
@@ -387,18 +525,19 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
               aria-label={`${viewName(view, viewIndex)}. ${visible.length} elementos visibles. Usa la lista para seleccionar con teclado.`}
               aria-describedby={instructionsId}
               onPointerDown={startPointer} onPointerMove={movePointer} onPointerUp={event => endPointer(event)}
-              onPointerCancel={event => endPointer(event, true)} onLostPointerCapture={event => { pointers.current.delete(event.pointerId); }}
+              onPointerCancel={event => endPointer(event, true)} onLostPointerCapture={event => { pointers.current.delete(event.pointerId); if (drag.current?.pointerId === event.pointerId) {drag.current = null; setShapePreview(null);} }}
               onKeyDown={canvasKey} onKeyUp={event => { if (event.key === ' ') spacePressed.current = false; }} onBlur={() => { spacePressed.current = false; }} />
             {selectionBox && <div className="cad-selection-box" style={{left: selectionBox[0], top: selectionBox[1], width: selectionBox[2] - selectionBox[0], height: selectionBox[3] - selectionBox[1]}} />}
             {!visible.length && <div className="cad-empty">{drawing.items.length ? 'No hay elementos visibles con estos filtros. Activa las capas o los textos.' : 'No se recibió geometría seleccionable para esta vista. Los planos escaneados necesitan otro procesamiento.'}</div>}
             <div className="cad-overview"><button type="button" className="cad-overview-title" aria-expanded={showOverview} onClick={() => setShowOverview(value => !value)}>Vista general · {showOverview ? 'ocultar' : 'mostrar'}</button>
               {showOverview && <><div className="cad-overview-map"><canvas ref={overviewRef} onClick={overviewClick} aria-hidden="true" title="Dibujo importado: haz clic para centrar la inspección en esta zona" />
                 <div className="cad-overview-viewport" style={{left: `${overviewViewport[0] / 220 * 100}%`, top: `${overviewViewport[1] / 135 * 100}%`, width: `${(overviewViewport[2] - overviewViewport[0]) / 220 * 100}%`, height: `${(overviewViewport[3] - overviewViewport[1]) / 135 * 100}%`}} />
-              </div><button type="button" onClick={() => setTransform(fit)}>Ver todo el dibujo importado</button></>}
+              </div><button type="button" onClick={fitAll}>Ver todo el dibujo importado</button></>}
             </div>
             <span className="cad-zoom">{Math.round(transform.scale / fit.scale * 100)} %</span>
+            {scaleBarWidth && Number.isFinite(scaleBarWidth) && <div className="cad-world-scale" aria-label={`Escala de referencia ${formatDrawingNumber(scaleBarMetres)} metros`}>{formatDrawingNumber(scaleBarMetres)} m<i style={{width: Math.max(1, scaleBarWidth)}} /></div>}
           </div>
-          <p className="cad-help" id={instructionsId}>Clic: seleccionar. Arrastrar: desplazar; en Rectángulo, seleccionar lo que cruza el recuadro. Rueda o dos dedos: zoom. Teclado: flechas, + / − y F para ajustar. La lista ofrece selección sin usar el lienzo.</p>
+          <p className="cad-help" id={instructionsId}>Selecciona geometría CAD o cambia a Mover figuras para editar tu propuesta. Rueda o dos dedos: zoom. + / − y F: ajustar vista. Ctrl/Cmd + Z: deshacer figuras. Las listas permiten seleccionar sin usar el lienzo.</p>
           <p className="cad-source-note">La vista general y el detalle se generan con los datos importados; no son una reproducción independiente del archivo original. Las áreas, cotas y nombres escritos son anotaciones del plano, sin verificar. Los cálculos geométricos de la selección se muestran por separado en Medidas.</p>
           {!illustrationVisible && <div className="cad-illustration-entry"><p><strong>Explorar una reconstrucción ilustrativa.</strong> {illustrationHelp}</p><div className="cad-illustration-entry-actions">
             {(!exteriorChoice?.available || selectedVisible.length !== 1) && <button type="button" onClick={startContourSelection}>Elegir base de la ilustración</button>}
@@ -415,15 +554,33 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
             <p>{cadLayouts.map(layout => `${layout.name}${layout.displayed ? ' (disponible)' : ' (sin representación)'}`).join(' · ')}</p><p>Las presentaciones son vistas del archivo; sus nombres no confirman cuántos pisos hay.</p>
           </details>}
         </div>
-        <aside className="cad-inspector" aria-label="Capas y elementos del dibujo">
+        <aside className="cad-inspector" ref={inspectorRef} aria-label="Herramientas y elementos del dibujo">
+          <div className="cad-studio-tabs" role="tablist" aria-label="Panel de herramientas">{INSPECTOR_TABS.map(([value, label], tabIndex) => <button type="button" key={value} id={`${instructionsId}-${value}-tab`} role="tab" tabIndex={inspectorTab === value ? 0 : -1} aria-selected={inspectorTab === value} aria-controls={`${instructionsId}-${value}-panel`} onClick={() => setInspectorTab(value)} onKeyDown={event => {
+            const index = event.key === 'ArrowRight' ? (tabIndex + 1) % INSPECTOR_TABS.length : event.key === 'ArrowLeft' ? (tabIndex + INSPECTOR_TABS.length - 1) % INSPECTOR_TABS.length : event.key === 'Home' ? 0 : event.key === 'End' ? INSPECTOR_TABS.length - 1 : null;
+            if (index === null) return; event.preventDefault(); setInspectorTab(INSPECTOR_TABS[index][0]); document.getElementById(`${instructionsId}-${INSPECTOR_TABS[index][0]}-tab`)?.focus();
+          }}>{label}</button>)}</div>
+          <div className="cad-inspector-section" id={`${instructionsId}-measure-panel`} role="tabpanel" aria-labelledby={`${instructionsId}-measure-tab`} hidden={inspectorTab !== 'measure'}>
           <MeasurementPanel key={`${viewIndex}-${view.page || 1}`} panelId={measurementPanelId} sectionRef={measurementRef}
             elements={measurementItems} hiddenSelectedCount={selectedItems.length - selectedVisible.length}
             documentFormat={documentFormat} unitsCode={unitsCode} scope={view.extraction?.scope} viewIdentity={view}
-            scale={measurementScale} onScaleChange={next => setScaleRecord(next ? {...next, view} : null)}
+            scale={measurementScale} onScaleChange={changeScale}
             areaMode={exteriorActive ? 'exterior' : 'source'} exteriorChoice={exteriorChoice}
             onAreaModeChange={mode => setAreaModeRecord(mode === 'exterior' ? {view, selection: selected, mode} : null)}
             onChooseContour={startContourSelection} onReturnToDrawing={returnToDrawing}
             onClearSelection={() => { setSelected(new Set()); setFocusedId(null); }} />
+          </div>
+          <div className="cad-inspector-section" id={`${instructionsId}-design-panel`} role="tabpanel" aria-labelledby={`${instructionsId}-design-tab`} hidden={inspectorTab !== 'design'}>
+            <ScaledDesignPanel shapes={design.shapes} selectedId={selectedShapeId} scale={measurementScale} showShapes={showShapes} onShowShapes={setShowShapes}
+              onSelect={selectShape} onUpdate={updateShape} onDuplicate={duplicateShape} onDelete={deleteShape} onMove={moveShape}
+              onReturn={() => { setTool('design'); setShowShapes(true); returnToDrawing(); }} onConfirmScale={showMeasurements} onAdd={addShape}
+              history={designHistory} onUndo={() => historyAction(undoDesign)} onRedo={() => historyAction(redoDesign)} />
+          </div>
+          <div className="cad-inspector-section" id={`${instructionsId}-footprint-panel`} role="tabpanel" aria-labelledby={`${instructionsId}-footprint-tab`} hidden={inspectorTab !== 'footprint'}>
+            <GroundFootprintPanel choice={footprintChoice} selectedElement={selectedFootprintElement} footprint={activeFootprint} scale={measurementScale}
+              onUse={footprint => { updateDesign(current => ({...current, footprint})); setPlanningNotice('Huella extraída. Continúa en Implantación y ampliación debajo del visor para ubicarla sobre un predio.'); }}
+              onClear={() => updateDesign(current => ({...current, footprint: null}))} onChoose={startContourSelection} onConfirmScale={showMeasurements} />
+          </div>
+          <div className="cad-inspector-section" id={`${instructionsId}-layers-panel`} role="tabpanel" aria-labelledby={`${instructionsId}-layers-tab`} hidden={inspectorTab !== 'layers'}>
           <details className="cad-layers" open><summary>Capas ({number(layers.length)})</summary>
             <label className="cad-search">Buscar capa<input type="search" value={layerQuery} onChange={event => setLayerQuery(event.target.value)} placeholder="Nombre de capa" /></label>
             <div className="cad-actions"><button type="button" onClick={() => setHiddenLayers(new Set())}>Mostrar todas</button><button type="button" onClick={() => setHiddenLayers(new Set(layers.map(([name]) => name)))}>Ocultar todas</button></div>
@@ -462,6 +619,7 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
               {focused.approximation && <><dt>Representación</dt><dd>Curva aproximada con tramos para visualizar. Se selecciona la entidad de origen completa.</dd></>}
             </dl><p>{measurementScale ? 'Escala confirmada por ti; estimaciones geométricas sin verificación para obra.' : 'La escala necesita confirmación para expresar medidas en metros.'} La selección no identifica automáticamente un muro o una habitación.</p>
           </section>}
+          </div>
         </aside>
       </div>
     </section>

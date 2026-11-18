@@ -89,6 +89,10 @@ export function createExampleDrawing() {
   rect('Área de ejemplo', 108, 108, 442, 244);
   Object.assign(elements.at(-1), {source_type: 'LWPOLYLINE', measurement_demo: true});
 
+  // Separate, explicitly fictional ground outline for the planning workflow.
+  rect('Huella de ejemplo', 88, 88, 924, 604);
+  Object.assign(elements.at(-1), {source_type: 'LWPOLYLINE', footprint_demo: true});
+
   return {
     filename: 'Vivienda de ejemplo · dibujo ficticio',
     format: 'example',

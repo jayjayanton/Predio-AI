@@ -55,6 +55,7 @@ test('a selected package entry preserves its exact path alongside the usual proj
   assert.equal(form.get('irm'), irm);
   assert.equal(form.get('building_type'), 'house');
   assert.equal(form.get('work_type'), 'remodel');
+  assert.equal(form.get('review_scope'), 'drawing_study');
   assert.deepEqual(form.getAll('activities'), ['replace_floor', 'change_layout']);
   assert.equal(form.get('predio_number'), '1234');
   assert.equal(form.get('package_entry'), 'Plantas/Piso 2/plano.DWG');
@@ -65,6 +66,8 @@ test('a selected package entry preserves its exact path alongside the usual proj
   assert.equal(initial.has('predio_number'), false);
   const drawing = createInspectionForm({ ...fields, blueprint: new File(['dxf fixture'], 'plano.dxf') });
   assert.equal(drawing.has('package_entry'), false);
+  const regulatory = createInspectionForm({...fields, reviewScope: 'document_review'});
+  assert.equal(regulatory.get('review_scope'), 'document_review');
 });
 
 test('ZIP and DWG requests allow conversion time without changing PDF and DXF timeouts', () => {

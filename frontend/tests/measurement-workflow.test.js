@@ -123,7 +123,7 @@ test('the mounted panel requires Apply unit and explains which selected objects 
   assert.equal(value('area'), '—');
 });
 
-test('calibration is applied by the panel and cleared on view switches and replacement imports', async () => {
+test('calibration is scoped to each exact view, restored on return, and cleared for replacement imports', async () => {
   const views = [view('Model', [line('reference', 10000)]), view('Other', [line('other', 2000)])];
   await render(views);
   await click('Seleccionar todo visible (1)');
@@ -137,7 +137,7 @@ test('calibration is applied by the panel and cleared on view switches and repla
   await click('Seleccionar todo visible (1)');
   assert.equal(value('length'), '2.000u');
   await setValue(container.querySelector('.cad-view-choice select'), '0');
-  pending();
+  assert.match(container.querySelector('.cad-scale-current').textContent, /1 u = 0,00031 m/);
   await click('Aplicar unidad');
   assert.ok(container.querySelector('.cad-scale-current'));
 
