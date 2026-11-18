@@ -9,7 +9,7 @@ architectural measurements, regulatory compliance or construction approval.
 | Input | Parser | Current output |
 | --- | --- | --- |
 | Architectural PDF | PyMuPDF | Page sizes, text/vector/image counts, OCR-needed flags and supported straight vector paths for the viewer |
-| Architectural DXF | ezdxf | Modelspace entity/layer counts, unit code, annotations, unverified dimension metadata and bounded straight geometry, including supported transformed INSERT blocks |
+| Architectural DXF | ezdxf | Modelspace entity/layer counts, unit code, unverified source text labels with CAD positions, explicit dimension overrides, and bounded straight geometry including supported transformed INSERT blocks |
 | IRM PDF | PyMuPDF | Page metadata, text evidence and recognizable fields such as predio, COS, floors and setbacks, labelled as unverified extraction |
 | Scanned PDF | PDF inspection only | Image/text metadata and possible OCR-needed flags; no OCR or automatic conversion into selectable walls |
 | Architectural DWG | Local LibreDWG CLI followed by ezdxf | Direct upload; source filename/format retained, conversion status plus DXF evidence and partial-view metadata |
@@ -52,8 +52,8 @@ activities and these explicit limits:
 PDF/DXF parsing uses memory. DWG input and converted output use a private
 temporary directory removed on success or failure. This endpoint does not save
 permanent projects. Limits are **15 MB per input and converted output**,
-**100 PDF pages**, **100,000 DXF modelspace entities**, and **3,000 selectable
-primitives per view**. Block traversal also has visit/depth/cycle guards.
+**100 PDF pages**, **100,000 DXF modelspace entities**, **3,000 selectable
+primitives per view**, and **250 positioned source annotations per view**. Block traversal also has visit/depth/cycle guards.
 
 DWG conversion uses a server-managed executable, never a command or URL from
 an uploaded file. It runs in a separate process with a 30-second wall limit,
@@ -72,8 +72,19 @@ primitive/traversal/depth limits, and excluded nonempty layouts. Omission
 counts refer to observed source instances, including block children; they are
 not coverage percentages. Supported top-level geometry is retained before block
 detail. Curved polylines are omitted instead of being replaced by straight
-chords. Unsupported curves, text, dimensions, hatches and complex block cases
-remain outside the selectable rendering. PDF extraction is unchanged.
+chords. Unsupported curves, hatches and complex block cases remain outside the
+selectable geometry rendering. Supported TEXT/MTEXT/ATTRIB text and explicit
+DIMENSION text overrides are now displayed as *source annotations*, with CAD
+coordinates and layer provenance, not calculated values. Automatic dimension
+measurements without an explicit text override are not inferred. An area label
+is not automatically paired with a closed room polygon. Annotation positions
+may not reproduce CAD text rotation, formatting or plotting exactly.
+
+The DWG/DXF response lists `cad_layouts` with entity counts and marks which
+layout is displayed. **Only modelspace is rendered.** A single view or the name
+of a paper layout does not establish the building floor count or whether a
+particular view is ground/first/upper floor. PDF text-based annotations are not
+changed by this CAD-specific improvement.
 
 ## Other document paths
 
