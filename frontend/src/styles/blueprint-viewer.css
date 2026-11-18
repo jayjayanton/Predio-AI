@@ -23,7 +23,7 @@
 .cad-tool-group { display: flex; flex-wrap: wrap; gap: 4px; }
 .cad-inline-check { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.4; }
 .cad-inline-check input, .cad-layer-row input, .cad-item-list input { accent-color: var(--cad-accent); width: 16px; height: 16px; flex: 0 0 auto; margin: 0; }
-.cad-stage { position: relative; width: 100%; height: min(65vh, 660px); min-height: 420px; overflow: hidden; border: 1px solid var(--cad-border); border-radius: 8px; background: #fff; }
+.cad-stage { position: relative; width: 100%; height: min(65vh, 660px); min-height: 420px; overflow: hidden; border: 1px solid var(--cad-border); border-radius: 8px; background: #fff; scroll-margin-top: 24px; }
 .cad-drawing-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
 .cad-tool-select .cad-drawing-canvas { cursor: crosshair; }
 .cad-tool-rectangle .cad-drawing-canvas { cursor: crosshair; }
@@ -89,9 +89,10 @@
 .cad-measurement-heading h3 { font-size: 16px; margin: 0; color: #174e48; }
 .cad-measurement-heading > span { font-size: 9px; color: #73501f; background: #fff3d9; padding: 4px 6px; border-radius: 4px; }
 .cad-measurement-heading > span.is-confirmed { color: #165c49; background: #dfeee5; }
-.cad-measurement-scope { display: flex; align-items: flex-start; gap: 6px; margin: 9px 0; }
-.cad-measurement-scope p { flex: 1; margin: 0; font-size: 11px; line-height: 1.5; color: #4e6762; }
-.cad-measurement-scope button { font-size: 10px; padding: 4px 6px; }
+.cad-measurement-scope { display: grid; gap: 8px; margin: 9px 0; }
+.cad-measurement-scope p { margin: 0; font-size: 11px; line-height: 1.5; color: #4e6762; }
+.cad-measurement-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.cad-measurement-actions button { font-size: 11px; padding: 7px 9px; min-height: 34px; }
 .cad-measurement-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 12px 0; }
 .cad-measurement-value { min-width: 0; background: #fff; border: 1px solid #dbe8e1; border-radius: 6px; padding: 10px; }
 .cad-measurement-value > span { display: block; font-size: 10px; color: #597069; margin-bottom: 6px; }

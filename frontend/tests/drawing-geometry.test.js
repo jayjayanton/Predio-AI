@@ -4,6 +4,7 @@ import {
   buildSpatialIndex, filterDrawingItems, fitTransform, hitTest, intersects, prepareDrawing,
   rectangle, selectInRectangle, toScreen, toWorld, updateSelection, zoomAt,
 } from '../src/drawingGeometry.js';
+import {measureSelection} from '../src/drawingMeasurements.js';
 
 const line = (id, points, rest = {}) => ({id, kind: 'line', points, ...rest});
 const near = (actual, expected, tolerance = 1e-8) => assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);
@@ -65,6 +66,24 @@ test('solid hatch holes remain empty for point and rectangle selection', () => {
   assert.equal(selectInRectangle(drawing.items, [1, 1, 2, 2]).length, 1);
   assert.equal(selectInRectangle(drawing.items, [2.9, 4, 3.1, 6]).length, 1);
   assert.equal(drawing.segmentCount, 8);
+});
+
+test('patterned hatch outer and hole edges select one source whose measured area excludes the hole', () => {
+  const drawing = prepareDrawing({elements: [{id: 'patterned-hatch', kind: 'hatch_boundary',
+    source_type: 'HATCH', filled: false, closed: true, points: [], rings: [
+      [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+      [[3, 3], [7, 3], [7, 7], [3, 7], [3, 3]],
+    ]}]});
+  const selectedAtOuter = hitTest(drawing.items, [0, 5], 0.05);
+  const selectedAtHole = hitTest(drawing.items, [3, 5], 0.05);
+  assert.equal(selectedAtOuter, selectedAtHole);
+  assert.equal(selectedAtOuter.id, 'patterned-hatch');
+  assert.equal(hitTest(drawing.items, [1, 1], 0.05), null);
+  assert.equal(hitTest(drawing.items, [5, 5], 0.05), null);
+  assert.equal(selectInRectangle(drawing.items, [2.9, 4, 3.1, 6])[0], selectedAtHole);
+  assert.equal(drawing.segmentCount, 8);
+  assert.deepEqual(measureSelection([selectedAtOuter], {metresPerUnit: 1}).metric,
+    {length: 56, perimeter: 56, area: 84});
 });
 
 test('rotated, mirrored affine text uses its transformed region rather than its broad box', () => {

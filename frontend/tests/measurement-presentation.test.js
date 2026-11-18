@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canConfirmDrawingUnit, formatDrawingNumber, parseKnownMetres, scaleForView } from '../src/measurementPresentation.js';
+import { canConfirmDrawingUnit, formatDrawingNumber, formatScaleFactor, parseKnownMetres, scaleForView } from '../src/measurementPresentation.js';
 
 test('known metres accept decimal comma or point without guessing thousands separators', () => {
   for (const [input, expected] of [['3,10', 3.1], ['3.10', 3.1], [' 0,025 ', 0.025], [',5', 0.5], ['.5', 0.5], ['4', 4]]) {
@@ -43,4 +43,24 @@ test('numeric presentation keeps unavailable values distinct from zero and tiny 
   for (const value of [undefined, null, NaN, Infinity]) assert.equal(formatDrawingNumber(value), '—');
   assert.match(formatDrawingNumber(0.000001), /E/);
   assert.notEqual(formatDrawingNumber(0.000001), '0');
+});
+
+test('scale summaries preserve small calibration factors and identify rounding', () => {
+  // A 10,000-unit reference calibrated to 3.1 m must not imply a 3 m result.
+  assert.deepEqual(formatScaleFactor(3.1 / 10000), {text: '0,00031', approximate: false});
+  assert.deepEqual(formatScaleFactor(0.001), {text: '0,001', approximate: false});
+  assert.deepEqual(formatScaleFactor(0.3048), {text: '0,3048', approximate: false});
+  const recurring = formatScaleFactor(3.1 / 864);
+  assert.equal(recurring.text, '0,003587963');
+  assert.equal(recurring.approximate, true);
+  for (const value of [1e-12, 1e12, Number.MIN_VALUE]) {
+    const summary = formatScaleFactor(value);
+    assert.match(summary.text, /E/);
+    assert.equal(summary.approximate, false);
+    assert.notEqual(summary.text, '0');
+  }
+  assert.equal(formatScaleFactor(1.234567891e-12).approximate, true);
+  for (const value of [undefined, null, 0, -1, NaN, Infinity]) {
+    assert.deepEqual(formatScaleFactor(value), {text: '—', approximate: false});
+  }
 });

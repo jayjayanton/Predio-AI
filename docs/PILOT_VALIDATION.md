@@ -19,6 +19,8 @@ The initial conversation should be with the homeowner and a small architecture/r
 5. Show **Mi predio** only when municipal context is relevant. Broader remodeling, structural and expansion requests retain their document prerequisites; the application does not decide what work is permitted.
 6. Ask the reviewer to choose one real case for the next measurement milestone.
 
+During the measurement demonstration, show the selected/compatible/excluded counts and use **Volver al plano** to resume selection without losing the applied scale. For a hatch with nested contours, select its source boundary and compare the area after hole deductions and the perimeter including inner edges. Reimport the file to obtain the grouped source boundaries; previously loaded results retain their earlier representation.
+
 ## What to request for the first real test
 
 Ask the owner/architect for an authorized vector PDF, DXF or DWG of one existing room or small dwelling. DWG can be submitted directly once the server converter is deployed. Retain the original and any independently exported PDF/DXF for comparison. Remove unrelated personal information and retain the revision date. Confirm whether the drawing describes existing conditions or a proposal.

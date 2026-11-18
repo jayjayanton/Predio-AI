@@ -114,6 +114,11 @@ Arcs, circles, ellipses, splines and curved polylines use a display approximatio
 The flattening tolerance is in drawing units and is not a certified total
 geometric error or a measurement tolerance. Hatch boundaries/pattern strokes
 and stored dimension drawing components can contribute selectable elements.
+Each source hatch keeps its rendered boundary rings in one compound element,
+after applying its island style. Pattern strokes remain separate; patterned
+boundaries use `filled: false`. Separate block instances retain distinct IDs,
+even when they share a source handle. Grouping preserves all boundary vertices
+and segment counts while allowing the browser to account for nested holes.
 Fonts, fills and rich text may differ from the original CAD application's plot.
 Text remains *source annotation*, never an independently verified quantity.
 An area label is not automatically paired with a closed room polygon.

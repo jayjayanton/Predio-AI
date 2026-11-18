@@ -24,7 +24,8 @@ test('known CAD unit metadata is only a suggestion until a scale is supplied', (
   assert.equal(cadUnitFromCode(21).metresPerUnit, 1200 / 3937);
   assert.notEqual(cadUnitFromCode(21).metresPerUnit, deriveScaleFromUnit('ft'));
   for (const invalid of [0, 18, 20, 99, NaN, 4.5, '4', null]) assert.equal(cadUnitFromCode(invalid), null);
-  assert.deepEqual(UNIT_OPTIONS.map(option => option.value), ['m', 'cm', 'mm', 'in', 'ft', 'yd']);
+  assert.deepEqual(UNIT_OPTIONS.map(option => option.value), ['m', 'cm', 'mm', 'in', 'ft', 'yd', 'us-ft']);
+  assert.equal(UNIT_OPTIONS.find(option => option.value === 'us-ft').metresPerUnit, 1200 / 3937);
   const source = line('source', [0, 0], [4000, 0], {units_code: 4, units_verified: false});
   const raw = measureSelection([source]);
   assert.equal(raw.raw.length, 4000);

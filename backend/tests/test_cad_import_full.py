@@ -187,6 +187,55 @@ def test_patterned_hatch_contains_boundaries_and_strokes_not_solid_fill():
     assert extraction["omission_reasons"] == {}
 
 
+@pytest.mark.parametrize("style,hole_flags,expected_rings", [(0, 0, 2), (1, 16, 2), (2, 0, 1)])
+def test_patterned_hatch_preserves_island_style_in_one_source_element(style, hole_flags, expected_rings):
+    doc = ezdxf.new("R2007")
+    hatch = doc.modelspace().add_hatch()
+    hatch.set_pattern_fill("ANSI31", scale=0.1, style=style)
+    hatch.paths.add_polyline_path([(0, 0), (10, 0), (10, 10), (0, 10)], is_closed=True, flags=1)
+    hatch.paths.add_polyline_path([(3, 3), (7, 3), (7, 7), (3, 7)], is_closed=True, flags=hole_flags)
+
+    elements, extraction = extract_dxf_primitives(doc.modelspace())
+    boundaries = [item for item in elements if item["kind"] == "hatch_boundary"]
+    strokes = [item for item in elements if item.get("hatch_pattern")]
+    assert len(boundaries) == 1
+    boundary = boundaries[0]
+    assert boundary["id"] == f"dxf-l1-e0-{hatch.dxf.handle}"
+    assert boundary["rings"] == [
+        [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+        [[3, 3], [7, 3], [7, 7], [3, 7], [3, 3]],
+    ][:expected_rings]
+    assert boundary["points"] == []
+    assert boundary["filled"] is False
+    assert boundary["closed"] is True
+    assert boundary["fill_rule"] == "evenodd"
+    assert strokes
+    assert {item["source_handle"] for item in elements} == {hatch.dxf.handle}
+    assert extraction["rendered_segments"] == 4 * expected_rings + sum(len(item["points"]) - 1 for item in strokes)
+    assert extraction["omission_reasons"] == {}
+
+
+def test_patterned_hatch_block_instances_keep_distinct_compound_boundaries():
+    doc = ezdxf.new("R2007")
+    block = doc.blocks.new("PATTERNED_ITEM")
+    hatch = block.add_hatch()
+    hatch.set_pattern_fill("ANSI31", scale=0.1, style=0)
+    hatch.paths.add_polyline_path([(0, 0), (10, 0), (10, 10), (0, 10)], is_closed=True, flags=1)
+    hatch.paths.add_polyline_path([(3, 3), (7, 3), (7, 7), (3, 7)], is_closed=True, flags=0)
+    doc.modelspace().add_blockref("PATTERNED_ITEM", (0, 0))
+    doc.modelspace().add_blockref("PATTERNED_ITEM", (20, 0))
+
+    elements, extraction = extract_dxf_primitives(doc.modelspace())
+    boundaries = [item for item in elements if item["kind"] == "hatch_boundary"]
+    assert len(boundaries) == 2
+    assert len({item["id"] for item in boundaries}) == 2
+    assert len({item["block_path"] for item in boundaries}) == 2
+    assert {item["source_handle"] for item in boundaries} == {hatch.dxf.handle}
+    assert all(len(item["rings"]) == 2 and item["filled"] is False for item in boundaries)
+    assert [item["rings"][0][0] for item in boundaries] == [[0, 0], [20, 0]]
+    assert extraction["omission_reasons"] == {}
+
+
 def test_nonplanar_and_infinite_geometry_is_explicitly_omitted():
     doc = ezdxf.new("R2007")
     model = doc.modelspace()
