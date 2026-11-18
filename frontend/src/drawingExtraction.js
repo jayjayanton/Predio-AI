@@ -29,6 +29,7 @@ export function hasPartialExtraction(extraction) {
     || extraction.limit_reached
     || extraction.traversal_limit_reached
     || extraction.depth_limit_reached
+    || extraction.source_label_limit_reached
     || positiveCount(extraction.omitted_curved_polylines)
     || positiveCount(extraction.omitted_nonempty_layouts)
     || observedOmissions(extraction).length
@@ -59,6 +60,10 @@ export function drawingExtractionMessages(extraction) {
   }
   if (positiveCount(extraction.omitted_nonempty_layouts)) {
     messages.push(`Presentaciones CAD con contenido que no se incluyen: ${formatCount(extraction.omitted_nonempty_layouts)}. Esta vista corresponde al espacio modelo.`);
+  }
+  if (extraction.source_label_limit_reached) {
+    const labelLimit = positiveCount(extraction.source_label_limit) ? formatCount(extraction.source_label_limit) : 'establecido';
+    messages.push(`Se alcanzó el límite de ${labelLimit} etiquetas originales; pueden faltar textos o cotas.`);
   }
   return messages;
 }
