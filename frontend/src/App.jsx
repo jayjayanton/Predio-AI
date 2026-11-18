@@ -9,6 +9,8 @@ const WORK_ACTIVITIES = {
 import React, { useEffect, useState } from 'react';
 import ParcelMap from './components/ParcelMap.jsx';
 import BlueprintViewer from './components/BlueprintViewer.jsx';
+import ProjectSelections from './components/ProjectSelections.jsx';
+import {addProjectSelection, removeProjectSelection} from './projectMeasurements.js';
 import ProjectPackagePanel from './components/ProjectPackagePanel.jsx';
 import DrawingLocationPanel from './components/DrawingLocationPanel.jsx';
 import FootprintPlanner from './components/FootprintPlanner.jsx';
@@ -402,6 +404,7 @@ export default function App() {
   const selectedDocumentError = inspection?.blueprint?.inspection_error || '';
   const displayedDrawing = drawingExample || (!selectedDocumentError ? inspection?.blueprint : null);
   const [planningRecords, setPlanningRecords] = useState([]);
+  const [projectSelections, setProjectSelections] = useState([]);
   const currentPlanning = planningRecords.find(record => record.drawing === displayedDrawing) || EMPTY_PLANNING_RECORD;
   const reportPlanning = planningRecords.find(record => record.drawing === inspection?.blueprint) || EMPTY_PLANNING_RECORD;
   const savePlanningDraft = React.useCallback(draft => setPlanningRecords(records =>
@@ -448,6 +451,7 @@ export default function App() {
     lastDocumentPredio.current = nextPredio;
     if (previousPredio && previousPredio !== nextPredio) {
       setPdf(null); setIrmPdf(null); setInspection(null); setPackageRecord(null); setDrawingExample(null);
+      setProjectSelections([]);
       setDocumentInputVersion(version => version + 1);
       setInspectionError('Cambiaste de predio. Adjunta los documentos que correspondan a la nueva propiedad.');
     }
@@ -471,6 +475,7 @@ export default function App() {
     }
     else {
       setPdf(validationError ? null : file);
+      setProjectSelections([]);
       setPackageRecord(null);
       setInspection(null);
     }
@@ -2395,8 +2400,12 @@ export default function App() {
               {displayedDrawing?.drawing_views?.length
                 ? <BlueprintViewer key={`${displayedDrawing.package?.selected_entry || ''}:${displayedDrawing.filename}`} views={displayedDrawing.drawing_views} cadLayouts={displayedDrawing.cad_layouts || []} documentFormat={displayedDrawing.format} unitsCode={displayedDrawing.units_code} documentName={displayedDrawing.package?.selected_entry || displayedDrawing.filename}
                   draftState={currentPlanning.draft} onDraftStateChange={savePlanningDraft} onPlanningChange={savePlanningSnapshot}
-                  setbackReview={currentSetbackReview} />
+                  setbackReview={currentSetbackReview}
+                  onSaveProjectSelection={!drawingExample ? selection => setProjectSelections(existing => addProjectSelection(existing, selection)) : null} />
                 : <div className="empty"><strong>{inspecting ? 'Abriendo el dibujo…' : selectedDocumentError ? 'Elige otro dibujo o vuelve a intentarlo.' : inspection ? 'No se encontró geometría vectorial seleccionable.' : activePackage ? 'Selecciona un dibujo del paquete.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspecting ? 'La geometría y las medidas aparecerán cuando termine la inspección de este archivo.' : selectedDocumentError ? 'El listado del ZIP sigue disponible arriba. No se muestran medidas ni geometría del archivo anterior.' : inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y contrasta el contenido con el archivo original.' : activePackage ? 'Completa los documentos requeridos y pulsa «Abrir dibujo» para inspeccionar el archivo elegido.' : 'Adjunta un PDF, DXF, DWG o ZIP y pulsa «Inspeccionar». Podrás acercar el dibujo, seleccionar líneas y usar el panel Medidas.'}</p><p className="note">Confirma unidades o calibra una longitud conocida antes de obtener metros o m². Los resultados geométricos requieren revisión con el plano y las condiciones reales.</p></div>}
+              {!drawingExample && (inspection || projectSelections.length > 0) && <ProjectSelections records={projectSelections}
+                onRemove={id => setProjectSelections(current => removeProjectSelection(current, id))}
+                onClear={() => setProjectSelections([])} />}
               {displayedDrawing?.drawing_views?.length > 0 && <FootprintPlanner
                 snapshot={currentPlanning.snapshot} parcel={drawingExample ? null : data}
                 parcelProperties={drawingExample ? null : properties} blueprint={displayedDrawing}

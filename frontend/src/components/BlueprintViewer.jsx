@@ -9,7 +9,7 @@ import {commitDesign, createDesignHistory, createPlanningShape, createPlanningSn
   resizePlanningShape, updatePlanningShape, insertPlanningVertex, removePlanningVertex} from '../scaledPlanning.js';
 import { hasPartialExtraction, drawingExtractionMessages, drawingRepresentationMessages } from '../drawingExtraction.js';
 import { formatDrawingNumber, scaleForView } from '../measurementPresentation.js';
-import { cadUnitFromCode, getExteriorContour } from '../drawingMeasurements.js';
+import { cadUnitFromCode, getExteriorContour, measureSelection } from '../drawingMeasurements.js';
 import { findClosedContours } from '../contourSelection.js';
 import {
   buildSpatialIndex, filterDrawingItems, fitTransform, hitTest, isText, prepareDrawing,
@@ -113,13 +113,16 @@ function paintDrawing(canvas, size, transform, items, selected, viewport = null,
 
 /** Imported geometry, source annotations and estimates with user-confirmed scale. */
 export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPTY_VIEWS, documentFormat = '', unitsCode = null, documentName = '',
-  onPlanningChange, draftState = null, onDraftStateChange, setbackReview = null }) {
+  onPlanningChange, draftState = null, onDraftStateChange, setbackReview = null, onSaveProjectSelection = null }) {
   const initialDraft = draftState?.views === views ? draftState : null;
   const initialIndex = initialDraft?.viewIndex || 0;
   const initialView = views[initialIndex] || views[0] || EMPTY_VIEW;
   const initialRecord = initialDraft?.records?.find(record => record.view === initialView);
   const [viewIndex, setViewIndex] = useState(initialIndex);
   const [selected, setSelected] = useState(new Set());
+  const [projectRoom, setProjectRoom] = useState('Sala');
+  const [projectKind, setProjectKind] = useState('floor_area');
+  const [projectNotice, setProjectNotice] = useState('');
   const [focusedId, setFocusedId] = useState(null);
   const [hiddenLayers, setHiddenLayers] = useState(new Set());
   const [showText, setShowText] = useState(true);
@@ -215,6 +218,20 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     && areaModeRecord?.mode === 'exterior' && exteriorChoice?.available;
   const measurementOutline = exteriorActive ? exteriorChoice.element : null;
   const measurementItems = useMemo(() => measurementOutline ? [measurementOutline] : selectedItems, [measurementOutline, selectedItems]);
+  const projectMeasurement = useMemo(() => measureSelection(measurementItems, {metresPerUnit: measurementScale?.metresPerUnit ?? null}), [measurementItems, measurementScale?.metresPerUnit]);
+  const canSaveProject = Boolean(onSaveProjectSelection && measurementScale && selectedVisible.length === selectedItems.length && selectedItems.length > 0
+    && (projectKind === 'floor_area' ? projectMeasurement.metric?.area > 0 && projectMeasurement.metric?.perimeter > 0
+      : selectedItems.length === 1 && projectMeasurement.metric?.length > 0 && projectMeasurement.metric?.area === null));
+  const saveProjectMeasurement = () => {
+    if (!canSaveProject || !projectRoom.trim()) {setProjectNotice('Selecciona geometría compatible, confirma escala y escribe la habitación.'); return;}
+    const metric = projectKind === 'floor_area'
+      ? {value: projectMeasurement.metric.area, perimeter: projectMeasurement.metric.perimeter}
+      : {value: projectMeasurement.metric.length};
+    onSaveProjectSelection({room: projectRoom.trim(), source: documentName, view: viewName(view, viewIndex),viewIndex,
+      kind: projectKind, elementIds: measurementItems.map(item => item.id),metresPerUnit: measurementScale.metresPerUnit,
+      metric, approximate: Boolean(projectMeasurement.approximate?.area || projectMeasurement.approximate?.length)});
+    setProjectNotice('Medición añadida a Selecciones del proyecto.');
+  };
   const contourFeedback = contourResult?.view === view && contourResult?.selection === selected
     && contourResult?.visibleIds === visibleIds ? contourResult : null;
   const focused = drawing.byId.get(focusedId) || selectedItems.at(-1);
@@ -807,6 +824,17 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
             onChooseContour={startContourSelection} onReturnToDrawing={returnToDrawing}
             onClearSelection={() => { setSelected(new Set()); setFocusedId(null); }} />
           </div>
+          {onSaveProjectSelection && <div className="cad-inspector-section" style={{padding:'12px',border:'1px solid #90aaa7',borderRadius:8,margin:'10px 0'}}>
+            <h3>Enviar a Selecciones del proyecto</h3>
+            <label>Habitación <input value={projectRoom} maxLength={80} onChange={event => {setProjectRoom(event.target.value);setProjectNotice('');}} placeholder="Sala principal" /></label>
+            <label>Medición <select value={projectKind} onChange={event => {setProjectKind(event.target.value);setProjectNotice('');}}>
+              <option value="floor_area">Superficie de planta (contorno cerrado)</option>
+              <option value="room_height">Altura (línea del corte)</option>
+            </select></label>
+            <p className="note">La línea elegida como altura debe representar la distancia vertical real entre piso y techo; la app no identifica automáticamente paredes ni relaciona cortes.</p>
+            <button type="button" disabled={!canSaveProject || !projectRoom.trim()} onClick={saveProjectMeasurement}>Añadir a proyecto</button>
+            {projectNotice && <p role="status" className="note">{projectNotice}</p>}
+          </div>}
           <div className="cad-inspector-section" id={`${instructionsId}-design-panel`} role="tabpanel" aria-labelledby={`${instructionsId}-design-tab`} hidden={inspectorTab !== 'design'}>
             <ScaledDesignPanel shapes={shapePreview ? design.shapes.map(shape => shape.id === shapePreview.id ? shapePreview : shape) : design.shapes} selectedId={selectedShapeId} scale={measurementScale} showShapes={showShapes} onShowShapes={setShowShapes}
               onSelect={selectShape} onUpdate={updateShape} onDuplicate={duplicateShape} onDelete={deleteShape} onMove={moveShape}
