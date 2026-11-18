@@ -160,3 +160,61 @@ test('returning from measurements focuses the drawing without losing selected ge
   assert.equal(container.querySelector('.cad-zoom').textContent, previous.zoom);
   assert.equal(container.querySelectorAll('.cad-item-list input:checked').length, 1);
 });
+
+test('a conflicting source unit remains visible and can be corrected without changing selection', async () => {
+  await render([view('Model', [line('wall')])]);
+  await click('Seleccionar todo visible (1)');
+  assert.match(container.querySelector('.cad-unit-form label').textContent, /Unidad de las coordenadas CAD/);
+  await setValue(container.querySelector('[aria-label="Unidad del dibujo"]'), 'm');
+  await click('Aplicar unidad');
+  assert.equal(value('length'), '4.000m');
+  assert.equal(container.querySelector('.cad-measurement-heading > span').textContent, 'Revisar unidad');
+  const warning = container.querySelector('.cad-unit-mismatch');
+  assert.match(warning.textContent, /archivo declara milímetros/);
+  assert.ok(warning.compareDocumentPosition(container.querySelector('.cad-measurement-values')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  await click('Volver al plano');
+  assert.ok(container.querySelector('.cad-unit-mismatch'), 'the warning survives navigation');
+  await click('Usar milímetros del archivo');
+  assert.equal(value('length'), '4m');
+  assert.equal(container.querySelector('.cad-unit-mismatch'), null);
+  assert.equal(container.querySelector('.cad-measurement-heading > span').textContent, 'Escala aplicada');
+  assert.equal(container.querySelectorAll('.cad-item-list input:checked').length, 1);
+});
+
+test('outer contour area is an explicit selection-scoped convention and preserves the applied scale', async () => {
+  await render([view('Model', [{
+    id: 'floor', kind: 'hatch_boundary', source_type: 'HATCH', layer: 'Floor', closed: true,
+    rings: [[[0, 0], [10000, 0], [10000, 6000], [0, 6000]],
+      [[2000, 2000], [4000, 2000], [4000, 4000], [2000, 4000]]],
+  }])]);
+  await click('Seleccionar capa Floor');
+  await click('Aplicar unidad');
+  assert.equal(value('area'), '56m²');
+  assert.equal(value('perimeter'), '40m');
+  assert.equal(container.querySelector('[aria-label="Área a medir"]').value, 'source');
+  await setValue(container.querySelector('[aria-label="Área a medir"]'), 'exterior');
+  assert.equal(value('area'), '60m²');
+  assert.equal(value('perimeter'), '32m');
+  assert.equal(container.querySelector('.cad-measurement-area > span').textContent, 'Área del contorno exterior');
+  assert.match(container.querySelector('.cad-area-convention').textContent, /recortes interiores no se descuentan/);
+  await click('Volver al plano');
+  assert.equal(value('area'), '60m²');
+  await click('Limpiar');
+  await click('Seleccionar capa Floor');
+  assert.equal(container.querySelector('[aria-label="Área a medir"]').value, 'source');
+  assert.equal(value('area'), '56m²', 'a new selection returns to the source convention and keeps millimetres');
+});
+
+test('an open selection explains the missing area and starts closed-contour selection from the panel', async () => {
+  await render([view('Model', [line('wall')])]);
+  await click('Seleccionar todo visible (1)');
+  const reason = container.querySelector('.cad-area-reason');
+  assert.match(reason.textContent, /trazado está abierto/);
+  assert.ok(reason.compareDocumentPosition(container.querySelector('.cad-measurement-values')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  await click('Elegir contorno cerrado');
+  assert.equal(button('Área de contorno').getAttribute('aria-pressed'), 'true');
+  assert.ok(container.querySelector('.cad-controls input[type="checkbox"]').disabled);
+  assert.equal(document.activeElement, container.querySelector('.cad-drawing-canvas'));
+  assert.match(container.querySelector('.cad-contour-help').textContent, /sin descontar recortes interiores/);
+  assert.equal(value('area'), '—', 'changing the tool never fabricates a closed area');
+});

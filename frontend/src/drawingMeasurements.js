@@ -280,6 +280,151 @@ function computeArea(collection, segmentLimit) {
   return {area: sum.value, perimeter: collection.length, reason: null, snapped,
     mode: compound ? 'compound_rings' : eligible.length === 1 ? 'single_path' : 'connected_loop'};
 }
+
+function closedSegments(points) {
+  const count = points.length - (samePoint(points[0], points.at(-1)) ? 1 : 0);
+  const segments = [];
+  for (let index = 0; index < count; index += 1) {
+    segments.push({a: points[index], b: points[(index + 1) % count]});
+  }
+  return segments;
+}
+
+function pointOnBoundary(point, segments) {
+  return segments.some(({a, b}) => orientation(a, b, point) === 0 && onSegment(point, a, b, 0));
+}
+
+// Interior hatch islands can be masks for furniture, rather than floor holes.
+// Exterior measurement is therefore an explicit convention, never the default
+// net hatch calculation. It retains a real source ring, not its bounding box.
+export function getExteriorContour(element) {
+  const sourceElementId = element?.id ?? element?.source_id ?? null;
+  const unavailable = reason => ({available: false, reason, element: null,
+    ignoredRingCount: 0, sourceElementId, rawArea: null, rawPerimeter: null});
+  const excluded = exclusionFor(element);
+  if (excluded) return unavailable(['text', 'dimension', 'hatchPattern'].includes(excluded) ? 'no_geometry' : 'invalid_geometry');
+  const compound = Array.isArray(element.rings) && element.rings.length > 0;
+  const paths = compound ? element.rings : [element.points];
+  let segmentCount = 0;
+  for (const path of paths) {
+    if (!Array.isArray(path) || path.length < 3
+        || !finitePoint(path[0]) || !finitePoint(path.at(-1))) return unavailable('invalid_geometry');
+    const repeatedEnd = samePoint(path[0], path.at(-1));
+    if (!compound && element.closed !== true && !repeatedEnd) return unavailable('open_path');
+    segmentCount += path.length - (repeatedEnd ? 1 : 0);
+    if (segmentCount > MAX_AREA_SEGMENTS) return unavailable('complexity_limit');
+    if (path.some(point => !finitePoint(point))) return unavailable('invalid_geometry');
+  }
+
+  // Validate each possible exterior using the same area/topology guards as the
+  // normal measurement engine. Their combined quadratic work stays bounded by
+  // the total source-segment cap; invalid internal islands are never promoted.
+  const candidates = [];
+  let firstFailure = 'invalid_geometry';
+  for (let index = 0; index < paths.length; index += 1) {
+    const candidate = {...element, points: paths[index].map(point => point.slice(0, 2)), rings: [], closed: true};
+    const collection = collect([candidate], MAX_AREA_SEGMENTS);
+    const area = computeArea(collection, MAX_AREA_SEGMENTS);
+    if (area.area !== null) candidates.push({index, element: candidate, area});
+    else if (index === 0) firstFailure = area.reason;
+  }
+  if (!candidates.length) return unavailable(firstFailure);
+  candidates.sort((a, b) => b.area.area - a.area.area);
+  const exterior = candidates[0];
+  if (paths.length === 1) return {available: true, reason: null, element: exterior.element,
+    ignoredRingCount: 0, sourceElementId, rawArea: exterior.area.area, rawPerimeter: exterior.area.perimeter};
+
+  const origin = paths[0][0];
+  let span = 0;
+  for (const path of paths) for (const point of path) {
+    span = Math.max(span, Math.abs(point[0] - origin[0]), Math.abs(point[1] - origin[1]));
+  }
+  if (!positiveFinite(span)) return unavailable('numerical_range');
+  const normalized = paths.map(path => path.map(point => [(point[0] - origin[0]) / span, (point[1] - origin[1]) / span]));
+  const normalizedSegments = normalized.map(closedSegments);
+  const complexity = {};
+  let work = 0;
+  const spend = count => { work += count; if (work > MAX_AREA_SEGMENTS * MAX_AREA_SEGMENTS) throw complexity; };
+  const containsPoint = (point, ringIndex) => {
+    spend(normalized[ringIndex].length + normalizedSegments[ringIndex].length);
+    return pointOnBoundary(point, normalizedSegments[ringIndex]) || pointInRing(point, normalized[ringIndex]);
+  };
+  const containsPath = (outerIndex, innerIndex) => {
+    const outerEdges = normalizedSegments[outerIndex];
+    if (!normalized[innerIndex].every(point => containsPoint(point, outerIndex))) return false;
+    for (const segment of normalizedSegments[innerIndex]) {
+      const {a, b} = segment;
+      if (samePoint(a, b)) continue;
+      const cuts = [0, 1];
+      const axis = Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]) ? 0 : 1;
+      for (const edge of outerEdges) {
+        spend(1);
+        const relation = segmentRelation(segment, edge, 0);
+        if (relation === 'cross') return false;
+        if (relation === 'touch' || relation === 'overlap') {
+          for (const point of [edge.a, edge.b]) {
+            if (orientation(a, b, point) === 0 && onSegment(point, a, b, 0)) {
+              const position = (point[axis] - a[axis]) / (b[axis] - a[axis]);
+              if (position > 0 && position < 1) cuts.push(position);
+            }
+          }
+        }
+      }
+      // Checking only vertices would admit a chord that leaves a concave
+      // exterior through a corner. Check every interval between boundary hits.
+      cuts.sort((left, right) => left - right);
+      for (let index = 1; index < cuts.length; index += 1) {
+        if (cuts[index] === cuts[index - 1]) continue;
+        const position = cuts[index - 1] + (cuts[index] - cuts[index - 1]) / 2;
+        const middle = [a[0] + position * (b[0] - a[0]), a[1] + position * (b[1] - a[1])];
+        if (!containsPoint(middle, outerIndex)) return false;
+      }
+    }
+    return true;
+  };
+  try {
+    for (let index = 0; index < paths.length; index += 1) {
+      if (index !== exterior.index && !containsPath(exterior.index, index)) return unavailable('multiple_contours');
+    }
+    // Two source rings describing the same outside edge are ambiguous, even
+    // when their winding or intermediate collinear vertices differ.
+    for (const other of candidates.slice(1)) {
+      if (containsPath(other.index, exterior.index)) return unavailable('multiple_contours');
+    }
+  } catch (error) {
+    if (error === complexity) return unavailable('complexity_limit');
+    throw error;
+  }
+  return {available: true, reason: null, element: exterior.element,
+    ignoredRingCount: paths.length - 1, sourceElementId,
+    rawArea: exterior.area.area, rawPerimeter: exterior.area.perimeter};
+}
+
+/** Hit-testing a validated exterior; tolerance affects picking, never its area. */
+export function pointInExteriorContour(contour, point, tolerance = 0) {
+  if (!contour?.available || !finitePoint(point) || !Number.isFinite(tolerance) || tolerance < 0) return false;
+  const points = contour.element?.points;
+  if (!Array.isArray(points) || points.length < 3 || points.length > MAX_AREA_SEGMENTS + 1) return false;
+  const origin = points[0];
+  let span = 0;
+  for (const vertex of points) span = Math.max(span, Math.abs(vertex[0] - origin[0]), Math.abs(vertex[1] - origin[1]));
+  if (!positiveFinite(span)) return false;
+  const ring = points.map(vertex => [(vertex[0] - origin[0]) / span, (vertex[1] - origin[1]) / span]);
+  const candidate = [(point[0] - origin[0]) / span, (point[1] - origin[1]) / span];
+  const normalizedTolerance = tolerance / span;
+  if (!finitePoint(candidate) || !Number.isFinite(normalizedTolerance)) return false;
+  const segments = closedSegments(ring);
+  if (pointOnBoundary(candidate, segments) || pointInRing(candidate, ring)) return true;
+  if (normalizedTolerance === 0) return false;
+  return segments.some(({a, b}) => {
+    const dx = b[0] - a[0]; const dy = b[1] - a[1];
+    const squaredLength = dx * dx + dy * dy;
+    const position = squaredLength === 0 ? 0 : Math.max(0, Math.min(1,
+      ((candidate[0] - a[0]) * dx + (candidate[1] - a[1]) * dy) / squaredLength));
+    return Math.hypot(candidate[0] - (a[0] + position * dx), candidate[1] - (a[1] + position * dy)) <= normalizedTolerance;
+  });
+}
+
 function metricValues(raw, factor) {
   const result = {};
   for (const [name, value] of Object.entries(raw)) {

@@ -26,6 +26,7 @@
 .cad-stage { position: relative; width: 100%; height: min(65vh, 660px); min-height: 420px; overflow: hidden; border: 1px solid var(--cad-border); border-radius: 8px; background: #fff; scroll-margin-top: 24px; }
 .cad-drawing-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
 .cad-tool-select .cad-drawing-canvas { cursor: crosshair; }
+.cad-tool-contour .cad-drawing-canvas { cursor: crosshair; }
 .cad-tool-rectangle .cad-drawing-canvas { cursor: crosshair; }
 .cad-tool-pan .cad-drawing-canvas { cursor: grab; }
 .cad-tool-pan .cad-drawing-canvas:active { cursor: grabbing; }
@@ -39,6 +40,10 @@
 .cad-overview button { border: none; border-top: 1px solid #e1e8e6; border-radius: 0; font-size: 10px; padding: 5px; width: 100%; }
 .cad-zoom { position: absolute; right: 12px; bottom: 12px; background: #f5f8f6e6; padding: 5px 8px; border-radius: 4px; font-size: 11px; color: #405b60; pointer-events: none; }
 .cad-help, .cad-source-note { font-size: 11px; line-height: 1.6; margin: 9px 0; color: #53656b; }
+.cad-contour-help { padding: 9px 12px; margin: 0 0 10px; border-left: 3px solid var(--cad-accent); background: #edf5f2; font-size: 12px; line-height: 1.55; color: #315e50; }
+.cad-contour-help p { margin: 3px 0; }
+.cad-contour-choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cad-contour-choices button { text-align: left; overflow-wrap: anywhere; }
 .cad-source-note { border-left: 3px solid #b6cfca; padding-left: 9px; }
 .cad-inspector { min-width: 0; max-height: 1000px; overflow-y: auto; padding-left: 16px; border-left: 1px solid var(--cad-border); font-size: 12px; }
 .cad-inspector h3 { font-size: 13px; margin: 0 0 9px; }
@@ -89,6 +94,7 @@
 .cad-measurement-heading h3 { font-size: 16px; margin: 0; color: #174e48; }
 .cad-measurement-heading > span { font-size: 9px; color: #73501f; background: #fff3d9; padding: 4px 6px; border-radius: 4px; }
 .cad-measurement-heading > span.is-confirmed { color: #165c49; background: #dfeee5; }
+.cad-measurement-heading > span.is-warning { color: #75451a; background: #ffe7be; font-weight: 650; }
 .cad-measurement-scope { display: grid; gap: 8px; margin: 9px 0; }
 .cad-measurement-scope p { margin: 0; font-size: 11px; line-height: 1.5; color: #4e6762; }
 .cad-measurement-actions { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -105,6 +111,13 @@
 .cad-measurement-next { color: #245d51; font-weight: 550; }
 .cad-measurement-hidden, .cad-measurement-approximation { border-left: 3px solid #ccaa77; padding-left: 8px; color: #705229; }
 .cad-area-reason { padding: 8px; background: #eaf2ee; border-radius: 4px; }
+.cad-area-reason p { margin: 0; }
+.cad-area-reason button { margin-top: 8px; font-size: 11px; min-height: 34px; }
+.cad-area-mode { display: grid; gap: 6px; margin: 12px 0 8px; font-size: 11px; font-weight: 650; color: #315e50; }
+.cad-area-convention { padding: 9px; border-left: 3px solid #52917a; background: #e9f3ed; color: #315e50; font-size: 11px; line-height: 1.55; margin: 8px 0; }
+.cad-unit-mismatch { padding: 10px; margin: 10px 0; border: 1px solid #d6aa70; border-radius: 6px; background: #fff4e4; color: #70491e; font-size: 11px; line-height: 1.55; }
+.cad-unit-mismatch p { margin: 6px 0; }
+.cad-unit-mismatch button { min-height: 36px; margin-top: 3px; background: #fff; color: #70491e; border-color: #c89452; font-size: 11px; }
 .cad-scale-current { border-top: 1px solid #d2e2d8; padding-top: 9px; margin-top: 10px; }
 .cad-scale-current p { font-size: 11px; margin: 6px 0; line-height: 1.5; color: #355e50; }
 .cad-scale-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }

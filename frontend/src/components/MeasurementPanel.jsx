@@ -29,6 +29,7 @@ const METRICS = [
 export default function MeasurementPanel({
   elements, hiddenSelectedCount = 0, documentFormat, unitsCode, scope, viewIdentity,
   scale, onScaleChange, onClearSelection, onReturnToDrawing, panelId, sectionRef,
+  areaMode = 'source', exteriorChoice, onAreaModeChange, onChooseContour,
 }) {
   const ownId = useId();
   const knownInputId = `${ownId}-known`;
@@ -50,18 +51,28 @@ export default function MeasurementPanel({
   const calibrationEligible = result.calibration?.eligible === true;
   const metricRangeError = result.metricReason === 'numerical_range' || result.warnings?.includes('metric_numerical_range');
   const scaleFactor = scale ? formatScaleFactor(scale.metresPerUnit) : null;
+  const unitMismatch = Boolean(unitAllowed && declaredUnit && scale?.method === 'unit' && scale.unit !== declaredUnit.unit);
+  const appliedUnitLabel = UNIT_OPTIONS.find(option => option.value === scale?.unit)?.label.toLocaleLowerCase('es') || scale?.unit;
+  const exteriorMode = areaMode === 'exterior';
+  const canChooseAreaMode = exteriorChoice?.available && exteriorChoice.ignoredRingCount > 0 && onAreaModeChange;
 
   useEffect(() => {
     setUnitChoice(suggestedUnit); setKnownMetres(''); setError(''); setNotice(''); setShowScaleEditor(true);
   }, [viewIdentity, suggestedUnit]);
   useEffect(() => { setKnownMetres(''); setError(''); }, [elements]);
 
+  const confirmUnit = unit => {
+    const factor = deriveScaleFromUnit(unit);
+    if (!unitAllowed || !Number.isFinite(factor) || factor <= 0) { setError('Elige una unidad válida antes de aplicarla.'); return; }
+    onScaleChange({metresPerUnit: factor, method: 'unit', unit});
+    setUnitChoice(unit); setError(''); setShowScaleEditor(false);
+    setNotice(declaredUnit && unit !== declaredUnit.unit
+      ? 'Unidad aplicada. Revisa la diferencia con la unidad declarada en el archivo.'
+      : 'Unidad confirmada por ti y aplicada solo a esta vista.');
+  };
   const applyUnit = event => {
     event.preventDefault();
-    const factor = deriveScaleFromUnit(unitChoice);
-    if (!unitAllowed || !Number.isFinite(factor) || factor <= 0) { setError('Elige una unidad válida antes de aplicarla.'); return; }
-    onScaleChange({metresPerUnit: factor, method: 'unit', unit: unitChoice});
-    setError(''); setNotice('Unidad confirmada por ti y aplicada solo a esta vista.'); setShowScaleEditor(false);
+    confirmUnit(unitChoice);
   };
   const applyCalibration = event => {
     event.preventDefault();
@@ -84,7 +95,7 @@ export default function MeasurementPanel({
   };
 
   return <section id={panelId} ref={sectionRef} className="cad-measurements" tabIndex={-1} aria-labelledby={`${ownId}-title`}>
-    <div className="cad-measurement-heading"><h3 id={`${ownId}-title`}>Medidas</h3><span className={scale ? 'is-confirmed' : ''}>{scale ? 'Escala aplicada' : 'Escala pendiente'}</span></div>
+    <div className="cad-measurement-heading"><h3 id={`${ownId}-title`}>Medidas</h3><span className={unitMismatch ? 'is-warning' : scale ? 'is-confirmed' : ''}>{unitMismatch ? 'Revisar unidad' : scale ? 'Escala aplicada' : 'Escala pendiente'}</span></div>
     <div className="cad-measurement-scope">
       <p><strong>{elements.length.toLocaleString('es-EC')}</strong> {elements.length === 1 ? 'elemento seleccionado' : 'elementos seleccionados'}<br />
         {result.eligibleCount.toLocaleString('es-EC')} {result.eligibleCount === 1 ? 'elemento compatible' : 'elementos compatibles'} · {result.excludedCount.toLocaleString('es-EC')} {result.excludedCount === 1 ? 'excluido' : 'excluidos'}</p>
@@ -93,6 +104,23 @@ export default function MeasurementPanel({
         {elements.length > 0 && <button type="button" onClick={onClearSelection}>Limpiar</button>}
       </div>
     </div>
+    {unitMismatch && <div className="cad-unit-mismatch" role="status">
+      <strong>La unidad aplicada difiere del archivo</strong>
+      <p>El archivo declara <strong>{declaredUnit.label.toLocaleLowerCase('es')}</strong>; sus coordenadas se están interpretando como <strong>{appliedUnitLabel}</strong>.</p>
+      <p>Los resultados se muestran siempre en m y m². Confirma la unidad de las coordenadas antes de comparar medidas.</p>
+      {suggestedUnit && <button type="button" onClick={() => confirmUnit(suggestedUnit)}>Usar {declaredUnit.label.toLocaleLowerCase('es')} del archivo</button>}
+    </div>}
+    {canChooseAreaMode && <label className="cad-area-mode">Qué área medir
+      <select aria-label="Área a medir" value={areaMode} onChange={event => onAreaModeChange(event.target.value)}>
+        <option value="source">Trazado CAD con recortes</option>
+        <option value="exterior">Solo contorno exterior</option>
+      </select>
+    </label>}
+    {exteriorMode && <p className="cad-area-convention">Se mide el contorno exterior seleccionado.{exteriorChoice?.ignoredRingCount > 0 && ' Los recortes interiores no se descuentan; pueden representar muebles u otros detalles gráficos. Revisa qué corresponde medir.'}</p>}
+    {result.areaStatus !== 'available' && <div className="cad-area-reason">
+      <p><strong>Área pendiente.</strong> {AREA_REASONS[result.areaReason] || 'No se puede determinar un área para esta selección. Selecciona un único contorno cerrado y continuo.'}</p>
+      {onChooseContour && <button type="button" onClick={onChooseContour}>Elegir contorno cerrado</button>}
+    </div>}
     {excluded.length > 0 && <p className="cad-measurement-excluded"><strong>{result.excludedCount.toLocaleString('es-EC')} {result.excludedCount === 1 ? 'excluido' : 'excluidos'}:</strong> {excluded.map(([kind, count]) => `${EXCLUDED_LABELS[kind] || 'otros elementos'} (${count.toLocaleString('es-EC')})`).join('; ')}. No se suman a las medidas.</p>}
     {hiddenSelectedCount > 0 && <p className="cad-measurement-hidden">La selección incluye <strong>{hiddenSelectedCount.toLocaleString('es-EC')} {hiddenSelectedCount === 1 ? 'elemento oculto' : 'elementos ocultos'}</strong>; {hiddenSelectedCount === 1 ? 'también se considera' : 'también se consideran'}, con las exclusiones indicadas.</p>}
     <div className="cad-measurement-values" aria-live="polite" aria-atomic="true">
@@ -100,7 +128,9 @@ export default function MeasurementPanel({
         const value = hasGeometry ? (scale ? result.metric?.[key] : result.raw?.[key]) : null;
         const available = Number.isFinite(value);
         const approximate = result.approximate?.[key] || (scale && scale.approximate);
-        return <div key={key} className={`cad-measurement-value cad-measurement-${key}`}><span>{label}</span>
+        const shownLabel = exteriorMode && key === 'perimeter' ? 'Perímetro exterior'
+          : exteriorMode && key === 'area' ? 'Área del contorno exterior' : label;
+        return <div key={key} className={`cad-measurement-value cad-measurement-${key}`}><span>{shownLabel}</span>
           <strong>{available && approximate ? '≈ ' : ''}{formatDrawingNumber(value)}{available && <small>{scale ? metricUnit : rawUnit}</small>}</strong>
           {scale && hasGeometry && Number.isFinite(result.raw?.[key]) && <small>{formatDrawingNumber(result.raw[key])} {rawUnit} del dibujo</small>}
         </div>;
@@ -109,20 +139,20 @@ export default function MeasurementPanel({
     {!scale && <p className="cad-measurement-next">u = unidades del dibujo. {unitAllowed ? 'Aplica una unidad o calibra una referencia para obtener m y m².' : 'Calibra una longitud conocida para obtener m y m².'}</p>}
     {scale && metricRangeError && <p className="cad-measurement-error" role="status">La escala aplicada produce cantidades demasiado grandes o pequeñas para representarlas de forma confiable. Se conservan los valores en unidades del dibujo; restablece la escala y revisa la unidad o la referencia.</p>}
     {hasGeometry && <p className="cad-length-scope">La longitud suma los trazados compatibles seleccionados. Los trazados coincidentes cuentan por separado; no equivale a cantidades de obra.</p>}
-    {result.areaMode === 'compound_rings' && elements.some(item => item.rings?.length > 1) && <p className="cad-length-scope">El área descuenta los huecos interiores del contorno. El perímetro incluye el borde exterior y los bordes de esos huecos.</p>}
-    {result.areaStatus !== 'available' && <p className="cad-area-reason">{AREA_REASONS[result.areaReason] || 'No se puede determinar un área para esta selección. Selecciona un único contorno cerrado y continuo.'}</p>}
+    {!exteriorMode && result.areaMode === 'compound_rings' && elements.some(item => item.rings?.length > 1) && <p className="cad-length-scope">El área descuenta los recortes interiores del trazado CAD. Algunos recortes representan muebles o símbolos; revisa qué corresponde descontar. El perímetro suma todos sus bordes.</p>}
     {hasCurveApproximation && <p className="cad-measurement-approximation">La selección contiene curvas representadas por tramos. Sus longitudes y áreas son aproximadas.</p>}
     {result.warnings?.includes('roundoff_endpoint_matching') && <p className="cad-measurement-approximation">El cierre utiliza extremos coincidentes dentro de una tolerancia numérica. Revisa el contorno seleccionado.</p>}
     {scale ? <div className="cad-scale-current">
-      <p><strong>{scale.method === 'known_length' ? 'Calibración con referencia' : 'Unidad confirmada por ti'}</strong><br />1 u {scaleFactor.approximate ? '≈' : '='} {scaleFactor.text} m.</p>
+      <p><strong>{scale.method === 'known_length' ? 'Calibración con referencia' : unitMismatch ? 'Unidad aplicada: revisar' : 'Unidad confirmada por ti'}</strong><br />1 u {scaleFactor.approximate ? '≈' : '='} {scaleFactor.text} m.</p>
       {scale.method === 'known_length' && <p>Referencia: <span className="cad-reference-id">{scale.referenceElementId}</span><br />{formatDrawingNumber(scale.referenceLengthDrawingUnits)} u = {formatDrawingNumber(scale.knownLengthMetres)} m.</p>}
       <div className="cad-scale-actions"><button type="button" onClick={() => setShowScaleEditor(value => !value)} aria-expanded={showScaleEditor}>{showScaleEditor ? 'Cerrar ajustes' : 'Cambiar escala'}</button><button type="button" onClick={reset}>Restablecer escala</button></div>
     </div> : null}
     {showScaleEditor && <div className="cad-scale-editor">
       {unitAllowed ? <form onSubmit={applyUnit} className="cad-unit-form">
-        <label>Unidad del dibujo<select value={unitChoice} onChange={event => { setUnitChoice(event.target.value); setError(''); }} aria-label="Unidad del dibujo">
+        <label>Unidad de las coordenadas CAD<select value={unitChoice} onChange={event => { setUnitChoice(event.target.value); setError(''); }} aria-label="Unidad del dibujo">
           <option value="">Seleccionar unidad…</option>{UNIT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select></label>
+        <p>Elige cómo se dibujó el archivo. Los resultados se muestran siempre en metros y m², aunque las coordenadas estén en milímetros.</p>
         {declaredUnit ? <p>El archivo declara {declaredUnit.label.toLocaleLowerCase('es')}. Es una sugerencia; no se aplica hasta que la confirmes.</p> : <p>No hay una unidad utilizable confirmada en los datos del archivo. Elígela si la conoces o usa una longitud de referencia.</p>}
         <button type="submit" disabled={!unitChoice}>Aplicar unidad</button>
       </form> : <p className="cad-calibration-only">{documentFormat === 'pdf' ? 'En PDF, las coordenadas de la página no indican metros reales.' : 'Esta presentación necesita su propia referencia de escala.'} Calibra con una longitud conocida; no se aplica la unidad del espacio modelo.</p>}
