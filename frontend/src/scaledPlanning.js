@@ -118,6 +118,7 @@ export function updatePlanningShape(shape, patch) {
     const targetWidth = Object.hasOwn(patch, 'widthMetres') ? patch.widthMetres : width;
     const targetDepth = Object.hasOwn(patch, 'depthMetres') ? patch.depthMetres : depth;
     if (!validDimension(targetWidth) || !validDimension(targetDepth) || !positive(width) || !positive(depth)) return null;
+    if (targetWidth === width && targetDepth === depth) return polygonWithVertices(candidate, vertices);
     const cx = bounds[0] + width / 2, cy = bounds[1] + depth / 2;
     return polygonWithVertices(candidate, vertices.map(([x, y]) => [cx + (x - cx) * targetWidth / width, cy + (y - cy) * targetDepth / depth]));
   }

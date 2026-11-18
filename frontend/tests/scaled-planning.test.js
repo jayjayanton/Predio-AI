@@ -287,6 +287,26 @@ test('numeric dimensions and bounding handles reshape actual polygon vertices', 
   }
 });
 
+test('polygon label and role edits preserve arbitrary offset vertices exactly', () => {
+  const verticesMetres = [[1.23456789012345, -2.34567890123456], [4.56789012345678, -2.23456789012345],
+    [5.45678901234567, 1.87654321098765], [2.87654321098765, 2.76543210987654]];
+  const bounds = extent(verticesMetres);
+  const shape = {kind: 'polygon', id: 'precise', label: 'Polígono', role: 'furniture', center: [12345, -67890],
+    rotationDegrees: 27, verticesMetres, widthMetres: bounds[2] - bounds[0], depthMetres: bounds[3] - bounds[1]};
+  const original = structuredClone(shape);
+  for (const patch of [{label: 'Sala', role: 'extension'},
+    {label: 'Ampliación', widthMetres: shape.widthMetres, depthMetres: shape.depthMetres}]) {
+    const updated = updatePlanningShape(shape, patch);
+    assert.ok(updated);
+    assert.deepEqual(updated.verticesMetres, original.verticesMetres);
+    assert.deepEqual(shapeDrawingRing(updated, 0.001), shapeDrawingRing(shape, 0.001));
+    assert.equal(updated.widthMetres, original.widthMetres); assert.equal(updated.depthMetres, original.depthMetres);
+    assert.equal(updated.label, patch.label);
+  }
+  assert.equal(updatePlanningShape(shape, {role: 'invalid'}), null, 'metadata-only edits still validate');
+  assert.deepEqual(shape, original);
+});
+
 test('custom polygon exports share footprint origin and keep valid exterior winding in either drawing direction', () => {
   const scale = {metresPerUnit: 0.001, method: 'unit', unit: 'mm'};
   const offset = [1e9, -1e9];

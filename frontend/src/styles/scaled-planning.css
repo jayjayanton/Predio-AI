@@ -8,6 +8,10 @@
 .cad-studio-count { font-size: 11px; color: #5e7669; background: #edf3ed; padding: 5px 7px; border-radius: 5px; font-variant-numeric: tabular-nums; }
 .cad-studio-description { color: #5c7065; font-size: 12px; line-height: 1.65; margin: 10px 0 14px; }
 .cad-sketch-tools { padding: 13px; border: 1px solid #c9dacc; border-radius: 9px; background: #f5f9f2; margin: 14px 0; }
+.cad-sketch-tools[hidden] { display: none; }
+.cad-viewer .cad-sketch-disclosure { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 40px; padding: 10px 12px; margin: 12px 0; border-color: #c9dacc; background: #f5f9f2; color: #315c45; font-size: 11px; font-weight: 600; text-align: left; }
+.cad-sketch-disclosure > span { font-size: 18px; font-weight: 400; line-height: 1; }
+.cad-viewer .cad-sketch-disclosure[aria-expanded="true"] { background: #e8f2e6; border-color: #adc8b1; }
 .cad-sketch-tools h4 { margin: 0 0 10px; color: #28533e; font-size: 13px; font-weight: 650; }
 .cad-sketch-tools > .cad-studio-field { margin: 0 0 12px; }
 .cad-sketch-tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
@@ -41,7 +45,8 @@
 .cad-shape-edit-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; background: #eef2e9; padding: 4px; border-radius: 7px; }
 .cad-viewer .cad-shape-edit-modes button { width: 100%; min-height: 37px; border: 1px solid transparent; border-radius: 5px; padding: 7px 6px; font-size: 10px; background: transparent; color: #5c735f; margin: 0; }
 .cad-viewer .cad-shape-edit-modes button[aria-pressed="true"] { background: #fff; border-color: #d4dfcf; color: #25553d; box-shadow: 0 1px 3px #1c3a2810; }
-.cad-vertex-editor > p { font-size: 11px; color: #5a735f; line-height: 1.65; margin: 10px 0; }
+.cad-shape-edit-tools > p { font-size: 11px; color: #5a735f; line-height: 1.65; margin: 10px 0; }
+.cad-vertex-editor { margin-top: 15px; padding-top: 4px; border-top: 1px solid #dbe4d9; }
 .cad-vertex-actions { display: flex; gap: 6px; }
 .cad-viewer .cad-vertex-actions button { flex: 1; width: auto; min-height: 39px; margin: 0; padding: 8px; font-size: 10px; }
 .cad-vertex-editor > small { display: block; margin: 8px 0 14px; color: #6d7f6c; font-size: 10px; line-height: 1.6; }

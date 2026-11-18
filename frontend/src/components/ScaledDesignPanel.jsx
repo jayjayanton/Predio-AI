@@ -2,6 +2,7 @@ import React, {useEffect, useId, useState} from 'react';
 import {normalizeRotation, parseDimension, planningShapeMetrics, PLANNING_LIMITS} from '../scaledPlanning.js';
 
 const format = n => Number.isFinite(n) ? n.toLocaleString('es-EC', {maximumFractionDigits: 2}) : '—';
+const dimensionInput = n => Number.isFinite(n) ? String(Number(n.toFixed(4))) : '';
 const dimensionLabel = shape => shape.kind === 'circle' ? `Ø ${format(shape.widthMetres)} m`
   : shape.kind === 'polygon' ? `${shape.verticesMetres.length} puntos · ${format(planningShapeMetrics(shape)?.areaM2)} m²`
     : `${format(shape.widthMetres)} × ${format(shape.depthMetres)} m`;
@@ -31,6 +32,7 @@ export default function ScaledDesignPanel({shapes, selectedId, scale, showShapes
   const id = useId();
   const [fields, setFields] = useState({});
   const [error, setError] = useState('');
+  const [showDrawingTools, setShowDrawingTools] = useState(false);
   const activeTool = DRAWING_TOOLS.find(item => drawingTool === `draw-${item.kind}`);
   const isDrawing = Boolean(activeTool);
   const drawingByPoints = activeTool?.kind === 'polygon' || activeTool?.kind === 'triangle';
@@ -40,27 +42,36 @@ export default function ScaledDesignPanel({shapes, selectedId, scale, showShapes
   const maxVertices = PLANNING_LIMITS.maxVertices ?? PLANNING_LIMITS.maxPolygonVertices ?? 128;
   const selectedMetrics = selected ? planningShapeMetrics(selected) : null;
   const canCreate = Boolean(scale) && shapes.length < PLANNING_LIMITS.maxShapes;
+  const isEditing = Boolean(selected) && !isDrawing;
+  const drawingToolsVisible = !isEditing || showDrawingTools;
   useEffect(() => {
-    setFields(selected ? {label: selected.label, width: String(selected.widthMetres), depth: String(selected.depthMetres), rotation: String(selected.rotationDegrees), role: selected.role} : {});
+    setFields(selected ? {label: selected.label, width: dimensionInput(selected.widthMetres), depth: dimensionInput(selected.depthMetres), rotation: String(selected.rotationDegrees), role: selected.role} : {});
     setError('');
   }, [selected]);
+  useEffect(() => setShowDrawingTools(false), [selected?.id]);
   const update = (name, value) => { setFields(current => ({...current, [name]: value})); setError(''); };
   const submit = event => {
     event.preventDefault(); if (!selected || !scale) return;
-    const width = parseDimension(fields.width), depth = selected.kind === 'circle' ? width : parseDimension(fields.depth);
+    // Display rounding is presentation only. An untouched field must not resize
+    // geometry when the user changes a name, role or rotation.
+    const widthChanged = fields.width !== dimensionInput(selected.widthMetres);
+    const depthChanged = selected.kind !== 'circle' && fields.depth !== dimensionInput(selected.depthMetres);
+    const width = widthChanged ? parseDimension(fields.width) : selected.widthMetres;
+    const depth = selected.kind === 'circle' ? width : depthChanged ? parseDimension(fields.depth) : selected.depthMetres;
     const rotation = /^-?\d+(?:[.,]\d+)?$/.test(String(fields.rotation).trim()) ? Number(String(fields.rotation).replace(',', '.')) : NaN;
     if (width === null || depth === null) { setError('Introduce medidas entre 0,01 y 200 metros. Puedes usar coma decimal.'); return; }
     if (!Number.isFinite(rotation) || Math.abs(rotation) > 36000) { setError('Introduce un ángulo válido en grados.'); return; }
     if (!fields.label?.trim()) { setError('Dale un nombre a la figura.'); return; }
-    onUpdate(selected.id, {label: fields.label.trim().slice(0, 60), widthMetres: width, depthMetres: depth,
+    onUpdate(selected.id, {label: fields.label.trim().slice(0, 60), ...(widthChanged ? {widthMetres: width} : {}), ...(depthChanged ? {depthMetres: depth} : {}),
       rotationDegrees: normalizeRotation(rotation), role: fields.role});
     setError('');
   };
-  return <section className="cad-design-panel" aria-label="Figuras a escala">
+  return <section className={`cad-design-panel${isEditing ? ' is-editing' : ''}`} aria-label="Figuras a escala">
     <div className="cad-studio-panel-heading"><div><span className="cad-studio-eyebrow">DISEÑA SOBRE TU PLANO</span><h3>Figuras a escala</h3></div><span className="cad-studio-count">{shapes.length}/{PLANNING_LIMITS.maxShapes}</span></div>
-    <p className="cad-studio-description">Dibuja tus propios contornos. Arrastra sus esquinas para ampliar, reducir o cambiar la forma, siempre a la escala del plano.</p>
+    <p className="cad-studio-description">{isEditing ? 'Ajusta la figura en el plano o introduce sus medidas.' : 'Dibuja tus propios contornos. Arrastra sus esquinas para ampliar, reducir o cambiar la forma, siempre a la escala del plano.'}</p>
     {!scale && <div className="cad-design-empty"><strong>Primero, confirma la escala.</strong><p>Una figura de 1 metro necesita la unidad o una longitud de referencia del dibujo.</p><button type="button" onClick={onConfirmScale}>Confirmar escala en Medidas</button></div>}
-    <div className="cad-sketch-tools" aria-label="Dibujar sobre el plano">
+    {isEditing && <button type="button" className="cad-sketch-disclosure" aria-expanded={showDrawingTools} aria-controls={`${id}-drawing-tools`} onClick={() => setShowDrawingTools(value => !value)}>Dibujar otra figura<span aria-hidden="true">{showDrawingTools ? '−' : '+'}</span></button>}
+    <div className="cad-sketch-tools" id={`${id}-drawing-tools`} aria-label="Dibujar sobre el plano" hidden={!drawingToolsVisible}>
       <h4>Dibujar sobre el plano</h4>
       <label className="cad-studio-field" htmlFor={`${id}-drawing-role`}>Uso del nuevo dibujo<select id={`${id}-drawing-role`} value={drawingRole} disabled={!scale || !onDrawingRoleChange || isDrawing} onChange={event => onDrawingRoleChange?.(event.target.value)}><option value="furniture">Mobiliario o referencia</option><option value="extension">Ampliación propuesta</option></select></label>
       <div className="cad-sketch-tool-grid">{DRAWING_TOOLS.map(item => <button type="button" key={item.kind}
@@ -87,44 +98,46 @@ export default function ScaledDesignPanel({shapes, selectedId, scale, showShapes
       <small>{drawingByPoints ? 'Enter: terminar · Esc: cancelar' : 'Esc: cancelar'}</small>
     </div>}
     {draftError && <p className="cad-design-error" role="alert">{draftError}</p>}
-    <details className="cad-design-shortcuts"><summary>Atajos de mobiliario</summary><p>Empieza con una medida sugerida y cambia su forma o tamaño.</p><div className="cad-design-presets">
-      <button type="button" disabled={!canCreate || isDrawing} onClick={() => onAdd('table')}><span aria-hidden="true">▭</span>Mesa <small>1,60 × 0,90 m</small></button>
-      <button type="button" disabled={!canCreate || isDrawing} onClick={() => onAdd('circle')}><span aria-hidden="true">○</span>Círculo <small>Ø 1,00 m</small></button>
-      <button type="button" className="cad-extension-preset" disabled={!canCreate || isDrawing} onClick={() => onAdd('extension')}><span aria-hidden="true">▱</span>Ampliación <small>3,00 × 4,00 m</small></button>
-    </div></details>
-    <div className="cad-design-history"><button type="button" onClick={onUndo} disabled={!history.past.length || isDrawing}>↶ Deshacer</button><button type="button" onClick={onRedo} disabled={!history.future.length || isDrawing}>↷ Rehacer</button></div>
     {shapes.length > 0 && <>
-      <label className="cad-inline-check cad-design-visibility"><input type="checkbox" checked={showShapes} disabled={isDrawing} onChange={event => onShowShapes(event.target.checked)} /> Mostrar figuras en el plano</label>
-      {!showShapes && <p className="cad-studio-description">Ocultas solo en el visor; las ampliaciones siguen incluidas en el escenario.</p>}
       <label className="cad-studio-field">Figura activa<select aria-label="Figura activa" disabled={isDrawing} value={selected?.id || ''} onChange={event => onSelect(event.target.value)}><option value="">Selecciona una figura…</option>{shapes.map(shape => <option key={shape.id} value={shape.id}>{shape.label} · {dimensionLabel(shape)}</option>)}</select></label>
     </>}
     {selected && !isDrawing && <>
       {selectedMetrics && <dl className="cad-sketch-metrics cad-shape-metrics" aria-label="Medidas de la figura"><div><dt>Área de la figura</dt><dd>{format(selectedMetrics.areaM2)} <small>m²</small></dd></div><div><dt>Perímetro</dt><dd>{format(selectedMetrics.perimeterM)} <small>m</small></dd></div></dl>}
-      {polygon && <div className="cad-vertex-editor">
+      {polygon && <div className="cad-shape-edit-tools">
         <div className="cad-shape-edit-modes" role="group" aria-label="Editar la forma del polígono"><button type="button" aria-pressed={editMode === 'vertices'} disabled={!scale || !onEditModeChange} onClick={() => onEditModeChange?.('vertices')}>Editar vértices</button><button type="button" aria-pressed={editMode === 'resize'} disabled={!scale || !onEditModeChange} onClick={() => onEditModeChange?.('resize')}>Cambiar tamaño</button></div>
         <p>{editMode === 'resize' ? 'Arrastra las esquinas del marco para ampliar o reducir el polígono completo.' : 'Arrastra un punto para cambiar el contorno. Los puntos intermedios de cada lado permiten añadir una esquina.'}</p>
-        {editMode === 'vertices' && <><label className="cad-studio-field">Punto del polígono<select aria-label="Punto del polígono" value={hasSelectedVertex ? String(selectedVertex) : ''} onChange={event => onSelectVertex?.(event.target.value === '' ? null : Number(event.target.value))} disabled={!scale || !onSelectVertex}><option value="">Selecciona un punto…</option>{vertices.map((_, index) => <option value={index} key={index}>Punto {index + 1}</option>)}</select></label>
-          <div className="cad-vertex-actions"><button type="button" disabled={!scale || !hasSelectedVertex || vertices.length >= maxVertices || !onInsertVertex} onClick={() => onInsertVertex?.(selectedVertex)}>Añadir punto después</button><button type="button" disabled={!scale || !hasSelectedVertex || vertices.length <= 3 || !onRemoveVertex} onClick={() => onRemoveVertex?.(selectedVertex)}>Eliminar punto</button></div>
-          <small>{hasSelectedVertex ? `Punto ${selectedVertex + 1} seleccionado. El punto nuevo se añade a mitad del lado siguiente.` : 'Selecciona un punto aquí o en el plano para editarlo.'} {vertices.length} de {maxVertices} puntos.{vertices.length === 3 ? ' Un polígono necesita al menos 3 puntos.' : ''}</small>
-          <small className="cad-vertex-keyboard">Con un punto seleccionado en el plano: flechas para moverlo 5 cm, Mayús + flechas para 50 cm y Supr para eliminarlo. Esc cancela el ajuste en curso.</small>
-        </>}
       </div>}
       <form className="cad-shape-editor" onSubmit={submit}>
         <div className="cad-shape-editor-heading"><strong>{selected.kind === 'circle' ? 'Círculo' : polygon ? (vertices.length === 3 ? 'Triángulo' : 'Polígono libre') : Math.abs(selected.widthMetres - selected.depthMetres) < 1e-8 ? 'Cuadrado' : 'Rectángulo'}</strong><span className={selected.role === 'extension' ? 'is-extension' : ''}>{selected.role === 'extension' ? 'Ampliación propuesta' : 'Mobiliario / referencia'}</span></div>
-        <label className="cad-studio-field" htmlFor={`${id}-name`}>Nombre<input id={`${id}-name`} type="text" maxLength={60} value={fields.label || ''} onChange={event => update('label', event.target.value)} /></label>
         <div className="cad-design-dimensions">
           <label className="cad-studio-field" htmlFor={`${id}-width`}>{selected.kind === 'circle' ? 'Diámetro (m)' : 'Ancho (m)'}<input id={`${id}-width`} inputMode="decimal" type="text" value={fields.width || ''} onChange={event => update('width', event.target.value)} /></label>
           {selected.kind !== 'circle' && <label className="cad-studio-field" htmlFor={`${id}-depth`}>Fondo (m)<input id={`${id}-depth`} inputMode="decimal" type="text" value={fields.depth || ''} onChange={event => update('depth', event.target.value)} /></label>}
         </div>
         {polygon && <p className="cad-shape-size-note">Ancho y fondo corresponden al marco de la figura antes del giro. Cambiarlos ajusta todos sus puntos.</p>}
+        <label className="cad-studio-field" htmlFor={`${id}-name`}>Nombre<input id={`${id}-name`} type="text" maxLength={60} value={fields.label || ''} onChange={event => update('label', event.target.value)} /></label>
         <label className="cad-studio-field" htmlFor={`${id}-role`}>Uso en el escenario<select id={`${id}-role`} value={fields.role || 'furniture'} onChange={event => update('role', event.target.value)}><option value="furniture">Mobiliario o referencia</option><option value="extension">Ampliación propuesta</option></select></label>
         {selected.kind !== 'circle' && <label className="cad-studio-field" htmlFor={`${id}-rotation`}>Rotación (°)<input id={`${id}-rotation`} type="text" inputMode="decimal" value={fields.rotation ?? '0'} onChange={event => update('rotation', event.target.value)} /></label>}
         {error && <p className="cad-design-error" role="alert">{error}</p>}
         <button className="cad-studio-primary" type="submit" disabled={!scale}>Aplicar medidas</button>
         <div className="cad-design-actions"><button type="button" disabled={!canCreate} onClick={() => onDuplicate(selected.id)}>Duplicar</button><button type="button" className="cad-studio-delete" onClick={() => onDelete(selected.id)}>Eliminar figura</button></div>
       </form>
+      {polygon && editMode === 'vertices' && <div className="cad-vertex-editor"><label className="cad-studio-field">Punto del polígono<select aria-label="Punto del polígono" value={hasSelectedVertex ? String(selectedVertex) : ''} onChange={event => onSelectVertex?.(event.target.value === '' ? null : Number(event.target.value))} disabled={!scale || !onSelectVertex}><option value="">Selecciona un punto…</option>{vertices.map((_, index) => <option value={index} key={index}>Punto {index + 1}</option>)}</select></label>
+        <div className="cad-vertex-actions"><button type="button" disabled={!scale || !hasSelectedVertex || vertices.length >= maxVertices || !onInsertVertex} onClick={() => onInsertVertex?.(selectedVertex)}>Añadir punto después</button><button type="button" disabled={!scale || !hasSelectedVertex || vertices.length <= 3 || !onRemoveVertex} onClick={() => onRemoveVertex?.(selectedVertex)}>Eliminar punto</button></div>
+        <small>{hasSelectedVertex ? `Punto ${selectedVertex + 1} seleccionado. El punto nuevo se añade a mitad del lado siguiente.` : 'Selecciona un punto aquí o en el plano para editarlo.'} {vertices.length} de {maxVertices} puntos.{vertices.length === 3 ? ' Un polígono necesita al menos 3 puntos.' : ''}</small>
+        <small className="cad-vertex-keyboard">Con un punto seleccionado en el plano: flechas para moverlo 5 cm, Mayús + flechas para 50 cm y Supr para eliminarlo. Esc cancela el ajuste en curso.</small>
+      </div>}
       {scale && <div className="cad-shape-position"><span>Ajuste fino de la figura · 10 cm</span><div className="cad-shape-nudge"><button type="button" aria-label="Mover figura a la izquierda 10 centímetros" onClick={() => onMove(-0.1, 0)}>←</button><button type="button" aria-label="Mover figura arriba 10 centímetros" onClick={() => onMove(0, -0.1)}>↑</button><button type="button" aria-label="Mover figura abajo 10 centímetros" onClick={() => onMove(0, 0.1)}>↓</button><button type="button" aria-label="Mover figura a la derecha 10 centímetros" onClick={() => onMove(0.1, 0)}>→</button></div><button type="button" onClick={onReturn}>Colocar en el plano</button></div>}
     </>}
+    <div className="cad-design-history"><button type="button" onClick={onUndo} disabled={!history.past.length || isDrawing}>↶ Deshacer</button><button type="button" onClick={onRedo} disabled={!history.future.length || isDrawing}>↷ Rehacer</button></div>
+    {shapes.length > 0 && <>
+      <label className="cad-inline-check cad-design-visibility"><input type="checkbox" checked={showShapes} disabled={isDrawing} onChange={event => onShowShapes(event.target.checked)} /> Mostrar figuras en el plano</label>
+      {!showShapes && <p className="cad-studio-description">Ocultas solo en el visor; las ampliaciones siguen incluidas en el escenario.</p>}
+    </>}
+    <details className="cad-design-shortcuts"><summary>Atajos de mobiliario</summary><p>Empieza con una medida sugerida y cambia su forma o tamaño.</p><div className="cad-design-presets">
+      <button type="button" disabled={!canCreate || isDrawing} onClick={() => onAdd('table')}><span aria-hidden="true">▭</span>Mesa <small>1,60 × 0,90 m</small></button>
+      <button type="button" disabled={!canCreate || isDrawing} onClick={() => onAdd('circle')}><span aria-hidden="true">○</span>Círculo <small>Ø 1,00 m</small></button>
+      <button type="button" className="cad-extension-preset" disabled={!canCreate || isDrawing} onClick={() => onAdd('extension')}><span aria-hidden="true">▱</span>Ampliación <small>3,00 × 4,00 m</small></button>
+    </div></details>
     {shapes.length === 0 && scale && !isDrawing && <p className="cad-design-empty">Elige una herramienta y dibuja directamente sobre el plano. La forma y el tamaño los defines tú.</p>}
     <p className="cad-studio-footnote">Las figuras son propuestas editables. El archivo CAD original conserva su geometría. Solo las figuras marcadas como ampliación participan en la ocupación del escenario.</p>
   </section>;
