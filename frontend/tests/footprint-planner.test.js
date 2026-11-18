@@ -9,7 +9,7 @@ import {build} from 'vite';
 
 const frontendRoot=fileURLToPath(new URL('..',import.meta.url));
 const oldGlobals=new Map();
-let dom, tempDirectory, Panel, createRoot, root, container, requests, changes, props;
+let dom, tempDirectory, Panel, mapModuleUrl, createRoot, root, container, requests, changes, props;
 const ring=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y]];
 const shape=(width=3,role='extension')=>({id:'addition',label:'Ampliación',role,geometry:{type:'Polygon',coordinates:[ring(4,-2,width,4)]}});
 const snapshot=()=>({coordinateSpace:'local_metres',source:{documentName:'standalone.dwg',viewName:'Model',entityId:'42'},scale:{metresPerUnit:.001,method:'unit',unit:'mm'},origin:[0,0],
@@ -32,6 +32,9 @@ before(async()=>{
   const cacheRoot=join(frontendRoot,'node_modules/.cache/predio-component-tests');await mkdir(cacheRoot,{recursive:true});tempDirectory=await mkdtemp(join(cacheRoot,'footprint-'));
   for(const item of output.output)if(item.type==='chunk'){await mkdir(join(tempDirectory,item.fileName,'..'),{recursive:true});await writeFile(join(tempDirectory,item.fileName),item.code);}
   const entry=output.output.find(item=>item.type==='chunk'&&item.isEntry);
+  const mapChunk=output.output.find(item=>item.type==='chunk'&&Object.hasOwn(item.modules,'\0footprint-map-test'));
+  assert.ok(mapChunk,'the lazy map fixture is emitted as a module');
+  mapModuleUrl=pathToFileURL(join(tempDirectory,mapChunk.fileName)).href;
   ({default:Panel}=await import(pathToFileURL(join(tempDirectory,entry.fileName)).href));
 });
 beforeEach(async()=>{container=document.createElement('div');document.body.appendChild(container);root=createRoot(container);requests=[];changes=[];
@@ -42,6 +45,12 @@ async function render(extra={}){props={...props,...extra};await act(async()=>roo
 async function settle(){await act(async()=>new Promise(resolve=>setTimeout(resolve,340)));}
 function button(label){const el=[...container.querySelectorAll('button')].find(el=>el.textContent.includes(label));assert.ok(el,`button ${label}`);return el;}
 async function click(label){await act(async()=>button(label).click());}
+async function waitForPlacementMap(){
+  // The first tab click starts a real dynamic import. Await that exact emitted
+  // module before flushing Suspense; filesystem timing differs on CI/Node 20.
+  await act(async()=>{await import(mapModuleUrl);});
+  assert.ok(container.querySelector('[data-testid="placement-map"]'),'the lazy map surface has mounted');
+}
 function input(label){const el=[...container.querySelectorAll('input,select')].find(el=>el.labels?.[0]?.textContent.startsWith(label));assert.ok(el,`input ${label}`);return el;}
 async function value(label,text){const el=input(label);await act(async()=>{Object.getOwnPropertyDescriptor(el.tagName==='SELECT'?dom.window.HTMLSelectElement.prototype:dom.window.HTMLInputElement.prototype,'value').set.call(el,text);el.dispatchEvent(new dom.window.Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}));});}
 async function check(label){await act(async()=>input(label).click());}
@@ -71,7 +80,7 @@ test('late API responses never replace a newer source or show old parcel checks'
 
 test('a changed extension clears reviewed counted areas without moving the placed footprint',async()=>{
   await render({parcel,parcelProperties:{n_predio:'123456'},irm:irm()});
-  await click('Ubicar en el predio');assert.ok(container.querySelector('[data-testid="placement-map"]'));await value('Giro horario','35');await value('Latitud del origen','-0.20005');
+  await click('Ubicar en el predio');await waitForPlacementMap();await value('Giro horario','35');await value('Latitud del origen','-0.20005');
   await click('Revisar con el IRM');await value('Área útil/computable final en planta baja','75');await value('Área computable final de todos los pisos','140');
   await render({snapshot:{...props.snapshot,shapes:[shape(),{...shape(2,'furniture'),id:'table'}]}});
   assert.equal(input('Área útil/computable final en planta baja').value,'75','a furniture-only edit does not change countable building areas');
