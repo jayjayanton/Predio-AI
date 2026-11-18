@@ -126,7 +126,8 @@ def extract_dxf_primitives(model):
             if len(source_labels) >= MAX_SOURCE_LABELS:
                 source_label_limit_reached = True
                 return False
-            height = float(entity.dxf.get("height", entity.dxf.get("char_height", 0)) or 0)
+            height_attr = "char_height" if kind == "MTEXT" else "height" if kind in {"TEXT", "ATTRIB"} else None
+            height = float(entity.dxf.get(height_attr, 0) or 0) if height_attr else 0.0
             if not math.isfinite(height) or height < 0:
                 height = 0
             source_labels.append({
@@ -134,7 +135,7 @@ def extract_dxf_primitives(model):
                 "text": text[:120],
                 "position": position,
                 "layer": effective_layer(entity, inherited_layer),
-                "kind": ("source_area" if re.search(r"\d+(?:[.,]\d+)?\s*m(?:²|2|\\^2)", text, re.I)
+                "kind": ("source_area" if re.search(r"\d+(?:[.,]\d+)?\s*m(?:²|2|\^2)", text, re.I)
                          else "source_dimension" if kind == "DIMENSION" else "source_text"),
                 "source_type": kind,
                 "source_handle": handle(entity),
