@@ -27,8 +27,14 @@ explicitly available in this ArcGIS layer.
 
 import os
 import re
+import json
+from copy import deepcopy
 
 import httpx
+
+from .async_cache import AsyncTTLCache
+from .municipal_http import municipal_client, get
+from .spatial_geometry import transfer_limit
 
 
 # ============================================================
@@ -53,6 +59,13 @@ QUERY_URL = f"{LAYER_URL}/query"
 
 REQUEST_TIMEOUT = 30.0
 MAX_RESULTS = 10
+
+# Briefly reuse authoritative geometry between a property sheet and its PUGS
+# review. AIVA is deliberately excluded from this core cache.
+CORE_CACHE = AsyncTTLCache(
+    ttl=60, max_entries=128, max_weight=8 * 1024 * 1024,
+    weight=lambda value: len(json.dumps(value, separators=(",", ":")).encode("utf-8")),
+)
 
 ALLOWED_IDENTIFIERS = {
     "clave_cata",
@@ -111,7 +124,7 @@ def validate_identifier(
 # 4. ARCGIS QUERY
 # ============================================================
 
-async def lookup_predio(
+async def _fetch_core_predio(
     identifier: str,
     identifier_type: str = "clave_cata"
 ):
@@ -140,14 +153,10 @@ async def lookup_predio(
     }
 
     try:
-        async with httpx.AsyncClient(
-            timeout=REQUEST_TIMEOUT,
-            follow_redirects=False
-        ) as client:
+        async with municipal_client(REQUEST_TIMEOUT) as client:
 
-            response = await client.get(
-                QUERY_URL,
-                params=params
+            response = await get(
+                client, QUERY_URL, params=params, timeout=REQUEST_TIMEOUT,
             )
 
             response.raise_for_status()
@@ -159,34 +168,57 @@ async def lookup_predio(
             "or returned invalid JSON"
         ) from exc
 
-    if "error" in payload:
+    if not isinstance(payload, dict) or "error" in payload:
         raise MunicipalError(
             "Municipal ArcGIS service returned an error"
         )
 
-    if payload.get("type") != "FeatureCollection":
+    if (payload.get("type") != "FeatureCollection"
+            or not isinstance(payload.get("features"), list)
+            or any(not isinstance(feature, dict)
+                   or not isinstance(feature.get("properties") or {}, dict)
+                   for feature in payload["features"])):
         raise MunicipalError(
             "Unexpected municipal response format"
         )
 
-    # HYBRID SWITCH: comment out the next two executable lines to use only 2024.
+    complete = transfer_limit(payload)
+    if (complete is True or len(payload["features"]) > MAX_RESULTS
+            or (len(payload["features"]) == MAX_RESULTS and complete is not False)):
+        raise MunicipalError("Municipal lookup may be truncated; search by a unique predio number")
+
+    # The public lookup and PUGS reuse the same source-matched geometry.
     if payload.get("features"):
         payload = await _apply_2026_geometry(identifier, identifier_type, payload)
 
-    # AIVA SWITCH: comment out the next two executable lines to disable AIVA.
+    return payload
+
+
+async def lookup_core_predio(identifier: str, identifier_type: str = "clave_cata"):
+    """Retrieve exact cadastral geometry without optional valuation requests.
+
+    Source URLs form part of the key. Return an isolated copy so enrichment or
+    a caller cannot mutate the cached municipal evidence.
+    """
+    identifier = validate_identifier(identifier, identifier_type)
+    key = (QUERY_URL, NEW_2026_LAYER_URL, identifier_type, identifier)
+    payload, _ = await CORE_CACHE.load(
+        key, lambda: _fetch_core_predio(identifier, identifier_type),
+    )
+    return deepcopy(payload)
+
+
+async def lookup_predio(identifier: str, identifier_type: str = "clave_cata"):
+    """Preserve the public enriched property response using a reusable core."""
+    payload = await lookup_core_predio(identifier, identifier_type)
     if payload.get("features"):
         payload = await _apply_aiva_comparison(payload)
-
     return payload
 
 
 
 # ===================================================================
 # OPTIONAL 2026 HYBRID EXTENSION — BEGIN
-# To disable this entire extension tomorrow, comment out ONLY the
-# line marked "HYBRID SWITCH" inside lookup_predio(). The original
-# 2024 query will then run exactly as before.
-#
 # 2026 supplies the latest parcel geometry; 2024 continues to supply
 # detailed cadastral attributes. No other endpoint changes are needed.
 # ===================================================================
@@ -199,14 +231,12 @@ NEW_2026_LAYER_URL = (
 async def _lookup_2026_geometry(identifier: str) -> dict | None:
     """Fetch a 2026 parcel by numeric predio ID; None on any failure."""
     try:
-        async with httpx.AsyncClient(
-            timeout=REQUEST_TIMEOUT, follow_redirects=False
-        ) as client:
-            response = await client.get(
-                f"{NEW_2026_LAYER_URL}/query",
+        async with municipal_client(REQUEST_TIMEOUT) as client:
+            response = await get(
+                client, f"{NEW_2026_LAYER_URL}/query",
                 params={
                     "where": f"predio = {int(identifier)}",
-                    "outFields": "*",
+                    "outFields": "predio,SHAPE__Area",
                     "returnGeometry": "true",
                     "outSR": "4326",
                     "f": "geojson",
@@ -215,13 +245,14 @@ async def _lookup_2026_geometry(identifier: str) -> dict | None:
             )
             response.raise_for_status()
             payload = response.json()
-        if payload.get("type") != "FeatureCollection":
+        if (not isinstance(payload, dict) or payload.get("type") != "FeatureCollection"
+                or transfer_limit(payload) is True):
             return None
         features = payload.get("features", [])
         if len(features) != 1 or not features[0].get("geometry"):
             return None
         return features[0]
-    except (httpx.HTTPError, ValueError, TypeError, KeyError):
+    except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError):
         return None
 
 
@@ -263,8 +294,8 @@ async def _apply_2026_geometry(
 
 # ===================================================================
 # OPTIONAL AIVA 2024/2026 COMPARISON — BEGIN
-# AIVA SWITCH in lookup_predio() disables this without touching the
-# existing cadastral lookup. AIVA is a ZONE LAND RATE (USD/m2), not
+# Only the enriched property lookup requests AIVA. PUGS reuses the core.
+# AIVA is a ZONE LAND RATE (USD/m2), not
 # the official total appraisal or a market sale price.
 # ===================================================================
 AIVA_MAPSERVER = (
@@ -274,7 +305,7 @@ AIVA_MAPSERVER = (
 
 
 def _representative_point(geometry: dict):
-    """Use a polygon vertex as a query seed; not a parcel-wide overlay."""
+    """Use a vertex-average probe; not a parcel-wide overlay."""
     try:
         ring = geometry["coordinates"][0]
         if not ring:
@@ -294,19 +325,19 @@ async def _aiva_layer(layer_id: int, point: list, zone_code: str | None):
         "geometryType": "esriGeometryPoint",
         "inSR": 4326,
         "spatialRel": "esriSpatialRelIntersects",
-        "outFields": "*",
+        "outFields": "cod_aiva,valor_m2" if layer_id == 0 else "CODIGO,VALOR",
         "returnGeometry": "false",
         "f": "json",
     }
     try:
-        async with httpx.AsyncClient(
-            timeout=REQUEST_TIMEOUT, follow_redirects=False
-        ) as client:
-            response = await client.get(
-                f"{AIVA_MAPSERVER}/{layer_id}/query", params=params
+        async with municipal_client(REQUEST_TIMEOUT) as client:
+            response = await get(
+                client, f"{AIVA_MAPSERVER}/{layer_id}/query", params=params,
             )
             response.raise_for_status()
             payload = response.json()
+        if not isinstance(payload, dict) or payload.get("error"):
+            return None
         features = payload.get("features", [])
         if len(features) != 1:
             return None
@@ -318,7 +349,7 @@ async def _aiva_layer(layer_id: int, point: list, zone_code: str | None):
         if not isinstance(rate, (int, float)) or rate < 0:
             return None
         return {"rate_usd_m2": rate, "zone_code": str(code)}
-    except (httpx.HTTPError, ValueError, TypeError, KeyError):
+    except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError):
         return None
 
 
@@ -565,14 +596,10 @@ async def get_municipal_fields() -> list:
     """
 
     try:
-        async with httpx.AsyncClient(
-            timeout=REQUEST_TIMEOUT,
-            follow_redirects=False
-        ) as client:
+        async with municipal_client(REQUEST_TIMEOUT) as client:
 
-            response = await client.get(
-                LAYER_URL,
-                params={"f": "json"}
+            response = await get(
+                client, LAYER_URL, params={"f": "json"},
             )
 
             response.raise_for_status()
@@ -583,7 +610,7 @@ async def get_municipal_fields() -> list:
             "Unable to retrieve municipal metadata"
         ) from exc
 
-    if "error" in metadata:
+    if not isinstance(metadata, dict) or "error" in metadata:
         raise MunicipalError(
             "Municipal metadata returned an error"
         )

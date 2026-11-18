@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "test": "node --test tests/*.test.js",
     "build": "vite build",
+    "benchmark:explorer": "node scripts/benchmark-explorer.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

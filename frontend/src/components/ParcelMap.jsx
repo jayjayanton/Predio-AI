@@ -8,6 +8,10 @@ import {
   useMap
 } from 'react-leaflet';
 import L from 'leaflet';
+import {
+  collectionBounds, geometryBounds, createParcelTileCache, viewportTiles,
+  tileBounds, loadParcelTiles, NEARBY_BATCH_SIZE, NEARBY_RENDER_LIMIT
+} from '../parcelMapData.js';
 
 // ArcGIS public basemap endpoints.
 // No API key required for these legacy public services.
@@ -77,10 +81,9 @@ function ZoomToParcel({ data }) {
   useEffect(() => {
     if (!data?.features?.length) return;
 
-    const parcelLayer = L.geoJSON(data);
-    const bounds = parcelLayer.getBounds();
-
-    if (bounds.isValid()) {
+    const box = collectionBounds(data);
+    if (box) {
+      const bounds = L.latLngBounds([[box[1],box[0]],[box[3],box[2]]]);
       map.fitBounds(bounds, {
         padding: [48, 48],
         maxZoom: 17
@@ -118,8 +121,6 @@ function nearbyParcelPopup(predio,attributes=null,error='') {
 }
 
 const MIN_PARCEL_ZOOM=16;
-const MAX_BATCH=250;
-const MAX_RENDERED=2400;
 const MAX_DEPTH=5;
 const MAX_QUERIES=64;
 
@@ -141,20 +142,20 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
   const selectedNearbyRef=React.useRef(null);
   const selectedLayerRef=React.useRef(null);
   const attributesCache=React.useRef(new Map());
-  // Retain completed features across pans, while bounding browser memory.
-  const cache=React.useRef(new Map());
+  // Completed fixed tiles are reusable across pans; incomplete tiles retain
+  // their subdivision, never a false claim of complete spatial coverage.
+  const cache=React.useRef(null);
+  if(!cache.current)cache.current=createParcelTileCache({source:PARCEL_SERVICE});
+  useEffect(()=>()=>cache.current.clear(),[]);
   useEffect(()=>{
     if(!enabled){setFeatures(null);setStatus('');return;}
     let timer=null,controller=null,seq=0;
     const publish=(bounds,message)=>{
-      const visible=[];
-      for(const feature of cache.current.values()){
-        const box=feature._bbox;
-        if(box && box[0]<=bounds.getEast()&&box[2]>=bounds.getWest()&&
-           box[1]<=bounds.getNorth()&&box[3]>=bounds.getSouth())visible.push(feature);
-      }
-      setFeatures({type:'FeatureCollection',features:visible.map(({_bbox,...f})=>f)});
-      setStatus(message);
+      const visible=cache.current.visible(bounds,{maximum:NEARBY_RENDER_LIMIT,selected:selectedNearbyRef.current});
+      setFeatures(previous=>previous?.features.length===visible.features.length&&
+        previous.features.every((feature,index)=>feature===visible.features[index])
+        ?previous:{type:'FeatureCollection',features:visible.features});
+      setStatus(message+(visible.limited?` · límite visual: ${NEARBY_RENDER_LIMIT} de ${visible.available} polígonos cercanos; acerque el mapa`:''));
     };
     const update=()=>{
       if(timer)clearTimeout(timer);
@@ -165,72 +166,47 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
         setStatus('Acérquese al zoom 16 para ver los predios cercanos.');
         return;
       }
-      const bounds=map.getBounds();
+      const viewport=map.getBounds();
+      const bounds=[viewport.getWest(),viewport.getSouth(),viewport.getEast(),viewport.getNorth()];
       publish(bounds,'Cargando predios del área visible…');
       timer=setTimeout(async()=>{
         controller=new AbortController();
         const signal=controller.signal;
-        const queue=[{west:bounds.getWest(),south:bounds.getSouth(),east:bounds.getEast(),north:bounds.getNorth(),depth:0}];
-        let queries=0,limited=false,completed=0;
-        const requestTile=async(tile)=>{
+        const coverage=viewportTiles(bounds,MAX_QUERIES);
+        const requestTile=async(tile,requestSignal)=>{
+          const [west,south,east,north]=tileBounds(tile);
           const params=new URLSearchParams({
             where:'1=1',
-            geometry:JSON.stringify({xmin:tile.west,ymin:tile.south,xmax:tile.east,ymax:tile.north,spatialReference:{wkid:4326}}),
+            geometry:JSON.stringify({xmin:west,ymin:south,xmax:east,ymax:north,spatialReference:{wkid:4326}}),
             geometryType:'esriGeometryEnvelope',inSR:'4326',
             spatialRel:'esriSpatialRelIntersects',outFields:'predio',
             returnGeometry:'true',outSR:'4326',
-            resultRecordCount:String(MAX_BATCH+1),f:'geojson'
+            resultRecordCount:String(NEARBY_BATCH_SIZE+1),f:'geojson'
           });
-          const response=await fetch(PARCEL_SERVICE+'?'+params,{signal});
-          if(!response.ok)throw new Error('HTTP '+response.status);
-          const payload=await response.json();
-          if(payload.error)throw new Error(payload.error.message||'ArcGIS error');
-          if(payload.type!=='FeatureCollection'||!Array.isArray(payload.features))throw new Error('GeoJSON inválido');
-          return payload;
+          const bounded=new AbortController();
+          const cancel=()=>bounded.abort();
+          requestSignal.addEventListener('abort',cancel,{once:true});
+          if(requestSignal.aborted)bounded.abort();
+          let timedOut=false;
+          const timeout=setTimeout(()=>{timedOut=true;bounded.abort();},30000);
+          try{
+            const response=await fetch(PARCEL_SERVICE+'?'+params,{signal:bounded.signal});
+            if(!response.ok)throw new Error('HTTP '+response.status);
+            return await response.json();
+          }catch(error){
+            if(timedOut)throw new Error('La consulta municipal superó 30 segundos.');
+            throw error;
+          }finally{clearTimeout(timeout);requestSignal.removeEventListener('abort',cancel);}
         };
         try{
-          // Process independent spatial tiles in parallel to avoid long
-          // sequential waits on mobile. Subdivide overflowing tiles.
-          while(queue.length && queries<MAX_QUERIES && !signal.aborted){
-            const batch=queue.splice(0,Math.min(4,MAX_QUERIES-queries));
-            queries+=batch.length;
-            const results=await Promise.all(batch.map(async tile=>({tile,payload:await requestTile(tile)})));
-            for(const {tile,payload} of results){
-              const overflow=payload.features.length>MAX_BATCH||payload.exceededTransferLimit;
-              if(overflow){
-                if(tile.depth<MAX_DEPTH){
-                  const mx=(tile.west+tile.east)/2,my=(tile.south+tile.north)/2;
-                  queue.push(
-                    {west:tile.west,south:tile.south,east:mx,north:my,depth:tile.depth+1},
-                    {west:mx,south:tile.south,east:tile.east,north:my,depth:tile.depth+1},
-                    {west:tile.west,south:my,east:mx,north:tile.north,depth:tile.depth+1},
-                    {west:mx,south:my,east:tile.east,north:tile.north,depth:tile.depth+1}
-                  );
-                }else limited=true;
-                continue;
-              }
-              completed++;
-              for(const feature of payload.features){
-                if(!feature.geometry)continue;
-                const key=String(feature.properties?.predio??feature.id??'')||JSON.stringify(feature.geometry);
-                if(cache.current.has(key))continue;
-                // Bounding box for viewport filtering, including multipolygons.
-                const coords=[];
-                const walk=v=>{if(!Array.isArray(v))return;if(typeof v[0]==='number'&&typeof v[1]==='number')coords.push(v);else v.forEach(walk);};
-                walk(feature.geometry.coordinates);
-                if(!coords.length)continue;
-                const xs=coords.map(p=>p[0]),ys=coords.map(p=>p[1]);
-                cache.current.set(key,{...feature,_bbox:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)]});
-              }
+          const result=await loadParcelTiles(cache.current,coverage.tiles,{
+            fetchTile:requestTile,signal,maxQueries:MAX_QUERIES,maxDepth:MAX_DEPTH,
+            onProgress:({completed})=>{
+              if(request===seq&&!signal.aborted)publish(bounds,completed+' áreas disponibles · cargando límites…');
             }
-            if(request!==seq||signal.aborted)return;
-            // Cap retained features; recent neighborhoods are preferred.
-            while(cache.current.size>5000)cache.current.delete(cache.current.keys().next().value);
-            publish(bounds,completed+' áreas consultadas · cargando límites…');
-          }
-          if(queue.length)limited=true;
+          });
           if(request!==seq||signal.aborted)return;
-          publish(bounds,'Consulta terminada'+(limited?' · cobertura parcial; acerque el mapa':'')+' · catastro 2026');
+          publish(bounds,'Consulta terminada'+(coverage.limited||result.limited?' · cobertura parcial; acerque el mapa':'')+' · catastro 2026');
         }catch(error){
           if(error.name==='AbortError'||request!==seq)return;
           publish(bounds,'Error catastral: '+String(error.message||'Red').slice(0,85));
@@ -242,14 +218,23 @@ function VisibleParcels({enabled,criteria,highlightMatches,queryActive=false}) {
     return ()=>{seq++;if(timer)clearTimeout(timer);if(controller)controller.abort();map.off('moveend',update);};
   },[map,enabled]);
   const min=Number(criteria?.min),max=Number(criteria?.max);
+  // A refreshed municipal polygon can keep its identifier while its shape
+  // changes. React-Leaflet needs a new layer for each immutable data revision.
+  const nearbyRevision=React.useRef(0);
+  const nearbyLayerKey=React.useMemo(()=>`${++nearbyRevision.current}:${queryActive}`,[features,queryActive]);
   const validRange=criteria && criteria.min!=='' && criteria.max!=='' && min>0 && max>=min;
   const advanced=criteria?.landClass!=='all'||criteria?.housingType!=='all'||criteria?.occupation!=='all';
-  const areaMatches=validRange && !advanced && (features?.features||[]).filter(f=>{const a=geometryAreaM2(f.geometry);return Number.isFinite(a)&&a>=min&&a<=max;});
-  const matchIds=new Set((areaMatches||[]).map(f=>String(f.properties?.predio??f.id??'')));
   const highlight=Boolean(highlightMatches&&validRange&&!advanced);
+  const matchIds=React.useMemo(()=>{
+    if(!highlight)return new Set();
+    return new Set((features?.features||[]).filter(feature=>{
+      const area=geometryAreaM2(feature.geometry);
+      return Number.isFinite(area)&&area>=min&&area<=max;
+    }).map(feature=>String(feature.properties?.predio??feature.id??'')));
+  },[features,highlight,min,max]);
   return <>
     {features?.features?.length>0&&<GeoJSON interactive={!queryActive} className="predio-nearby-interactive"
-      key={JSON.stringify([features.features.map(f=>f.id||f.properties?.predio),queryActive])} data={features}
+      key={nearbyLayerKey} data={features}
       style={feature=>{
         const id=String(feature.properties?.predio??feature.id??'');
         const isSelected=selectedNearby===id;
@@ -334,25 +319,37 @@ function suppressParcelFocus(layer) {
   });
 }
 
-function SearchResultsLayer({results,selected,onSelect}) {
+function SearchResultsLayer({results,selected,onSelect,queryKey}) {
   const map=useMap();
   // Keep the layers (and their open popup) alive when selection changes.
   // GeoJSON data is immutable in react-leaflet, but its style prop is reactive.
   // Only replace the layer when the actual result data changes.
-  const resultLayerKey=React.useMemo(()=>JSON.stringify(results),[results]);
+  const layerRevision=React.useRef(0);
+  const resultLayerKey=React.useMemo(()=>++layerRevision.current,[results]);
+  const fittedQuery=React.useRef(null);
+  const focusedSelection=React.useRef(null);
   const onSelectRef=React.useRef(onSelect);
   useEffect(()=>{onSelectRef.current=onSelect;},[onSelect]);
   useEffect(()=>{
-    if(!results?.features?.length)return;
+    if(!results?.features?.length){
+      // A temporary empty PUGS filter does not begin a new search.
+      if(!queryKey)fittedQuery.current=null;
+      return;
+    }
+    // Appending the overview or changing card pages must not reset a user's
+    // camera. A different query still gets its initial neighborhood view.
+    const fitIdentity=queryKey||results;
+    if(fittedQuery.current===fitIdentity)return;
     // The first 50 GIS results may span the whole DMQ. fitBounds(all) zooms
     // out excessively, so find a representative parcel centroid near the
     // mean of the returned parcel centers and start at neighborhood scale.
     const centers=results.features.flatMap(feature=>{
       if(!feature.geometry)return [];
-      const bounds=L.geoJSON(feature).getBounds();
-      return bounds.isValid()?[bounds.getCenter()]:[];
+      const bounds=geometryBounds(feature.geometry);
+      return bounds?[L.latLng((bounds[1]+bounds[3])/2,(bounds[0]+bounds[2])/2)]:[];
     });
     if(!centers.length)return;
+    fittedQuery.current=fitIdentity;
     const mean=L.latLng(
       centers.reduce((sum,p)=>sum+p.lat,0)/centers.length,
       centers.reduce((sum,p)=>sum+p.lng,0)/centers.length
@@ -361,17 +358,22 @@ function SearchResultsLayer({results,selected,onSelect}) {
       mean.distanceTo(p)<mean.distanceTo(best)?p:best,centers[0]);
     map.invalidateSize({pan:false,animate:false});
     map.setView(representative,16,{animate:false});
-  },[results,map]);
+  },[results,map,queryKey]);
   useEffect(()=>{
-    if(!selected||!results?.features?.length)return;
+    if(!selected){focusedSelection.current=null;return;}
+    if(!results?.features?.length)return;
     const feature=results.features.find(f=>String(f.properties?.n_predio)===String(selected));
     if(!feature)return;
-    const bounds=L.geoJSON(feature).getBounds();
-    if(bounds.isValid()){
+    const previous=focusedSelection.current;
+    if(previous?.id===String(selected)&&previous.geometry===feature.geometry&&previous.queryKey===queryKey)return;
+    const box=geometryBounds(feature.geometry);
+    if(box){
+      focusedSelection.current={id:String(selected),geometry:feature.geometry,queryKey};
+      const bounds=L.latLngBounds([[box[1],box[0]],[box[3],box[2]]]);
       map.invalidateSize({pan:false,animate:false});
       map.fitBounds(bounds,{padding:[50,50],maxZoom:18});
     }
-  },[selected,results,map]);
+  },[selected,results,map,queryKey]);
   if(!results?.features?.length)return null;
   return <>
     <GeoJSON key={resultLayerKey} data={results}
@@ -405,7 +407,7 @@ function SearchResultsLayer({results,selected,onSelect}) {
 
 // Main cadastral map component.
 
-export default function ParcelMap({ data, criteria, searchResults, selectedSearchPredio, onSelectSearchPredio }) {
+export default function ParcelMap({ data, criteria, searchResults, selectedSearchPredio, onSelectSearchPredio, searchQueryKey }) {
   const [basemap, setBasemap] = useState('streets');
   const [showNearbyParcels,setShowNearbyParcels]=useState(true);
   const [highlightMatches,setHighlightMatches]=useState(false);
@@ -493,7 +495,7 @@ export default function ParcelMap({ data, criteria, searchResults, selectedSearc
         />
 
         <VisibleParcels enabled={showNearbyParcels} criteria={criteria} highlightMatches={highlightMatches} queryActive={Boolean(searchResults?.features?.length)}/>
-        <SearchResultsLayer results={searchResults} selected={selectedSearchPredio} onSelect={onSelectSearchPredio}/>
+        <SearchResultsLayer results={searchResults} selected={selectedSearchPredio} onSelect={onSelectSearchPredio} queryKey={searchQueryKey}/>
 
         {/* Municipal cadastral polygons */}
 

@@ -19,6 +19,7 @@ Supported identifiers:
 """
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import (
@@ -39,12 +40,27 @@ from .municipal import (
     get_property_details,
     get_municipal_fields,
     MunicipalError,
+    CORE_CACHE,
 )
+from .municipal_http import client_lifespan
 
 
 # ============================================================
 # 1. APPLICATION CONFIGURATION
 # ============================================================
+
+@asynccontextmanager
+async def lifespan(app):
+    async with client_lifespan():
+        try:
+            yield
+        finally:
+            # Shared cache loads may outlive a disconnected caller. Cancel and
+            # drain them before closing their HTTP connection pool.
+            from .pugs_batch import close_cache
+            await CORE_CACHE.close()
+            await close_cache()
+
 
 app = FastAPI(
     title="PredioAI API",
@@ -52,7 +68,8 @@ app = FastAPI(
         "Quito cadastral property intelligence "
         "and architectural document inspection."
     ),
-    version="0.2.0"
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
 origins = os.getenv(

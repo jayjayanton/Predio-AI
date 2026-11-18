@@ -1,0 +1,43 @@
+{
+  "recorded_at": "2026-11-18T16:07:22.318Z",
+  "runtime": "v24.22.1",
+  "trials": 30,
+  "warmup_trials": 5,
+  "method": "Local Node data preparation on native municipal geometry; deterministic mocked transport for request counts.",
+  "limitations": "No browser rendering, interaction latency, mobile CPU, live network latency, or service-load measurement. Gzip is local compression, not observed wire traffic.",
+  "source": "https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_a_2024/FeatureServer/0/query",
+  "fixture_filter": "area_terre >= 300 AND area_terre <= 1000 AND (UPPER(parroquia) = 'CUMBAYA' OR UPPER(parroquia) = 'TUMBACO')",
+  "fixture_order": "n_predio ASC, fid ASC",
+  "preparation": [
+    {
+      "features": 1000,
+      "vertices": 23620,
+      "json_bytes": 1309975,
+      "local_gzip_bytes": 336896,
+      "parse_ms": {"median": 4.522, "p95": 11.561},
+      "initial_bounds_ms": {"median": 3.457, "p95": 15.197},
+      "cached_bounds_ms": {"median": 0.116, "p95": 1.868}
+    },
+    {
+      "features": 2000,
+      "vertices": 47231,
+      "json_bytes": 2624498,
+      "local_gzip_bytes": 506211,
+      "parse_ms": {"median": 9.049, "p95": 27.955},
+      "initial_bounds_ms": {"median": 7.693, "p95": 31.179},
+      "cached_bounds_ms": {"median": 0.335, "p95": 2.977}
+    }
+  ],
+  "request_reuse": {
+    "initial_50_plus_1000_map": 3,
+    "cached_page_and_count_additional": 0,
+    "upgrade_1000_to_2000_additional": 1,
+    "cached_later_page_and_reduced_map_additional": 0,
+    "calls": [
+      {"kind": "count"},
+      {"kind": "geometry", "offset": 0, "size": 50},
+      {"kind": "geometry", "offset": 50, "size": 950},
+      {"kind": "geometry", "offset": 1000, "size": 1000}
+    ]
+  }
+}

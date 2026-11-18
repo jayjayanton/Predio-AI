@@ -173,7 +173,9 @@ Projection source: [GeoQuito's municipal SIRES-DMQ definition](https://geoquito.
 - Select a card or polygon, inspect its information and open **Ficha predial**. Map selection remains synchronized with the result list.
 - Switch streets, OSM, topographic and satellite basemaps. Nearby parcel outlines and source context remain available.
 
-The map loads a bounded overlay of **up to 1,000 matching cadastral features**, independently of the current card page. A message identifies partial coverage. The count is a municipal query count, not properties offered for sale.
+The map defaults to **1,000 matching cadastral features**, with an optional **2,000-feature** overview. The current card page is also included, so a selected result beyond the overview remains visible. The first results page becomes usable before the overview finishes; an overview error preserves that page and exposes a retry. A message identifies partial coverage. The count is a municipal query count, not properties offered for sale.
+
+Discovery reuses short-lived, source-specific query snapshots across page sizes and layouts. Nearby 2026 parcel outlines use bounded fixed-tile caching and an enforced **2,400-feature display cap**; partial coverage is labeled. These display caches do not replace the exact cadastral geometry used for property analysis. See [REST efficiency and larger-map validation](docs/REST_PERFORMANCE.md) for cache limits, evidence and the conditions for reconsidering GeoParquet.
 
 ### Property information and comparison
 
@@ -201,7 +203,9 @@ Review includes available IRM/PUGS context, documented conditions and preliminar
 
 After discovery, users can request preliminary PUGS review of the **current results page**. Retrieved geometries are sent in batches of at most **100 per request**, including a 200-result page.
 
-`POST /api/pugs/spatial-screen` retrieves PUGS geometry by fixed tiles, reuses a **15-minute process-local memory cache**, and intersects polygons using a Shapely `STRtree` in **EPSG:32717**. This is bounded retrieval, not a persistent whole-city zoning database.
+`POST /api/pugs/spatial-screen` retrieves PUGS geometry by fixed tiles, reuses a **15-minute process-local memory cache of projected polygons and spatial indexes**, and intersects polygons using a Shapely `STRtree` in **EPSG:32717**. Concurrent requests share missing tile loads. Single-property and batch overlays preserve polygon holes. Exact pagination boundaries are checked without treating truncated responses as complete. This is bounded retrieval, not a persistent whole-city zoning database.
+
+The API reuses a lifespan-managed municipal HTTP connection pool with at most four active upstream requests per worker. A bounded **60-second cadastral core cache** lets a property sheet and its following PUGS lookup share source-matched geometry. PUGS does not repeat optional AIVA valuation requests.
 
 The response distinguishes `single_zone`, `multiple_zones`, `no_intersection`, `unavailable` and `ambiguous`. Incomplete responses are not negative eligibility decisions. VU/VB/VM labels require explicit codes in examined fields; missing codes do not imply prohibition. The evidence filter applies to the current page, not all of Quito.
 

@@ -20,6 +20,7 @@ import { SELECTION_KEY, SELECTION_LIMIT, parseSelection, selectionRecord, mergeS
 import { workspaceForPage, requiresIrm, documentValidationError, isProjectPackage, inspectionTimeoutMs, createInspectionForm } from './documentWorkflow.js';
 import { hasPartialExtraction, dwgConversionNotice } from './drawingExtraction.js';
 import { createExampleDrawing } from './exampleDrawing.js';
+import { CADASTRE_SEARCH, createExplorerQueryClient, explorerOrdering, fetchExplorerJson, mergeExplorerFeatures } from './explorerQuery.js';
 import './styles/planning-studio.css';
 
 const ROUTES = { inicio: 'home', explorar: 'explore', predio: 'property', planos: 'blueprints', seleccion: 'selection', analitica: 'analytics' };
@@ -102,6 +103,13 @@ export default function App() {
   const individualController = React.useRef(null);
   const individualRunId = React.useRef(0);
   const exploreRunId = React.useRef(0);
+  const exploreController = React.useRef(null);
+  const overviewController = React.useRef(null);
+  const overviewRunId = React.useRef(0);
+  const overviewIdentity = React.useRef('');
+  const exploreRequestContext = React.useRef(null);
+  const explorerClient = React.useRef(null);
+  if (!explorerClient.current) explorerClient.current = createExplorerQueryClient();
   const irmRunId = React.useRef(0);
   const isWorkspace = page === 'explore' || page === 'property' || page === 'blueprints';
 
@@ -223,6 +231,8 @@ export default function App() {
   const [exploreAllGeometries,setExploreAllGeometries]=useState(null);
   const [exploreAllOrder,setExploreAllOrder]=useState([]);
   const [exploreMapNotice,setExploreMapNotice]=useState('');
+  const [exploreMapBusy,setExploreMapBusy]=useState(false);
+  const [exploreMapLimit,setExploreMapLimit]=useState(1000);
   const [exploreSelected,setExploreSelected]=useState(null);
   const toggleExplorePredio=id=>setExploreSelected(current=>current===String(id)?null:String(id));
   const selectExplorePredioFromMap=id=>{
@@ -262,6 +272,17 @@ export default function App() {
   const [advancedFilter,setAdvancedFilter]=useState('all');
   const [advancedOpen,setAdvancedOpen]=useState(false);
   const advancedRunId=React.useRef(0);
+  const advancedController=React.useRef(null);
+  useEffect(() => {
+    if (audience === 'explorer') return;
+    exploreController.current?.abort(); exploreRunId.current++;
+    overviewController.current?.abort(); overviewRunId.current++; overviewIdentity.current='';
+    advancedController.current?.abort(); advancedRunId.current++;
+    setExploreBusy(false); setExploreMapBusy(false); setAdvancedBusy(false);
+  }, [audience]);
+  useEffect(() => () => {
+    exploreController.current?.abort(); overviewController.current?.abort(); advancedController.current?.abort();
+  }, []);
   const [pugsData, setPugsData] = useState(null);
   const [pugsLoading, setPugsLoading] = useState(false);
   const [pugsError, setPugsError] = useState('');
@@ -733,7 +754,6 @@ export default function App() {
 
   // Cadastral discovery: query real municipal attributes, never infer PUGS
   // classifications from cadastral land-use labels. Results are paginated.
-  const CADASTRE_SEARCH='https://geoquito.quito.gob.ec/server/rest/services/Hosted/predios_a_2024/FeatureServer/0/query';
   const DMQ_PARISHES = {
     urban: [["BELISARIO QUEVEDO","Belisario Quevedo"],["CARCELEN","Carcelén"],["CENTRO HISTORICO","Centro Histórico"],["CHILIBULO","Chilibulo"],["CHILLOGALLO","Chillogallo"],["CHIMBACALLE","Chimbacalle"],["COCHAPAMBA","Cochapamba"],["COMITE DEL PUEBLO","Comité del Pueblo"],["COTOCOLLAO","Cotocollao"],["EL CONDADO","El Condado"],["GUAMANI","Guamaní"],["INAQUITO","Iñaquito"],["ITCHIMBIA","Itchimbía"],["JIPIJAPA","Jipijapa"],["KENNEDY","Kennedy"],["LA ARGELIA","La Argelia"],["LA CONCEPCION","La Concepción"],["LA ECUATORIANA","La Ecuatoriana"],["LA FERROVIARIA","La Ferroviaria"],["LA LIBERTAD","La Libertad"],["LA MAGDALENA","La Magdalena"],["LA MENA","La Mena"],["MARISCAL SUCRE","Mariscal Sucre"],["PONCEANO","Ponceano"],["PUENGASI","Puengasí"],["QUITUMBE","Quitumbe"],["RUMIPAMBA","Rumipamba"],["SAN BARTOLO","San Bartolo"],["SAN ISIDRO DEL INCA","San Isidro del Inca"],["SAN JUAN","San Juan"],["SOLANDA","Solanda"],["TURUBAMBA","Turubamba"]],
     rural: [["ALANGASI","Alangasí"],["AMAGUANA","Amaguaña"],["ATAHUALPA","Atahualpa"],["CALACALI","Calacalí"],["CALDERON","Calderón"],["CHAVEZPAMBA","Chavezpamba"],["CHECA","Checa"],["CONOCOTO","Conocoto"],["CUMBAYA","Cumbayá"],["EL QUINCHE","El Quinche"],["GUALEA","Gualea"],["GUANGOPOLO","Guangopolo"],["GUAYLLABAMBA","Guayllabamba"],["LA MERCED","La Merced"],["LLANO CHICO","Llano Chico"],["LLOA","Lloa"],["NANEGAL","Nanegal"],["NANEGALITO","Nanegalito"],["NAYON","Nayón"],["NONO","Nono"],["PACTO","Pacto"],["PERUCHO","Perucho"],["PIFO","Pifo"],["PINTAG","Píntag"],["POMASQUI","Pomasqui"],["PUELLARO","Puéllaro"],["PUEMBO","Puembo"],["SAN ANTONIO DE PICHINCHA","San Antonio de Pichincha"],["SAN JOSE DE MINAS","San José de Minas"],["TABABELA","Tababela"],["TUMBACO","Tumbaco"],["YARUQUI","Yaruquí"],["ZAMBIZA","Zámbiza"]]
@@ -792,6 +812,9 @@ export default function App() {
 
   async function screenAdvancedPugs() {
     const runId=++advancedRunId.current;
+    advancedController.current?.abort();
+    const controller = new AbortController();
+    advancedController.current = controller;
     const features=(exploreGeometries?.features||[]).filter(feature=>
       /^\d+$/.test(String(feature.properties?.n_predio||'')) && feature.geometry);
     if(!features.length){
@@ -816,12 +839,10 @@ export default function App() {
       for (let offset = 0; offset < features.length; offset += 100) {
         if (runId !== advancedRunId.current) return;
         const batch = features.slice(offset, offset + 100);
-        const response = await fetch(`${API}/api/pugs/spatial-screen`, {
+        const payload = await fetchExplorerJson(`${API}/api/pugs/spatial-screen`, {
           method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({features: batch})
+          body: JSON.stringify({features: batch}), signal: controller.signal, timeoutMs: 60000
         });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : 'No se pudo completar la revisión de zonificación.');
         if (runId !== advancedRunId.current) return;
         for (const item of payload.results || []) rows[String(item.predio)] = {...item, ...getPugsHousingEvidence(item)};
         screened += payload.screened || 0;
@@ -830,7 +851,7 @@ export default function App() {
         setAdvancedProgress(`${screened} de ${features.length} predios revisados${unavailable ? ` · ${unavailable} sin resultado verificable` : ''}. ${offset + 100 < features.length ? 'Continuando con el siguiente grupo…' : 'Contrasta la evidencia con el IRM.'}`);
       }
     }catch(error){
-      if(runId===advancedRunId.current){
+      if(runId===advancedRunId.current && error.name !== 'AbortError'){
         setAdvancedError(error.message||'El análisis espacial PUGS no está disponible.');
         setAdvancedProgress('La revisión no se completó. Los resultados disponibles son parciales; los demás predios quedan pendientes.');
       }
@@ -839,15 +860,22 @@ export default function App() {
     }
   }
 
-  const visibleExploreResults=advancedFilter==='all'
+  const visibleExploreResults=React.useMemo(()=>advancedFilter==='all'
     ? exploreResults
-    : exploreResults.filter(p=>advancedRows[String(p.n_predio)]?.code===advancedFilter);
-  const visibleExploreIds=new Set(visibleExploreResults.map(p=>String(p.n_predio)));
-  const visibleExploreGeometries=advancedFilter==='all'||!exploreGeometries
+    : exploreResults.filter(p=>advancedRows[String(p.n_predio)]?.code===advancedFilter), [advancedFilter, exploreResults, advancedRows]);
+  const visibleExploreIds=React.useMemo(()=>new Set(visibleExploreResults.map(p=>String(p.n_predio))), [visibleExploreResults]);
+  const visibleExploreGeometries=React.useMemo(()=>advancedFilter==='all'||!exploreGeometries
     ? exploreGeometries
-    : {...exploreGeometries,features:exploreGeometries.features.filter(f=>visibleExploreIds.has(String(f.properties?.n_predio)))};
+    : {...exploreGeometries,features:exploreGeometries.features.filter(f=>visibleExploreIds.has(String(f.properties?.n_predio)))}, [advancedFilter, exploreGeometries, visibleExploreIds]);
+  const mapExploreGeometries=React.useMemo(()=>advancedFilter==='all'
+    ? mergeExplorerFeatures(exploreAllGeometries, visibleExploreGeometries) : visibleExploreGeometries,
+    [advancedFilter, exploreAllGeometries, visibleExploreGeometries]);
+  const pageGeometryIds=React.useMemo(()=>new Set((exploreGeometries?.features||[]).map(f=>String(f.properties?.n_predio))), [exploreGeometries]);
 
   function clearGISExploration() {
+    exploreController.current?.abort(); overviewController.current?.abort(); advancedController.current?.abort();
+    overviewRunId.current++; overviewIdentity.current=''; exploreRequestContext.current=null;
+    setExploreMapBusy(false);
     exploreRunId.current++; setExploreBusy(false);
     advancedRunId.current++;
     setAdvancedBusy(false);
@@ -927,6 +955,38 @@ export default function App() {
     return ()=>{cancelled=true;};
   },[audience]);
 
+  async function loadExploreOverview(context, limit=exploreMapLimit) {
+    if (!context || context.count === null) return;
+    const identity=context.query.id+'|'+limit;
+    if (overviewIdentity.current===identity) return;
+    overviewController.current?.abort();
+    const controller=new AbortController();
+    overviewController.current=controller;
+    const runId=++overviewRunId.current;
+    overviewIdentity.current=identity;
+    setExploreMapBusy(true);
+    setExploreMapNotice('Cargando el mapa de resultados; la lista ya está disponible.');
+    try {
+      const total=Math.min(context.count,limit);
+      const features=await context.query.range(0,total,controller.signal);
+      if (runId!==overviewRunId.current || controller.signal.aborted) return;
+      const geometries=features.filter(feature=>feature.geometry);
+      setExploreAllGeometries({type:'FeatureCollection',features:geometries});
+      setExploreAllOrder(features.map(feature=>String(feature.properties?.n_predio||'')));
+      setExploreMapNotice(geometries.length<total
+        ? `Mapa parcial: ${geometries.length.toLocaleString('es-EC')} de ${context.count.toLocaleString('es-EC')} predios con geometría recuperada. La lista sigue disponible.`
+        : context.count>limit
+          ? `Mapa: primeros ${limit.toLocaleString('es-EC')} de ${context.count.toLocaleString('es-EC')} predios, más la página actual. Refine los filtros para ver todos.`
+          : '');
+    } catch(error) {
+      if (runId!==overviewRunId.current || controller.signal.aborted) return;
+      overviewIdentity.current='';
+      setExploreMapNotice('No se completó el mapa general. La lista y los polígonos de la página actual siguen disponibles; vuelva a intentar la vista del mapa.');
+    } finally {
+      if (runId===overviewRunId.current) setExploreMapBusy(false);
+    }
+  }
+
   const explorePageSize=reelColumns===1?listPageSize:iconPageSize;
   async function exploreParcels(offset=0, sort=exploreSort, pageSize=explorePageSize, preserveSelection=false) {
     setExploreError('');
@@ -944,11 +1004,13 @@ export default function App() {
       setExploreError('Ingrese un frente mínimo válido (m).');return;
     }
     const runId = ++exploreRunId.current;
-    advancedRunId.current++;
+    exploreController.current?.abort();
+    const controller=new AbortController();
+    exploreController.current=controller;
+    advancedController.current?.abort(); advancedRunId.current++;
     setAdvancedBusy(false);
     setExploreError('');
     setAdvancedRows({});setAdvancedProgress('');setAdvancedError('');setAdvancedFilter('all');
-    if(!preserveSelection && offset===0){setExploreAllGeometries(null);setExploreAllOrder([]);setExploreMapNotice('');}
     if(!preserveSelection)setExploreSelected(null);
     const clauses=['area_terre >= '+min,'area_terre <= '+max];
     // Optional maximum registered construction/land ratio, applied before
@@ -968,90 +1030,40 @@ export default function App() {
     if(searchLandClass==='urban')clauses.push("UPPER(zonificaci) IN ('URBANO','URBANA')");
     if(searchLandClass==='rural')clauses.push("UPPER(zonificaci) = 'RURAL'");
     const where=clauses.join(' AND ');
+    const query=explorerClient.current.open({where,orderByFields:explorerOrdering(sort)});
+    const queryKey=[searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioMax.trim()!==''?'ratio-max:'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone,ownershipRegime].join('|');
+    if (exploreRequestContext.current?.query.id!==query.id) {
+      overviewController.current?.abort(); overviewRunId.current++; overviewIdentity.current='';
+      setExploreMapBusy(false); setExploreMapNotice('');
+      setExploreAllGeometries(null); setExploreAllOrder([]);
+      setExploreResults([]); setExploreGeometries(null); setExploreCount(null);
+    }
+    const context={query,count:null,key:queryKey};
+    exploreRequestContext.current=context;
     setExploreBusy(true);
     try {
-      const query=async extra=>{
-        const params=new URLSearchParams({f:'json',where,...extra});
-        const response=await fetch(CADASTRE_SEARCH+'?'+params);
-        if(!response.ok)throw new Error('HTTP '+response.status);
-        const payload=await response.json();
-        if(payload.error)throw new Error(payload.error.message||'Error municipal');
-        return payload;
-      };
-      const ordering=sort==='largest'?'area_terre DESC, n_predio ASC':sort==='smallest'?'area_terre ASC, n_predio ASC':'n_predio ASC';
-      const outFields='n_predio,clave_cata,parroquia,area_terre,area_ter_1,area_const,frente,administra,tipo_propi,zonificaci';
-      const [counts,results]=await Promise.all([
-        query({returnCountOnly:'true',returnGeometry:'false'}),
-        query({outFields,returnGeometry:'true',outSR:'4326',orderByFields:ordering,resultOffset:String(offset),resultRecordCount:String(pageSize)})
+      const [count,features]=await Promise.all([
+        query.count(controller.signal),
+        query.range(offset,pageSize,controller.signal)
       ]);
-      if (runId !== exploreRunId.current) return;
-      const count=Number(counts.count||0);
+      if (runId!==exploreRunId.current || controller.signal.aborted) return;
+      context.count=count;
       setExploreCount(count);
-      setExploreResults((results.features||[]).map(feature=>feature.attributes||{}));
-      if((results.features||[]).length)requestAnimationFrame(()=>document.getElementById('predio-map-reel')?.scrollIntoView({behavior:scrollBehavior(),block:'nearest'}));
-      // Convert ArcGIS rings to GeoJSON. Ring orientation is not guaranteed
-      // for all municipal records; never discard a feature solely because its
-      // outer ring is counterclockwise. Assign holes by containment.
-      const pointInRing=(point,ring)=>{
-        let inside=false;
-        for(let i=0,j=ring.length-1;i<ring.length;j=i++){
-          const [xi,yi]=ring[i],[xj,yj]=ring[j];
-          if((yi>point[1])!==(yj>point[1]) && point[0]<(xj-xi)*(point[1]-yi)/(yj-yi)+xi)inside=!inside;
-        }
-        return inside;
-      };
-      const convertArcGISFeature=f=>{
-        const rings=(f.geometry?.rings||[]).filter(r=>Array.isArray(r)&&r.length>=4);
-        if(!rings.length)return [];
-        const signed=ring=>ring.reduce((acc,p,i)=>{
-          const q=ring[(i+1)%ring.length];return acc+p[0]*q[1]-q[0]*p[1];
-        },0);
-        const records=rings.map(ring=>({ring,area:Math.abs(signed(ring))})).sort((a,b)=>b.area-a.area);
-        const polygons=[];
-        for(const item of records){
-          // The largest containing shell holds each interior ring; other rings
-          // are independent shells (including counterclockwise outer rings).
-          const container=polygons.find(poly=>pointInRing(item.ring[0],poly[0]));
-          if(container)container.push(item.ring);
-          else polygons.push([item.ring]);
-        }
-        return [{type:'Feature',properties:f.attributes||{},
-          geometry:{type:'MultiPolygon',coordinates:polygons}}];
-      };
-      const geometries=(results.features||[]).flatMap(convertArcGISFeature);
-      setExploreGeometries({type:'FeatureCollection',features:geometries});
-      // Keep the full query overlay independent from the current card page.
-      // Limit initial loading to a safe bounded scope; never claim that
-      // partial map coverage represents every matched municipal record.
-      if(!preserveSelection && offset===0){
-        const maxMapped=1000;
-        if(count>maxMapped){
-          setExploreMapNotice(`Mapa: primeros ${maxMapped.toLocaleString('es-EC')} de ${count.toLocaleString('es-EC')} predios; refine los filtros para visualizar todos.`);
-        }
-        const mapFeatures=[...(results.features||[])];
-        const totalToMap=Math.min(count,maxMapped);
-        for(let next=pageSize;next<totalToMap;next+=200){
-          const batch=await query({outFields,returnGeometry:'true',outSR:'4326',orderByFields:ordering,
-            resultOffset:String(next),resultRecordCount:String(Math.min(200,totalToMap-next))});
-          if (runId !== exploreRunId.current) return;
-          mapFeatures.push(...(batch.features||[]));
-          if(!(batch.features||[]).length)break;
-        }
-        const allGeo=mapFeatures.flatMap(f=>convertArcGISFeature(f));
-        setExploreAllGeometries({type:'FeatureCollection',features:allGeo});
-        setExploreAllOrder(mapFeatures.map(f=>String(f.attributes?.n_predio||'')));
-        if(allGeo.length<totalToMap)setExploreMapNotice(`Mapa parcial: ${allGeo.length} de ${count} predios con geometría recuperada.`);
-      }
-      if (runId !== exploreRunId.current) return;
+      setExploreResults(features.map(feature=>feature.properties||{}));
+      setExploreGeometries({type:'FeatureCollection',features:features.filter(feature=>feature.geometry)});
+      if(features.length)requestAnimationFrame(()=>document.getElementById('predio-map-reel')?.scrollIntoView({behavior:scrollBehavior(),block:'nearest'}));
       setExploreOffset(offset);
-      setExploreQueryKey([searchAreaMin,searchAreaMax,[...searchParishes].sort().join(','),searchLandClass,sort,constructionRatioMax.trim()!==''?'ratio-max:'+constructionRatioMax:'ratio:off',minimumFrontage,administrativeZone,ownershipRegime].join('|'));
-      if(offset===0 && count > 0)setExploreSearchOpen(false);
-    }catch(error){
-      if (runId !== exploreRunId.current) return;
-      setExploreError('No se pudo completar la búsqueda municipal. Revisa la conexión e inténtalo de nuevo.');
-      setExploreResults([]);setExploreGeometries(null);setExploreCount(null);
-      setExploreAllGeometries(null);setExploreAllOrder([]);setExploreMapNotice('');setExploreSelected(null);
-    }finally{if (runId === exploreRunId.current) setExploreBusy(false);}
+      setExploreQueryKey(queryKey);
+      if(offset===0 && count>0)setExploreSearchOpen(false);
+      // The optional map has its own lifecycle; it cannot erase a valid page
+      // or keep card navigation waiting for the entire overview to download.
+      void loadExploreOverview(context);
+    } catch(error) {
+      if (runId!==exploreRunId.current || controller.signal.aborted) return;
+      setExploreError(error.message || 'No se pudo completar la búsqueda municipal. Revisa la conexión e inténtalo de nuevo.');
+    } finally {
+      if (runId===exploreRunId.current) setExploreBusy(false);
+    }
   }
   async function openExplorePredio(predio) {
     if (!/^\d+$/.test(String(predio))) return;
@@ -1721,7 +1733,7 @@ export default function App() {
             </span>
           </div>
 
-          <ParcelMap data={audience === 'explorer' ? null : data} searchResults={audience==='explorer'?(advancedFilter==='all'?(exploreAllGeometries||visibleExploreGeometries):visibleExploreGeometries):null} selectedSearchPredio={audience==='explorer'?exploreSelected:null} onSelectSearchPredio={selectExplorePredioFromMap} />
+          <ParcelMap data={audience === 'explorer' ? null : data} searchResults={audience==='explorer'?mapExploreGeometries:null} searchQueryKey={exploreQueryKey} selectedSearchPredio={audience==='explorer'?exploreSelected:null} onSelectSearchPredio={selectExplorePredioFromMap} />
           <div className="map-bottom">
             <span>
               Fuente: Catastro 2024 · geometría 2026 cuando disponible · AIVA zonal
@@ -1747,6 +1759,15 @@ export default function App() {
             {error && <p className="error" role="alert">{error}</p>}
             {exploreError && <p className="error" role="alert">{exploreError}</p>}
             {exploreMapNotice&&<p className="note" role="status">{exploreMapNotice}</p>}
+            {exploreCount!==null&&<label className="predio-page-size">Polígonos en el mapa
+              <select aria-label="Polígonos en el mapa" value={exploreMapLimit} disabled={exploreBusy}
+                onChange={event=>{const limit=Number(event.target.value);setExploreMapLimit(limit);void loadExploreOverview(exploreRequestContext.current,limit);}}>
+                <option value={1000}>Hasta 1.000</option><option value={2000}>Hasta 2.000</option>
+              </select>
+              {exploreMapBusy&&<span role="status"> Cargando mapa…</span>}
+            </label>}
+            {exploreCount!==null&&!exploreMapBusy&&exploreMapNotice.startsWith('No se completó')&&
+              <button type="button" className="secondary" onClick={()=>void loadExploreOverview(exploreRequestContext.current)}>Volver a cargar el mapa</button>}
             {exploreCount!==null&&<button type="button" className="predio-new-query" disabled={exploreBusy} onClick={clearGISExploration}>Limpiar búsqueda · Nueva consulta ↑</button>}
             {exploreSelected && <section className="selection-detail" aria-label="Predio seleccionado">
               <div><span className="eyebrow">PREDIO SELECCIONADO</span><strong>Predio {exploreSelected}</strong><p>{selectedExploreParcel?.parroquia || 'Quito'}{selectedExploreParcel?.area_terre != null ? ` · ${formatArea(Number(selectedExploreParcel.area_terre))} de lote` : ''}</p></div>
@@ -1806,7 +1827,7 @@ export default function App() {
               const id=String(p.n_predio);
               const active=exploreSelected===id;
               const resultIsPH=String(p.tipo_propi||'').trim().toUpperCase()==='PROPIEDAD HORIZONTAL';
-              const hasGeometry=Boolean(exploreGeometries?.features?.some(f=>String(f.properties?.n_predio)===id));
+              const hasGeometry=pageGeometryIds.has(id);
               const landArea=p.area_terre===null||p.area_terre===undefined?null:Number(p.area_terre);
               const builtArea=p.area_const===null||p.area_const===undefined?null:Number(p.area_const);
               const validLand=landArea!==null&&Number.isFinite(landArea)&&landArea>0;
