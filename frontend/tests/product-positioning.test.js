@@ -23,11 +23,12 @@ test('home explains the product and two unambiguous entry points', () => {
   assert.match(overview,/No contrata obreros, selecciona proveedores, administra una obra, calcula presupuestos finales ni realiza una reforma por ti/);
   assert.match(readme,/not a project-management platform/);
 });
-test('keep household use cases and distinguish actual geometry from planned measurement', () => {
+test('keep household use cases and distinguish geometric measurements from architectural validation', () => {
   for (const phrase of ['Pintar paredes y techos','Cambiar el piso','Reorganizar o reparar','Reconstruir o ampliar','PDF \/ DXF','IRM']) {
     assert.ok(overview.includes(phrase), 'Missing use case: '+phrase);
   }
-  assert.match(overview,/La selección de líneas funciona; identificar muros y calcular superficies confiables sigue en desarrollo/);
+  assert.match(overview,/confirma la escala para calcular longitudes y áreas/);
+  assert.match(overview,/La identificación automática de muros y la validación arquitectónica siguen en desarrollo/);
   assert.match(overview,/medidas arquitectónicas verificadas y reportes exportables/);
   assert.match(overview,/Posible extensión · no implementada/);
   assert.match(overview,/Un plano describe el diseño, no el daño ocurrido/);

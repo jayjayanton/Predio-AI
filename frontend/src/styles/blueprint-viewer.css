@@ -82,6 +82,47 @@
 .cad-viewer.blueprint-expanded { padding: 20px; }
 .cad-viewer.blueprint-expanded .cad-stage { height: calc(100vh - 260px); min-height: 450px; }
 .cad-viewer.blueprint-expanded .cad-inspector { max-height: calc(100vh - 190px); }
+.cad-viewer .cad-measurements-shortcut { background: #e7f1ed; border-color: #9dbfb4; color: #155b58; font-weight: 650; }
+.cad-measurements { padding: 14px; border: 1px solid #b3cec3; border-radius: 8px; background: #f4f9f6; margin: 0 0 18px; scroll-margin-top: 24px; }
+.cad-measurements:focus { outline: 3px solid #1d777b; outline-offset: 3px; }
+.cad-measurement-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cad-measurement-heading h3 { font-size: 16px; margin: 0; color: #174e48; }
+.cad-measurement-heading > span { font-size: 9px; color: #73501f; background: #fff3d9; padding: 4px 6px; border-radius: 4px; }
+.cad-measurement-heading > span.is-confirmed { color: #165c49; background: #dfeee5; }
+.cad-measurement-scope { display: flex; align-items: flex-start; gap: 6px; margin: 9px 0; }
+.cad-measurement-scope p { flex: 1; margin: 0; font-size: 11px; line-height: 1.5; color: #4e6762; }
+.cad-measurement-scope button { font-size: 10px; padding: 4px 6px; }
+.cad-measurement-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 12px 0; }
+.cad-measurement-value { min-width: 0; background: #fff; border: 1px solid #dbe8e1; border-radius: 6px; padding: 10px; }
+.cad-measurement-value > span { display: block; font-size: 10px; color: #597069; margin-bottom: 6px; }
+.cad-measurement-value > strong { display: block; color: #194e46; font-size: 20px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.cad-measurement-value strong small { font-size: 12px; margin-left: 5px; font-weight: 500; }
+.cad-measurement-value > small { display: block; font-size: 10px; line-height: 1.4; color: #637c73; margin-top: 4px; }
+.cad-measurement-area { grid-column: 1 / -1; }
+.cad-measurement-area strong { font-size: 25px; }
+.cad-measurement-next, .cad-area-reason, .cad-measurement-excluded, .cad-measurement-approximation, .cad-measurement-hidden, .cad-length-scope { margin: 8px 0; font-size: 11px; line-height: 1.55; color: #506961; }
+.cad-measurement-next { color: #245d51; font-weight: 550; }
+.cad-measurement-hidden, .cad-measurement-approximation { border-left: 3px solid #ccaa77; padding-left: 8px; color: #705229; }
+.cad-area-reason { padding: 8px; background: #eaf2ee; border-radius: 4px; }
+.cad-scale-current { border-top: 1px solid #d2e2d8; padding-top: 9px; margin-top: 10px; }
+.cad-scale-current p { font-size: 11px; margin: 6px 0; line-height: 1.5; color: #355e50; }
+.cad-scale-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.cad-scale-actions button { font-size: 10px; }
+.cad-scale-editor { border-top: 1px solid #d2e2d8; padding-top: 10px; margin-top: 12px; }
+.cad-unit-form, .cad-calibration-form { display: grid; gap: 7px; margin: 0; }
+.cad-calibration-form { border-top: 1px solid #d2e2d8; padding-top: 12px; margin-top: 14px; }
+.cad-calibration-form h4 { font-size: 12px; font-weight: 650; margin: 0 0 2px; color: #315e50; }
+.cad-unit-form label, .cad-calibration-form label { display: grid; gap: 6px; font-size: 11px; color: #355e50; }
+.cad-unit-form p, .cad-calibration-form p, .cad-calibration-only { margin: 0; font-size: 10px; line-height: 1.5; color: #62796f; }
+.cad-reference-id { overflow-wrap: anywhere; }
+.cad-measurements input[type="text"] { min-width: 0; width: 100%; border: 1px solid #bfd2c9; border-radius: 5px; padding: 9px; font-size: 13px; color: #264b3f; background: #fff; min-height: 38px; }
+.cad-measurements input[type="text"]:disabled { background: #edf2ef; }
+.cad-measurements input[aria-invalid="true"] { border-color: #ab4837; }
+.cad-unit-form button, .cad-calibration-form button { background: #236b5b; color: #fff; border-color: #236b5b; font-size: 11px; padding: 9px; min-height: 36px; }
+.cad-measurement-error { color: #9b3528; background: #fff2ee; border-left: 3px solid #b95643; padding: 8px; margin: 10px 0; font-size: 11px; line-height: 1.5; }
+.cad-measurement-notice { font-size: 10px; line-height: 1.5; color: #27634e; margin: 9px 0; }
+.cad-measurement-boundary, .cad-measurement-source { font-size: 10px; line-height: 1.55; color: #62776c; margin: 9px 0 0; }
+.cad-measurement-source { border-top: 1px solid #d8e5dc; padding-top: 8px; }
 @media (max-width: 1100px) {
   .cad-workspace { grid-template-columns: minmax(0, 1fr) 270px; gap: 12px; }
   .cad-inspector { padding-left: 12px; }
@@ -90,11 +131,20 @@
   .cad-workspace { grid-template-columns: 1fr; }
   .cad-inspector { max-height: none; padding: 14px 0 0; border-left: 0; border-top: 1px solid var(--cad-border); }
   .cad-viewer.blueprint-expanded .cad-inspector { max-height: none; }
+  .cad-measurement-values { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cad-measurement-area { grid-column: auto; }
+  .cad-measurement-area strong { font-size: 20px; }
+  .cad-scale-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .cad-calibration-form { border-top: 0; padding-top: 0; margin-top: 0; }
 }
 @container cad-viewer (max-width: 500px) {
   .cad-overview { width: 156px; bottom: 8px; left: 8px; }
   .cad-overview canvas { width: 154px; height: 95px; }
   .cad-overview .cad-overview-title { font-size: 9px; }
+  .cad-measurement-values { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cad-measurement-area { grid-column: 1 / -1; }
+  .cad-scale-editor { grid-template-columns: 1fr; }
+  .cad-calibration-form { border-top: 1px solid #d2e2d8; padding-top: 12px; }
 }
 @media (max-width: 800px) {
   .cad-viewer { padding: 12px; }

@@ -1,5 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import MeasurementPanel from './MeasurementPanel.jsx';
 import { hasPartialExtraction, drawingExtractionMessages, drawingRepresentationMessages } from '../drawingExtraction.js';
+import { scaleForView } from '../measurementPresentation.js';
 import {
   buildSpatialIndex, filterDrawingItems, fitTransform, hitTest, isText, prepareDrawing,
   rectangle, selectInRectangle, toScreen, toWorld, unionBounds, updateSelection, zoomAt,
@@ -77,8 +79,8 @@ function paintDrawing(canvas, size, transform, items, selected, viewport = null)
   }
 }
 
-/** Imported geometry, source annotations and selection. No calibrated quantities. */
-export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPTY_VIEWS }) {
+/** Imported geometry, source annotations and estimates with user-confirmed scale. */
+export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPTY_VIEWS, documentFormat = '', unitsCode = null }) {
   const [viewIndex, setViewIndex] = useState(0);
   const [selected, setSelected] = useState(new Set());
   const [focusedId, setFocusedId] = useState(null);
@@ -95,10 +97,14 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const [size, setSize] = useState({width: 800, height: 560});
   const [transform, setTransform] = useState({scale: 1, x: 0, y: 0});
   const [selectionBox, setSelectionBox] = useState(null);
+  const [scaleRecord, setScaleRecord] = useState(null);
   const canvasRef = useRef(null); const stageRef = useRef(null); const overviewRef = useRef(null);
+  const measurementRef = useRef(null);
   const drag = useRef(null); const pointers = useRef(new Map()); const pinch = useRef(null); const spacePressed = useRef(false);
   const instructionsId = useId();
+  const measurementPanelId = useId();
   const view = views[viewIndex] || views[0] || EMPTY_VIEW;
+  const measurementScale = scaleForView(scaleRecord, view);
   const drawing = useMemo(() => prepareDrawing(view), [view]);
   const index = useMemo(() => buildSpatialIndex(drawing.items, drawing.bounds), [drawing]);
   const visible = useMemo(() => filterDrawingItems(drawing.items, {hiddenLayers, showText}), [drawing, hiddenLayers, showText]);
@@ -132,6 +138,7 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   useEffect(() => {
     setSelected(new Set()); setFocusedId(null); setHiddenLayers(new Set()); setQuery('');
     setListPage(1); setListMode('visible'); setLayerQuery(''); setShowText(true);
+    setScaleRecord(null);
     setSelectionBox(null); drag.current = null; pointers.current.clear(); pinch.current = null;
   }, [view]);
   useEffect(() => { setTransform(fit); }, [fit]);
@@ -259,8 +266,9 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   return (
     <section className={`blueprint-viewer cad-viewer${expanded ? ' blueprint-expanded' : ''}`} aria-label="Visor de dibujo importado">
       <div className="blueprint-toolbar cad-toolbar">
-        <div><strong>Dibujo importado</strong><p className="cad-subtitle">Inspección de geometría y textos de origen · escala sin verificar</p></div>
+        <div><strong>Dibujo importado</strong><p className="cad-subtitle">Inspección de geometría y textos de origen · {measurementScale ? 'estimaciones con escala confirmada por ti' : 'escala pendiente de confirmación'}</p></div>
         <div className="blueprint-tools">
+          <button type="button" className="cad-measurements-shortcut" aria-controls={measurementPanelId} onClick={() => { measurementRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'}); measurementRef.current?.focus({preventScroll: true}); }}>Medidas</button>
           <button type="button" onClick={() => zoom(1.5)} aria-label="Acercar dibujo">＋</button>
           <button type="button" onClick={() => zoom(1 / 1.5)} aria-label="Alejar dibujo">−</button>
           <button type="button" onClick={() => setTransform(fit)}>Ajustar todo</button>
@@ -309,12 +317,17 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
             <span className="cad-zoom">{Math.round(transform.scale / fit.scale * 100)} %</span>
           </div>
           <p className="cad-help" id={instructionsId}>Clic: seleccionar. Arrastrar: desplazar; en Rectángulo, seleccionar lo que cruza el recuadro. Rueda o dos dedos: zoom. Teclado: flechas, + / − y F para ajustar. La lista ofrece selección sin usar el lienzo.</p>
-          <p className="cad-source-note">La vista general y el detalle se generan con los datos importados; no son una reproducción independiente del archivo original. Las áreas, cotas y nombres escritos provienen del plano, sin verificación ni cálculo de PredioAI.</p>
+          <p className="cad-source-note">La vista general y el detalle se generan con los datos importados; no son una reproducción independiente del archivo original. Las áreas, cotas y nombres escritos son anotaciones del plano, sin verificar. Los cálculos geométricos de la selección se muestran por separado en Medidas.</p>
           {cadLayouts.length > 0 && <details className="cad-layouts"><summary>Vistas y presentaciones del CAD ({cadLayouts.length})</summary>
             <p>{cadLayouts.map(layout => `${layout.name}${layout.displayed ? ' (disponible)' : ' (sin representación)'}`).join(' · ')}</p><p>Las presentaciones son vistas del archivo; sus nombres no confirman cuántos pisos hay.</p>
           </details>}
         </div>
         <aside className="cad-inspector" aria-label="Capas y elementos del dibujo">
+          <MeasurementPanel key={`${viewIndex}-${view.page || 1}`} panelId={measurementPanelId} sectionRef={measurementRef}
+            elements={selectedItems} hiddenSelectedCount={selectedItems.length - selectedVisible.length}
+            documentFormat={documentFormat} unitsCode={unitsCode} scope={view.extraction?.scope} viewIdentity={view}
+            scale={measurementScale} onScaleChange={next => setScaleRecord(next ? {...next, view} : null)}
+            onClearSelection={() => { setSelected(new Set()); setFocusedId(null); }} />
           <details className="cad-layers" open><summary>Capas ({number(layers.length)})</summary>
             <label className="cad-search">Buscar capa<input type="search" value={layerQuery} onChange={event => setLayerQuery(event.target.value)} placeholder="Nombre de capa" /></label>
             <div className="cad-actions"><button type="button" onClick={() => setHiddenLayers(new Set())}>Mostrar todas</button><button type="button" onClick={() => setHiddenLayers(new Set(layers.map(([name]) => name)))}>Ocultar todas</button></div>
@@ -351,7 +364,7 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
               {focused.block_path?.length > 0 && <><dt>Ruta de bloques</dt><dd>{focused.block_path.map(value => typeof value === 'string' ? value : JSON.stringify(value)).join(' → ')}</dd></>}
               {isText(focused) && <><dt>Texto original</dt><dd className="cad-literal-text">{focused.text}</dd></>}
               {focused.approximation && <><dt>Representación</dt><dd>Curva aproximada con tramos para visualizar. Se selecciona la entidad de origen completa.</dd></>}
-            </dl><p>Sin escala ni medidas verificadas. La selección no identifica automáticamente un muro o una habitación.</p>
+            </dl><p>{measurementScale ? 'Escala confirmada por ti; estimaciones geométricas sin verificación para obra.' : 'La escala necesita confirmación para expresar medidas en metros.'} La selección no identifica automáticamente un muro o una habitación.</p>
           </section>}
         </aside>
       </div>

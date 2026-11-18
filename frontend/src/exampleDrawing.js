@@ -8,7 +8,7 @@ export function createExampleDrawing() {
       source: 'synthetic_example', source_handle: id, block_path: [],
       classification: 'unclassified', ...extra });
   };
-  const line = (layer, a, b) => add(layer, [a, b], { kind: 'line' });
+  const line = (layer, a, b, extra = {}) => add(layer, [a, b], { kind: 'line', source_type: 'LINE', ...extra });
   const rect = (layer, x, y, width, height) => add(layer,
     [[x, y], [x + width, y], [x + width, y + height], [x, y + height], [x, y]],
     { closed: true });
@@ -31,8 +31,8 @@ export function createExampleDrawing() {
   // Room-sized tile grids make layer and area selection easy to explore.
   for (const [x, y, width, height] of [[108, 108, 442, 244], [582, 108, 410, 244],
     [108, 384, 442, 288], [582, 384, 410, 288]]) {
-    for (let px = x; px <= x + width; px += 28) line(floor, [px, y], [px, y + height]);
-    for (let py = y; py <= y + height; py += 28) line(floor, [x, py], [x + width, py]);
+    for (let px = x; px <= x + width; px += 28) line(floor, [px, y], [px, y + height], {hatch_pattern: true, source_type: 'HATCH'});
+    for (let py = y; py <= y + height; py += 28) line(floor, [x, py], [x + width, py], {hatch_pattern: true, source_type: 'HATCH'});
   }
   rect(walls, 88, 88, 924, 604);
   rect(walls, 104, 104, 892, 572);
@@ -75,18 +75,24 @@ export function createExampleDrawing() {
   rect(furniture, 920, 424, 50, 100);
 
   label('DORMITORIO', 320, 225);
-  label('12,00 m² · ejemplo', 320, 250, 'Cotas del ejemplo', 'source_area');
+  label('10,78 m² · ejemplo', 320, 250, 'Cotas del ejemplo', 'source_area');
   label('COCINA', 760, 252);
   label('SALA', 290, 590);
   label('BAÑO / LAVADO', 716, 615);
   label('VIVIENDA FICTICIA · PARA PROBAR EL VISOR', 235, 760);
-  line('Cotas del ejemplo', [88, 46], [1012, 46]);
-  for (const x of [88, 1012]) line('Cotas del ejemplo', [x, 32], [x, 76]);
+  line('Cotas del ejemplo', [88, 46], [1012, 46], {dimension_handle: 'example-dimension'});
+  for (const x of [88, 1012]) line('Cotas del ejemplo', [x, 32], [x, 76], {dimension_handle: 'example-dimension'});
   label('9,24 m · cota ficticia', 455, 34, 'Cotas del ejemplo', 'source_dimension');
+
+  // Explicit fictional floor boundary: 442 × 244 cm, separate from hatch strokes.
+  // It can be selected by layer to demonstrate area/perimeter after unit confirmation.
+  rect('Área de ejemplo', 108, 108, 442, 244);
+  Object.assign(elements.at(-1), {source_type: 'LWPOLYLINE', measurement_demo: true});
 
   return {
     filename: 'Vivienda de ejemplo · dibujo ficticio',
     format: 'example',
+    units_code: 5,
     is_example: true,
     floor_identification: 'unverified',
     display_scope: 'example',

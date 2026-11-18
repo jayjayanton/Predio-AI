@@ -8,7 +8,7 @@ The intended platform connects **predio + architectural PDF/CAD + relevant IRM i
 
 **Public-facing message:** “Entiende tus planos. Prepara tu reforma.”
 
-**Working pilot, not a completed measurement engine.** Cadastral lookup, document inspection and selectable vector geometry exist. Calibrated architectural measurements, corrections with recalculation and exportable technical reports are the next core architectural milestones. Explainable parcel scoring and unsupervised segmentation remain planned on a parallel analytics track.
+**Working pilot with geometric measurements.** Cadastral lookup, document inspection, selectable vector geometry and a measurement panel exist. Users can confirm drawing units or calibrate against a known length, then calculate selected lengths, closed-boundary perimeters and enclosed areas. Architectural interpretation, independently validated measurements, corrections with authoritative recalculation and exportable technical reports remain further milestones. Explainable parcel scoring and unsupervised segmentation remain planned on a parallel analytics track.
 
 [Open the application](https://jayjayanton.github.io/Predio-AI/) · [Architectural methodology and product scope](docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md) · [Pilot presentation and real-document validation](docs/PILOT_VALIDATION.md) · [Deployment guide](DEPLOYMENT.md)
 
@@ -18,7 +18,7 @@ The public entry now answers a single question: **what does PredioAI help you do
 
 The first screen offers **two explicit paths**: **Analizar planos** opens document inspection directly for a home improvement task, while **Mi predio** provides cadastral/municipal information. Linking a predio is optional for document inspection and remains available from the plan workspace. **Explorar mapa** is a separate GIS discovery tool. **Selección** preserves the existing parcel portfolio. **Analítica** is accessible from the expanded complementary/future section of the homepage and through its existing hash route, without competing with primary tasks in the header.
 
-Consumer-facing tasks are painting, flooring, repair, remodeling, reorganization and expansion. Existing document geometry inspection is not the same as wall recognition, calibrated measurements, quotes, contractor selection, materials procurement or managing building works. A working interpretation/calibration/measurement pipeline and reviewed reports are separate milestones. The guidance for obtaining municipal copies remains owner-led; PredioAI does not submit the request.
+Consumer-facing tasks are painting, flooring, repair, remodeling, reorganization and expansion. The measurement panel calculates supported geometry using the scale explicitly supplied by the user. It does not identify walls or rooms automatically, verify the building's current condition, prepare quotes, select contractors, procure materials or manage building works. Architectural interpretation and reviewed reports remain separate milestones. The guidance for obtaining municipal copies remains owner-led; PredioAI does not submit the request.
 
 ## Firm portfolios and sequential IRM review
 
@@ -48,7 +48,7 @@ The architectural journey is **select the work → supply plans and relevant IRM
 | Audience | Intended job | Scope |
 | --- | --- | --- |
 | Homeowners | Understand a project and prepare painting, flooring, repair, renovation, reorganization, reconstruction or expansion | The originating use case; inspected geometry is available, verified quantities are pending |
-| Architects and construction/remodeling firms | Review drawings remotely and prepare traceable intervention measurements and client reports | Document inspection exists; calibrated takeoff and technical exports are planned |
+| Architects and construction/remodeling firms | Review drawings remotely and prepare traceable intervention measurements and client reports | Document inspection and user-calibrated geometric measurements exist; reviewed architectural takeoffs and technical exports are planned |
 | Real estate firms and developers | Discover and compare parcels and review their municipal context | Existing discovery and comparison tools; scoring and segmentation are planned |
 | Insurers and loss-assessment professionals | Associate damage evidence with building elements and prepare reviewed reports for clients | Potential future extension; no damage-assessment or claims engine exists |
 
@@ -66,7 +66,17 @@ The project workflow accepts PDF, DXF and DWG drawings, a building type and repa
 
 Project documents are submitted to the FastAPI `/api/documents/analyze` endpoint. PDF/DXF parsing uses memory; DWG conversion uses a private temporary directory cleaned up after processing. Files are not saved as permanent projects. This is separate from the browser-only developer IRM parser described below. Repair, maintenance and a remodeling request containing **only `replace_floor`** can be inspected without an IRM. Other remodeling activities, mixed flooring/remodeling requests, structural modification and expansion retain the pilot's IRM prerequisite. This software rule applies to preliminary document inspection; it does not establish permit requirements or verify that a proposed intervention is nonstructural.
 
-The on-screen **document summary** describes inspection evidence and unresolved measurements. It identifies when no predio is linked. Verified scale, wall heights, opening deductions, architectural classification, corrections/recalculation and traceable measurement exports remain future work. The system does not automatically estimate material requirements, construction costs, market prices or regulatory compliance. Validation against an authorized real architectural PDF/CAD and independently checked dimensions remains pending.
+The on-screen **document summary** describes inspection evidence and unresolved architectural quantities. It identifies when no predio is linked. The separate **Medidas** panel calculates geometric lengths and areas after explicit unit confirmation or known-length calibration, independently of the API's extraction-only result. User-confirmed scale is not independent physical verification. Wall heights, opening deductions, architectural classification, reviewed corrections and traceable measurement exports remain future work. The system does not automatically estimate material requirements, construction costs, market prices or regulatory compliance. Validation against independently checked real-project dimensions remains pending.
+
+### Selection measurements
+
+Open **Medidas** in the drawing inspector. For a CAD model, review the declared units and explicitly apply the appropriate unit. Alternatively, select one eligible line or path, enter its independently known length in metres and apply calibration. PDF pages and paper layouts require known-length calibration. Scale is scoped to the current imported view and is reset when the drawing/view changes.
+
+The panel reports selected geometric length and, for a supported simple closed boundary, perimeter and enclosed area. Curved geometry uses the imported sampled paths and is labelled approximate. Text, dimension decorations and hatch-pattern strokes are excluded; explicit hatch boundaries can be measured. Disconnected, branching, crossing, ambiguous or overly complex selections do not produce an area. Selecting the whole drawing does not define a floor surface.
+
+**Ver plano de ejemplo** includes a separate **Área de ejemplo** layer. Select its boundary and apply centimetres: the fictional 4.42 × 2.44 m rectangle has perimeter 13.72 m and area 10.7848 m². This is a reproducible arithmetic demonstration, not a real-building measurement.
+
+Unit-code and layout context references: [Autodesk INSUNITS](https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-A58A87BB-482B-4042-A00A-EEF55A2B4FD8.htm) and [ezdxf DXF units](https://ezdxf.readthedocs.io/en/stable/concepts/units.html). Unit metadata suggests an interpretation; the panel still requires explicit confirmation or calibration.
 
 ### Geographic discovery
 
@@ -113,7 +123,7 @@ The response distinguishes `single_zone`, `multiple_zones`, `no_intersection`, `
 
 | Direction | Intended outcome | Status |
 | --- | --- | --- |
-| Architectural measurement engine | Validate units/scale, associate selected elements and compute traceable lengths/surfaces with correction and recalculation | Next core architectural milestone |
+| Architectural measurement engine | Associate reviewed building elements and quantities with confirmed physical evidence, corrections and recalculation | Geometric selection panel implemented; architectural verification remains pending |
 | Reviewed project reports | Export evidence, measurements, formulas, missing inputs and review status | Planned; not the existing inspection summary |
 | Homeowner/professional pilot | Test a painting, flooring or renovation task against manually verified references | Proposed |
 | Explainable parcel scoring | Compare parcels under explicit criteria, weights, constraints and data-quality indicators | Parallel planned analytics track |

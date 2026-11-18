@@ -38,7 +38,8 @@ PredioAI extracts information and derives measurements/quantities from verified 
 | Cadastral comparison and descriptive CSV export | Implemented; local browser selection |
 | Assisted IRM access and browser PDF field extraction | Implemented prototype; CAPTCHA and document review remain manual |
 | PDF/DXF/DWG document inspection through `/api/documents/analyze` | Experimental extraction; DWG requires the deployed local converter |
-| Drawing overview/detail viewer, zoom, layout switching, layer visibility, individual and rectangle selection | Implemented; uncalibrated geometry with explicit import limitations |
+| Drawing overview/detail viewer, zoom, layout switching, layer visibility, individual and rectangle selection | Implemented; imported geometry with explicit limitations |
+| Selected geometric lengths, closed-boundary perimeters and enclosed areas | Implemented in the browser after explicit unit confirmation or known-length calibration; sampled curves are approximate |
 | Preliminary on-screen document-inspection summary | Implemented; not a verified measurement report |
 | Automatic wall/room/roof classification | Not implemented |
 | Verified scale and architectural lengths/surfaces | Not implemented |
@@ -60,7 +61,7 @@ The developer IRM parser runs locally in the browser. The remodeling/project doc
 4. **Inspect before inferring.** Determine available text, vector geometry, pages/layers and explicit dimensions. A raster scan needs a distinct validated extraction path. An IRM provides urban-planning context, not room dimensions.
 5. **Explore interactively.** Use the overview to keep context while zooming into the detail canvas. Show/hide layers, search source identifiers or text, and select individual elements or a rectangular area. The built-in fictional drawing demonstrates the controls without an upload. Imported CAD curves use an explicit display approximation; units, source annotations and layer names remain evidence to review. Future semantic associations connect these elements to walls, rooms, floors or openings; selection alone is not recognition.
 6. **Validate measurement inputs.** Confirm scale/units per drawing, dimensions, heights, face conventions, openings and evidence that the drawing corresponds to the current building. Mark unknowns and conflicts explicitly.
-7. **Calculate and correct.** A future deterministic engine computes only supported quantities. A correction invalidates dependent quantities and triggers backend recalculation before a report is treated as current.
+7. **Calculate and correct.** The current browser panel computes supported geometric lengths and simple closed-boundary areas with the user's confirmed scale. Changing selection or applying a new scale recalculates the panel; switching drawing/view resets calibration. Architectural quantities, reviewed corrections and authoritative report recalculation remain future work. A future correction must invalidate dependent quantities before a report is treated as current.
 8. **Review and communicate.** Assemble traceable quantities and missing information into a report reviewed by the responsible person/professional, then export/share through an authorized workflow when implemented.
 
 Use an in-app workspace. Do not send a user to a separate browser tab to inspect drawing geometry. Secure project persistence requires authentication, access controls, retention and deletion policies first.
@@ -105,6 +106,16 @@ The cadastral polygon is the **lote matriz**, not the unit footprint or room bou
 An IRM is evidence for reviewing urban-planning conditions, not proof of current building condition or an automatic construction permit. Current project upload requirements are application workflow rules, not universal legal statements. Multiple zoning assignments, PH rights and missing fields remain visible for review.
 
 ## Evidence model and measurement rules
+
+The current selection panel is a geometric prototype within this broader
+methodology. It measures imported paths with a user-confirmed scale; it does
+not recognize rooms, wall faces, net/gross area conventions or existing site
+conditions. A unit code is only a suggestion until explicitly applied. PDF
+pages and CAD paper layouts need their own known-length calibration. Text and
+dimension decorations are evidence, not measurable boundaries. Curves use the
+sampled imported geometry, with the approximation disclosed. Open, branching,
+intersecting, disconnected or ambiguous selections keep area unavailable.
+The API's extraction-only flags and professional review status are unchanged.
 
 Each future measurement must include:
 
