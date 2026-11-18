@@ -27,9 +27,9 @@
 .project-package-files option { padding: 8px; }
 .project-package-choice { display: flex; flex-direction: column; gap: 5px; margin: 10px 0 14px; font-size: 12px; overflow-wrap: anywhere; }
 .project-package-choice span { color: #586b60; }
-.project-package-actions { display: flex; gap: 14px; align-items: center; }
-.project-package-actions .primary-action { flex-shrink: 0; margin: 0; }
-.project-package-actions .note { margin: 0; overflow-wrap: anywhere; }
+.project-package-actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.project-package-actions .primary-action { flex: 0 0 auto; width: auto; max-width: 100%; margin: 0; }
+.project-package-actions .note { flex: 1 1 200px; min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .project-package .project-package-scope { margin: 15px 0 0; line-height: 1.55; }
 .project-package-notices { margin-top: 12px; color: #586b60; font-size: 12px; line-height: 1.55; }
 .project-package-notices summary { cursor: pointer; font-weight: 700; }
@@ -43,4 +43,5 @@
   .project-package-heading { flex-direction: column; gap: 9px; }
   .project-package-actions { align-items: stretch; flex-direction: column; gap: 9px; }
   .project-package-actions .primary-action { width: 100%; }
+  .project-package-actions .note { flex: 0 1 auto; }
 }
