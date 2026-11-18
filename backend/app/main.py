@@ -378,6 +378,7 @@ async def inspect_blueprint(
 from typing import Literal
 from fastapi import Form
 from .document_analysis import analyze_document, CadImportBusyError
+from .project_package import analyze_project_package, MAX_PACKAGE_BYTES
 from .work_activities import requires_irm, validate_activities
 
 
@@ -389,8 +390,9 @@ async def analyze_project_documents(
     work_type: Literal["repair", "maintenance", "remodel", "structural", "expansion"] = Form(...),
     predio_number: str | None = Form(default=None),
     activities: list[str] = Form(...),
+    package_entry: str | None = Form(default=None),
 ):
-    """Extract evidence from PDF/DXF/DWG blueprint and conditionally required IRM PDF.
+    """Inspect one drawing or selected ZIP member and a conditionally required IRM PDF.
 
     This does not calculate dimensions, check regulatory compliance,
     or certify that an intervention is permitted.
@@ -405,11 +407,18 @@ async def analyze_project_documents(
         raise HTTPException(status_code=422, detail="Invalid predio number")
 
     async def parse_upload(upload: UploadFile, role: str):
-        content = await upload.read(MAX_UPLOAD + 1)
-        if len(content) > MAX_UPLOAD:
-            raise HTTPException(status_code=413, detail=f"{role} exceeds 15 MB")
+        filename = upload.filename or ""
+        is_package = role == "blueprint" and filename.lower().endswith(".zip")
+        limit = MAX_PACKAGE_BYTES if is_package else MAX_UPLOAD
+        content = await upload.read(limit + 1)
+        if len(content) > limit:
+            raise HTTPException(status_code=413, detail="El ZIP supera el límite de 30 MB." if is_package else f"{role} exceeds 15 MB")
         try:
-            return await run_in_threadpool(analyze_document, content, upload.filename or "", role)
+            if is_package:
+                return await run_in_threadpool(analyze_project_package, content, filename, package_entry)
+            if role == "blueprint" and package_entry is not None:
+                raise ValueError("La selección de un archivo del paquete requiere un ZIP.")
+            return await run_in_threadpool(analyze_document, content, filename, role)
         except DwgConversionError as exc:
             raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
         except CadImportBusyError as exc:

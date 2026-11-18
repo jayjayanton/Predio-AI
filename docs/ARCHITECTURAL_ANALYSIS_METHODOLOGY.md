@@ -1,7 +1,8 @@
 # PredioAI — Property, Plans and Intervention Intelligence
 
 **Product scope, methodology and development roadmap**  
-**Scope revised:** 17 November 2026  
+**Scope revised:** 17 November 2026
+
 **Companion document:** [Project README](../README.md)
 
 ## Product origin and positioning
@@ -38,8 +39,10 @@ PredioAI extracts information and derives measurements/quantities from verified 
 | Cadastral comparison and descriptive CSV export | Implemented; local browser selection |
 | Assisted IRM access and browser PDF field extraction | Implemented prototype; CAPTCHA and document review remain manual |
 | PDF/DXF/DWG document inspection through `/api/documents/analyze` | Experimental extraction; DWG requires the deployed local converter |
+| ZIP drawing-package inventory and selection | Implemented; one selected PDF/DXF/DWG inspected per request, without automatic xref assembly or persistent projects |
 | Drawing overview/detail viewer, zoom, layout switching, layer visibility, individual and rectangle selection | Implemented; imported geometry with explicit limitations |
 | Selected geometric lengths, closed-boundary perimeters and enclosed areas | Implemented in the browser after explicit unit confirmation or known-length calibration; sampled curves are approximate |
+| Illustrative exterior volume and front/side projections | Implemented from one selected contour and applied scale; height/roof are explicit user assumptions, not extracted building evidence |
 | Preliminary on-screen document-inspection summary | Implemented; not a verified measurement report |
 | Automatic wall/room/roof classification | Not implemented |
 | Verified scale and architectural lengths/surfaces | Not implemented |
@@ -51,13 +54,13 @@ PredioAI extracts information and derives measurements/quantities from verified 
 
 The current **Analizar planos** entry opens the document workspace directly. A cadastral lookup is optional context, with a visible unlinked state until a predio is selected. Inspection results remain in the viewer, and the documentary summary is opened separately. Repair, maintenance and an isolated floor-finish replacement can proceed without an IRM; other remodeling activities, mixed requests, structural modification and expansion retain the pilot's IRM prerequisite. These are software inspection requirements, not a determination of municipal permits.
 
-The developer IRM parser runs locally in the browser. The remodeling/project document workflow sends files to the backend: PDF/DXF parsing uses memory and DWG conversion uses temporary files removed after processing. Do not promise that all uploaded files stay on-device. Existing local IRM automation is optional desktop tooling, not automatic municipal retrieval by the hosted app.
+The developer IRM parser runs locally in the browser. The remodeling/project document workflow sends files to the backend: PDF/DXF parsing uses memory and DWG conversion uses temporary files removed after processing. ZIP selection resends the archive and inspects only its chosen drawing; no archive is extracted to disk and no package is saved as a project. Illustrative geometry and assumptions are computed in the browser and are temporary. Do not promise that all uploaded files stay on-device. Existing local IRM automation is optional desktop tooling, not automatic municipal retrieval by the hosted app.
 
 ## Core user journey
 
 1. **Define the intervention.** Start with plain-language tasks: paint, change flooring, repair, remodel/reorganize, reconstruct or expand. Escalate technical review for structural changes and extensions.
 2. **Link property context when available.** A document can be inspected without a municipal lookup. When linked, obtain the predio/cadastral context and confirm the drawing corresponds to it. Separate the lot, building, PH unit and individual room; they are not interchangeable geometries.
-3. **Provide documents.** Upload authorized PDF, DXF or DWG drawings and relevant IRM. The server converts DWG to DXF and reports conversion and extraction limitations while retaining the original source identity. Compare the result with the original. Plans are already digital when vector PDF/CAD is provided; the job is parsing/structuring, not assuming they need a newly trained vision model.
+3. **Provide documents.** Upload authorized PDF, DXF or DWG drawings, individually or in a ZIP, and relevant IRM. The server inventories the ZIP but inspects only the chosen supported drawing. It converts DWG to DXF and reports conversion and extraction limitations while retaining the selected source identity. Compare the result with the original. Plans are already digital when vector PDF/CAD is provided; the job is parsing/structuring, not assuming they need a newly trained vision model.
 4. **Inspect before inferring.** Determine available text, vector geometry, pages/layers and explicit dimensions. A raster scan needs a distinct validated extraction path. An IRM provides urban-planning context, not room dimensions.
 5. **Explore interactively.** Use the overview to keep context while zooming into the detail canvas. Show/hide layers, search source identifiers or text, and select individual elements or a rectangular area. The built-in fictional drawing demonstrates the controls without an upload. Imported CAD curves use an explicit display approximation; units, source annotations and layer names remain evidence to review. Future semantic associations connect these elements to walls, rooms, floors or openings; selection alone is not recognition.
 6. **Validate measurement inputs.** Confirm scale/units per drawing, dimensions, heights, face conventions, openings and evidence that the drawing corresponds to the current building. Mark unknowns and conflicts explicitly.
@@ -65,6 +68,24 @@ The developer IRM parser runs locally in the browser. The remodeling/project doc
 8. **Review and communicate.** Assemble traceable quantities and missing information into a report reviewed by the responsible person/professional, then export/share through an authorized workflow when implemented.
 
 Use an in-app workspace. Do not send a user to a separate browser tab to inspect drawing geometry. Secure project persistence requires authentication, access controls, retention and deletion policies first.
+
+## Drawing packages and source completeness
+
+A single CAD document may contain multiple plan drawings, sections or elevations in modelspace and paper layouts. A project can also distribute these across separate files. The ZIP workflow accommodates the latter without assuming a geodatabase, one file per floor, or any automatic relationship between the documents. Folder paths identify files; file names, layer names and layout names do not establish storey count or architectural meaning.
+
+The current package limit is **30 MiB** uploaded, with at most **1,000 archive entries**, **100 supported drawings**, **15 MiB per supported drawing** and **150 MiB** advertised uncompressed content. The server validates the inventory and opens only the requested entry, or the first supported path in sorted order. Unsupported files, macOS auxiliary files and nested archives are skipped with notices. Unsafe paths, links, encryption and excessive expansion are rejected. A member inspection error preserves the package browser, including retryable converter errors. There is no recursive extraction or automatic assembly of external CAD references.
+
+Request actual sections, elevations and roof drawings when height or roof evidence is needed. A plan-view cutting marker locates a referenced section; it does not provide that profile. Another floor is visible only if its geometry is present in the supplied documents and successfully imported. Missing source geometry remains missing after packaging files together.
+
+## Illustrative reconstruction and evidence status
+
+**Ilustración 3D** creates a bounded exterior volume from one selected eligible closed contour and the user's explicitly applied unit/calibration. Its base follows that source exterior footprint, including supported concavities. Imported curve approximation carries through. Interior rings and graphic masks are ignored with a notice; they do not become physical openings.
+
+Height is an editable **0.3–12 m** assumption, initially **2.6 m**. Roof choices are none initially, flat or gable. A gable has an assumed **1–60°** pitch and an X- or Y-aligned ridge; its height input means eaves height. The UI separately labels the illustrative maximum height that includes the ridge. Changes take effect through **Actualizar ilustración**. Invalid or unapplied inputs keep the last applied illustration.
+
+The 3D, front, side and plan views are projections of the same hypothetical volume. Front/side do not constitute actual architectural sections or elevations. The model does not infer interior walls, doors/windows, openings, storeys, actual building height or the existing roof. Assumptions remain distinct from document evidence and are not promoted into verified quantities. Source measurements are unchanged. Changing the selected contour, view, drawing or scale resets the illustration; there is no saved model or model export.
+
+For an authorized presentation without private drawings, use **Ver plano de ejemplo → select Área de ejemplo → Medidas → choose cm → Aplicar unidad → Ilustración 3D**. Edit the assumptions and click **Actualizar ilustración**. Compare the hypothetical projections, then return through **Volver al plano fuente**. This demonstrates an inspectable footprint and adjustable hypotheses while real-building validation remains pending.
 
 ## Everyday examples
 
@@ -148,31 +169,18 @@ Net paintable wall area = gross selected face area − corresponding opening are
 Simple roof-plane surface = verified projected area / cos(verified roof pitch)
 ```
 
-For multiple heights, faces or roof planes, calculate each supported part separately. Unknown scale, dimensions, height, pitch or element identity must return **pending/unavailable**, not zero or a fabricated estimate. Evidence of approval does not guarantee that drawings match today's building.
+For multiple heights, faces or roof planes, calculate each supported part separately. Unknown scale, dimensions, height, pitch or element identity must remain **pending/unavailable** in measurement evidence. User-entered illustrative assumptions do not fill these verified-evidence fields. Evidence of approval does not guarantee that drawings match today's building.
 
 ## Architecture: preserve and extend
 
-```text
-React application
-├── Predio / municipal context (existing)
-├── Planos y remodelación (existing experimental entry)
-│   ├── Activity and document inputs (existing)
-│   ├── Vector selection / layers / zoom (existing)
-│   ├── Scale and measurement review (planned)
-│   └── Corrections and report preparation (planned)
-├── Discovery / comparison (existing complementary workflow)
-├── Scoring / unsupervised segmentation (planned parallel track)
-└── Damage-evidence review for professionals (potential extension)
-         │
-         ▼
-FastAPI and browser services
-├── Municipal lookup and PUGS (existing)
-├── Browser developer IRM parsing (existing)
-├── Backend PDF/DXF extraction and local DWG conversion (experimental)
-├── Validated geometry / deterministic quantities (planned)
-├── Versioned evidence profile / secure storage (planned)
-└── Reviewed technical exports / optional grounded assistant (planned)
-```
+| Layer | Existing capabilities | Further work |
+| --- | --- | --- |
+| React project workspace | Activity inputs, temporary ZIP inventory, selected drawing, layers, zoom and source selection | Independently verified architectural interpretation and reviewed corrections |
+| Browser geometry | User-applied scale, geometric measurements and temporary illustrative volume from explicit assumptions | Authoritative architectural quantities and report preparation |
+| Property context | Predio/municipal review, discovery and comparison | Explainable scoring and unsupervised segmentation |
+| FastAPI document services | PDF/DXF extraction, local DWG conversion and bounded ZIP inventory with lazy member inspection | Versioned evidence profiles and secure project storage |
+| Other services | Municipal/PUGS lookup and browser developer IRM parsing | Reviewed technical exports and an optional grounded assistant |
+| Potential extension | No current damage-evidence workflow | Professional damage review with separately validated evidence |
 
 Prefer PyMuPDF/vector PDF extraction and ezdxf/CAD entities before inference. Use geometry libraries for deterministic calculations. Introduce OCR or computer vision only for specific document types that need them and only after validation. Custom model training is not a default prerequisite. A future language assistant retrieves evidence and calls calculation tools; it never invents measurements or substitutes its own arithmetic for the authoritative engine.
 

@@ -1,5 +1,29 @@
 // Inspection requirements describe this pilot's workflow, not municipal permits.
 export const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
+export const MAX_PACKAGE_BYTES = 30 * 1024 * 1024;
+
+export function isProjectPackage(file) {
+  return /\.zip$/i.test(file?.name || '');
+}
+
+export function inspectionTimeoutMs(file) {
+  return /\.(dwg|zip)$/i.test(file?.name || '') ? 120000 : 90000;
+}
+
+export function createInspectionForm({ blueprint, irm, buildingType, workType, activities, predioNumber, packageEntry }) {
+  const form = new FormData();
+  form.append('blueprint', blueprint);
+  if (irm) form.append('irm', irm);
+  form.append('building_type', buildingType);
+  form.append('work_type', workType);
+  activities.forEach(activity => form.append('activities', activity));
+  if (predioNumber) form.append('predio_number', String(predioNumber));
+  // Entry paths come from the server's inventory; preserve the full relative path.
+  if (isProjectPackage(blueprint) && typeof packageEntry === 'string' && packageEntry) {
+    form.append('package_entry', packageEntry);
+  }
+  return form;
+}
 
 export function workspaceForPage(page) {
   if (page === 'blueprints') return { audience: 'remodeler', step: 'project' };
@@ -16,12 +40,13 @@ export function requiresIrm(workType, activities) {
 
 export function documentValidationError(file, role = 'blueprint') {
   if (!file) return '';
-  const label = role === 'irm' ? 'El IRM' : 'El plano';
+  const isPackage = role !== 'irm' && isProjectPackage(file);
+  const label = role === 'irm' ? 'El IRM' : isPackage ? 'El paquete ZIP' : 'El plano';
   if (file.size === 0) return `${label} está vacío. Selecciona otro archivo.`;
-  if (file.size > MAX_DOCUMENT_BYTES) return `${label} supera el límite de 15 MB. Selecciona un archivo más pequeño.`;
-  const supported = role === 'irm' ? /\.pdf$/i : /\.(pdf|dxf|dwg)$/i;
+  if (file.size > (isPackage ? MAX_PACKAGE_BYTES : MAX_DOCUMENT_BYTES)) return `${label} supera el límite de ${isPackage ? 30 : 15} MB. Selecciona un archivo más pequeño.`;
+  const supported = role === 'irm' ? /\.pdf$/i : /\.(pdf|dxf|dwg|zip)$/i;
   if (!supported.test(file.name)) return role === 'irm'
     ? 'Selecciona el IRM en formato PDF.'
-    : 'Selecciona un plano en formato PDF, DXF o DWG.';
+    : 'Selecciona un plano en formato PDF, DXF o DWG, o un paquete ZIP.';
   return '';
 }

@@ -8,7 +8,7 @@ The intended platform connects **predio + architectural PDF/CAD + relevant IRM i
 
 **Public-facing message:** “Entiende tus planos. Prepara tu reforma.”
 
-**Working pilot with geometric measurements.** Cadastral lookup, document inspection, selectable vector geometry and a measurement panel exist. Users can confirm drawing units or calibrate against a known length, then calculate selected lengths, closed-boundary perimeters and enclosed areas. Architectural interpretation, independently validated measurements, corrections with authoritative recalculation and exportable technical reports remain further milestones. Explainable parcel scoring and unsupervised segmentation remain planned on a parallel analytics track.
+**Working pilot with geometric measurements, ZIP drawing packages and illustrative 3D.** Cadastral lookup, document inspection, selectable vector geometry and a measurement panel exist. Users can confirm drawing units or calibrate against a known length, then calculate selected lengths, closed-boundary perimeters and enclosed areas. A ZIP can organize separate drawings for individual inspection. A selected exterior contour can also become an illustrative volume with explicitly assumed height and roof. Architectural interpretation, independently validated measurements, corrections with authoritative recalculation and exportable technical reports remain further milestones. Explainable parcel scoring and unsupervised segmentation remain planned on a parallel analytics track.
 
 [Open the application](https://jayjayanton.github.io/Predio-AI/) · [Architectural methodology and product scope](docs/ARCHITECTURAL_ANALYSIS_METHODOLOGY.md) · [Pilot presentation and real-document validation](docs/PILOT_VALIDATION.md) · [Deployment guide](DEPLOYMENT.md)
 
@@ -35,7 +35,7 @@ The interface is in Spanish and the initial municipal-data scope is Quito's Dist
 | Section | Purpose |
 | --- | --- |
 | **Inicio** | One clear proposition, two choices (plans or property), what's implemented, what's not, and everyday use cases |
-| **Analizar planos** | Choose an activity, inspect an authorized PDF/DXF/DWG and explore geometry; link cadastral context optionally |
+| **Analizar planos** | Choose an activity, inspect an authorized PDF/DXF/DWG or a drawing from a ZIP, and explore geometry; link cadastral context optionally |
 | **Mi predio** | Look up a predio, inspect its cadastral information and continue to IRM review or the document workflow |
 | **Explorar mapa** | Find cadastral records, browse the map and open a property sheet |
 | **Selección** | Manage up to 100 predios, import labelled IDs from PDF/CSV/DOCX/XLSX or pasted list, open each for IRM, compare four at a time, export CSV |
@@ -62,11 +62,26 @@ For a wall affected by an earthquake, a possible workflow would link the documen
 
 ### Architectural document workspace
 
-The project workflow accepts PDF, DXF and DWG drawings, a building type and repair/maintenance/remodeling/structural/expansion activities. DWG files are converted locally on the API server to DXF before extraction; deployment must install the pinned converter described in [DEPLOYMENT.md](DEPLOYMENT.md). The drawing workspace pairs an overview with a detailed inspection canvas, layer controls, individual/rectangle selection and a searchable source-element list. **Ver plano de ejemplo** opens a clearly fictional drawing without uploading a file. CAD imports retain all supported geometry within explicit whole-import resource limits, rather than stopping the display at 3,000 elements. Curves are approximated for display with their source identity retained; unsupported content and conversion warnings remain visible. A selected polyline is not automatically a recognized wall, a measured room or an editable construction design.
+The project workflow accepts PDF, DXF and DWG drawings or a ZIP containing those formats, a building type and repair/maintenance/remodeling/structural/expansion activities. DWG files are converted locally on the API server to DXF before extraction; deployment must install the pinned converter described in [DEPLOYMENT.md](DEPLOYMENT.md). The drawing workspace pairs an overview with a detailed inspection canvas, layer controls, individual/rectangle selection and a searchable source-element list. **Ver plano de ejemplo** opens a clearly fictional drawing without uploading a file. CAD imports retain all supported geometry within explicit whole-import resource limits, rather than stopping the display at 3,000 elements. Curves are approximated for display with their source identity retained; unsupported content and conversion warnings remain visible. A selected polyline is not automatically a recognized wall, a measured room or an editable construction design.
 
 Project documents are submitted to the FastAPI `/api/documents/analyze` endpoint. PDF/DXF parsing uses memory; DWG conversion uses a private temporary directory cleaned up after processing. Files are not saved as permanent projects. This is separate from the browser-only developer IRM parser described below. Repair, maintenance and a remodeling request containing **only `replace_floor`** can be inspected without an IRM. Other remodeling activities, mixed flooring/remodeling requests, structural modification and expansion retain the pilot's IRM prerequisite. This software rule applies to preliminary document inspection; it does not establish permit requirements or verify that a proposed intervention is nonstructural.
 
-The on-screen **document summary** describes inspection evidence and unresolved architectural quantities. It identifies when no predio is linked. The separate **Medidas** panel calculates geometric lengths and areas after explicit unit confirmation or known-length calibration, independently of the API's extraction-only result. User-confirmed scale is not independent physical verification. Wall heights, opening deductions, architectural classification, reviewed corrections and traceable measurement exports remain future work. The system does not automatically estimate material requirements, construction costs, market prices or regulatory compliance. Validation against independently checked real-project dimensions remains pending.
+The on-screen **document summary** describes inspection evidence and unresolved architectural quantities. It identifies when no predio is linked. The separate **Medidas** panel calculates geometric lengths and areas after explicit unit confirmation or known-length calibration, independently of the API's extraction-only result. User-confirmed scale is not independent physical verification. Verified wall heights, opening deductions, architectural classification, reviewed corrections and traceable measurement exports remain future work. Heights and roofs entered in **Ilustración 3D** are hypotheses for that illustration. The system does not automatically estimate material requirements, construction costs, market prices or regulatory compliance. Validation against independently checked real-project dimensions remains pending.
+
+### ZIP drawing packages
+
+Upload a standard ZIP to keep related floor plans, sections, elevations and other drawings together. Normal folder paths are preserved in the package selector. The server inventories supported PDF/DXF/DWG entries and inspects **one chosen drawing per request**; the first inspection opens the first supported path in sorted order. Selecting another entry sends the ZIP again with that exact entry path. Other drawings are not decompressed or parsed during that request.
+
+| Package limit | Current value |
+| --- | --- |
+| Uploaded ZIP | 30 MiB |
+| Each supported drawing | 15 MiB |
+| Archive entries / supported drawings | 1,000 / 100 |
+| Advertised total uncompressed content | 150 MiB |
+
+The importer rejects unsafe or ambiguous paths, links, encrypted entries and excessive expansion. It skips macOS auxiliary files, unsupported formats and nested archives, with counts and notices. A selected drawing that cannot be inspected keeps the inventory available so another entry can be opened. Temporary CAD/converter errors remain retryable. See [document inspection](backend/DOCUMENT_ANALYSIS.md) for the full API contract and resource boundaries.
+
+The package is an ephemeral drawing inventory. It is not saved as a project, and CAD external references are not assembled or linked automatically. A single CAD file can already contain multiple drawings or layouts; a file, layer or layout does not by itself identify a floor. A section marker alone does not supply the section geometry. Additional floors, elevations and roof information are available only when the supplied drawings actually contain them.
 
 ### Selection measurements
 
@@ -85,6 +100,23 @@ A source hatch's rendered outer and inner boundaries stay in one selectable elem
 **Ver plano de ejemplo** includes a separate **Área de ejemplo** layer. Select its boundary and apply centimetres: the fictional 4.42 × 2.44 m rectangle has perimeter 13.72 m and area 10.7848 m². This is a reproducible arithmetic demonstration, not a real-building measurement.
 
 Unit-code and layout context references: [Autodesk INSUNITS](https://help.autodesk.com/cloudhelp/2026/ENU/AutoCAD-Core/files/GUID-A58A87BB-482B-4042-A00A-EEF55A2B4FD8.htm) and [ezdxf DXF units](https://ezdxf.readthedocs.io/en/stable/concepts/units.html). Unit metadata suggests an interpretation; the panel still requires explicit confirmation or calibration.
+
+### Illustrative reconstruction
+
+Select one eligible closed contour, explicitly apply a unit or calibration in **Medidas**, and open **Ilustración 3D**. The base follows the selected drawing's exterior footprint, including supported concavities, with the user's applied scale. It is not replaced by a rectangular approximation. Curves retain their imported approximation. Interior rings and graphic masks are explicitly ignored for this exterior illustration and do not become inferred openings.
+
+| Editable assumption | Supported values |
+| --- | --- |
+| Height | 0.3–12 m; initial example 2.6 m |
+| Roof | None initially, flat, or gable |
+| Gable pitch | 1–60°; initial example 20° |
+| Gable ridge direction | Parallel to the drawing's X or Y axis |
+
+For a gable roof, the entered height is the assumed eaves height; the displayed illustrative maximum also includes the assumed ridge rise. Edit the inputs and choose **Actualizar ilustración** to apply them. Unapplied or invalid edits retain the last applied illustration. **Vista 3D**, **Frente ilustrativo**, **Lado ilustrativo** and **Planta** show the same hypothetical volume. Front and side views are projections of that volume, not actual architectural sections or elevations extracted from the file.
+
+This does not infer interior walls, doors/windows, openings, additional storeys, actual height or the existing roof. Source geometry and geometric measurements remain unchanged. The illustration and its assumptions are temporary and reset when the selected contour, drawing/view or scale changes.
+
+**Fictional demonstration:** open **Ver plano de ejemplo**, select the closed boundary on **Área de ejemplo**, open **Medidas**, choose **cm** and click **Aplicar unidad**. Open **Ilustración 3D**, edit the height and roof assumptions, then click **Actualizar ilustración**. Compare the 3D/front/side views and return with **Volver al plano fuente**. The example demonstrates geometry and editable assumptions without using a private drawing or claiming that an actual building has those heights or roof.
 
 ### Geographic discovery
 
@@ -159,6 +191,8 @@ Validate before release. Passing CI does not verify municipal service availabili
 | API | Python / FastAPI / HTTPX |
 | Spatial zoning | Shapely, pyproj, bounded PUGS tile retrieval and memory cache |
 | Experimental PDF/DXF/DWG analysis | PyMuPDF, ezdxf and a bounded local LibreDWG conversion process |
+| ZIP project packages | Bounded archive inventory and one selected drawing per request; no xref assembly or permanent storage |
+| Illustrative reconstruction | Browser-local Three.js scene from a selected exterior contour and explicit user assumptions |
 | Hosting | GitHub Pages frontend + Render FastAPI backend |
 | Optional desktop IRM assistant | Local Python bridge + Playwright / Chromium |
 
@@ -217,10 +251,10 @@ The explorer queries its municipal ArcGIS source directly. Changing backend `QUI
 | POST | `/api/pugs/spatial-screen` | Screen up to 100 supplied parcel polygons |
 | POST | `/api/pugs/screen` | Compatibility endpoint for up to 20 identifiers; not used by advanced explorer |
 | POST | `/api/blueprints/inspect` | Basic PDF metadata and drawing/text counts |
-| POST | `/api/documents/analyze` | Experimental PDF/DXF/DWG and conditional IRM extraction |
+| POST | `/api/documents/analyze` | Experimental PDF/DXF/DWG or selected ZIP drawing inspection, with conditional IRM extraction |
 | POST | `/api/irm/extract` | Backend IRM extraction; not used by browser developer IRM workflow |
 
-Document endpoints enforce a **15 MB per-file limit**. Basic PDF inspection also limits documents to **100 pages**. Extraction is evidence, not verified measurements, certification or completed technical reports.
+Individual document uploads and supported drawings inside a ZIP have a **15 MiB limit**; a ZIP blueprint upload has a **30 MiB limit**. ZIP requests can include `package_entry` to select an exact supported path from the returned inventory. PDF inspection limits documents to **100 pages**. Extraction is evidence, not verified measurements, certification or completed technical reports. Browser-local illustrative assumptions are not submitted to the extraction endpoint.
 
 ## Validation and deployment
 
@@ -238,7 +272,7 @@ Backend, from `backend/`:
 python -m pytest tests -q
 ```
 
-Frontend tests cover selection normalization, persistence validation, CSV export, direct-plan routing, upload validation, conditional IRM requirements and product-positioning guards. The positioning checks are content regression checks, not end-to-end drawing tests. Backend tests cover API, document and spatial processing, including the isolated-flooring exception and mixed-activity prerequisites. Browser review should check homepage actions, direct `#planos` reload, navigation, upload errors, drawing interaction, map/list selection, opening a property, comparison, responsive layouts and failed municipal requests.
+Frontend tests cover selection normalization, persistence validation, CSV export, direct-plan routing, upload validation, conditional IRM requirements, ZIP selection/error state, illustrative geometry and product-positioning guards. The positioning checks are content regression checks, not end-to-end drawing tests. Backend tests cover API, document and spatial processing, including ZIP archive boundaries, lazy member inspection, recoverable member errors, the isolated-flooring exception and mixed-activity prerequisites. Browser review should check homepage actions, direct `#planos` reload, navigation, upload errors, switching ZIP drawings, drawing interaction, illustrative assumptions and view changes, map/list selection, opening a property, comparison, responsive layouts and failed municipal requests.
 
 CI runs backend tests and frontend tests/build. The Pages workflow tests/builds the frontend and deploys on pushes to **`main`** or manual dispatch. Its backend test job is separate; publication is not proof that the API or upstream municipal services are healthy.
 

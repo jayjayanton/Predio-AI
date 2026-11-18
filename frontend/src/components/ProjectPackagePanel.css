@@ -1,0 +1,46 @@
+.project-package {
+  background: #f5f9f7;
+  border: 1px solid #c9ddd2;
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+  min-width: 0;
+}
+
+.project-package-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.project-package-heading > div { min-width: 0; }
+.project-package-heading .eyebrow { margin: 0 0 6px; font-size: 10px; }
+.project-package h3 { margin: 0; font-size: 17px; overflow-wrap: anywhere; }
+.project-package-count { flex-shrink: 0; padding: 5px 9px; border-radius: 20px; background: #e2eee7; color: #214c39; font-size: 12px; font-weight: 700; }
+.project-package-intro { margin: 12px 0 16px; font-size: 13px; line-height: 1.55; }
+.project-package label { display: block; margin: 12px 0 6px; font-size: 12px; font-weight: 700; }
+.project-package .project-package-search,
+.project-package .project-package-files { width: 100%; min-width: 0; max-width: 100%; margin: 0; background: #fff; border: 1px solid #bdcec4; border-radius: 7px; color: #213b30; font-size: 13px; }
+.project-package .project-package-search { padding: 10px 12px; }
+.project-package .project-package-files { padding: 5px; height: auto; }
+.project-package-files option { padding: 8px; }
+.project-package-choice { display: flex; flex-direction: column; gap: 5px; margin: 10px 0 14px; font-size: 12px; overflow-wrap: anywhere; }
+.project-package-choice span { color: #586b60; }
+.project-package-actions { display: flex; gap: 14px; align-items: center; }
+.project-package-actions .primary-action { flex-shrink: 0; margin: 0; }
+.project-package-actions .note { margin: 0; overflow-wrap: anywhere; }
+.project-package .project-package-scope { margin: 15px 0 0; line-height: 1.55; }
+.project-package-notices { margin-top: 12px; color: #586b60; font-size: 12px; line-height: 1.55; }
+.project-package-notices summary { cursor: pointer; font-weight: 700; }
+.project-package-notices ul { padding-left: 20px; }
+.project-package input:focus-visible,
+.project-package select:focus-visible,
+.project-package summary:focus-visible { outline: 3px solid #3a7b58; outline-offset: 2px; }
+
+@media (max-width: 600px) {
+  .project-package { padding: 15px; }
+  .project-package-heading { flex-direction: column; gap: 9px; }
+  .project-package-actions { align-items: stretch; flex-direction: column; gap: 9px; }
+  .project-package-actions .primary-action { width: 100%; }
+}

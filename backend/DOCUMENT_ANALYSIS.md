@@ -12,6 +12,9 @@ coordinates are page points and require calibration. The extraction endpoint's
 `measurements_available: false` remains accurate: it does not receive the user's
 calibration, compute these browser-local results or verify physical dimensions.
 Calibration is scoped to the current view and is not saved as a project.
+The frontend can also build an explicitly illustrative exterior volume from
+one selected closed contour and its applied scale. Height and roof settings
+are user assumptions; they are not extracted evidence or submitted to this API.
 
 ## Current inputs and extraction
 
@@ -22,6 +25,7 @@ Calibration is scoped to the current view and is not saved as a project.
 | IRM PDF | PyMuPDF | Page metadata, text evidence and recognizable fields such as predio, COS, floors and setbacks, labelled as unverified extraction |
 | Scanned PDF | PDF inspection only | Image/text metadata and possible OCR-needed flags; no OCR or automatic conversion into selectable walls |
 | Architectural DWG | Local LibreDWG CLI followed by ezdxf | Direct upload; source filename/format retained, conversion status plus DXF evidence and partial-view metadata |
+| ZIP drawing package | Bounded ZIP inventory, followed by the selected member's parser | Folder-preserving inventory plus one inspected PDF/DXF/DWG; no automatic xref assembly |
 
 PyMuPDF and ezdxf are both included in `backend/requirements.txt`.
 The viewer presents the imported drawing in an overview and an inspection
@@ -41,11 +45,24 @@ centimetres produces 10.7848 m² and a 13.72 m perimeter. Its illustrative
 dimensions are not verified physical measurements and it does not bypass the
 real-upload prerequisites.
 
+To demonstrate the illustrative feature, select that closed example boundary,
+open **Medidas**, choose **cm**, click **Aplicar unidad**, then open
+**Ilustración 3D**. Edit the height/roof assumptions and click
+**Actualizar ilustración**. The exterior base follows the selected geometry;
+interior masks are explicitly ignored. Height accepts **0.3–12 m**, initially
+**2.6 m**. Roof choices are none initially, flat or gable, with **1–60°** gable
+pitch and an X- or Y-aligned ridge. For a gable, entered height is the eaves
+height. Front/side views are hypothetical projections of this volume, not
+source sections or elevations. The model does not infer interiors, openings,
+storeys, actual height or an existing roof. It resets when selection, view,
+file or applied scale changes and is not stored as a project model.
+
 ## Combined endpoint
 
 Submit multipart fields:
 
-- `blueprint`: required PDF, DXF or DWG.
+- `blueprint`: required PDF, DXF, DWG or ZIP drawing package.
+- `package_entry`: optional exact supported path from `blueprint.package.entries`; valid only for a ZIP blueprint.
 - `building_type`: `house` or `apartment`.
 - `work_type`: `repair`, `maintenance`, `remodel`, `structural` or `expansion`.
 - `activities`: one or more distinct activity identifiers belonging to the selected category.
@@ -72,7 +89,8 @@ activities and these explicit limits:
 
 PDF/DXF parsing uses memory. DWG input and converted output use a private
 temporary directory removed on success or failure. This endpoint does not save
-permanent projects. Inputs and converted output remain limited to **15 MB**;
+permanent projects. Individual inputs and converted output remain limited to **15 MiB**;
+ZIP blueprint uploads have a separate **30 MiB** limit, described below.
 PDFs remain limited to **100 pages**, with the existing bounded PDF extraction.
 CAD imports use whole-document limits on entity visits, emitted elements,
 vertices, text, nesting and elapsed traversal time, shared across layouts.
@@ -102,6 +120,8 @@ and `conversion.status` (`converted` or `converted_with_warnings`). Conversion
 does not establish fidelity. Missing or busy conversion returns HTTP 503;
 timeout returns 504; unsupported, malformed or excessive output returns 422.
 Safe user-facing messages omit internal paths and converter diagnostics.
+These HTTP statuses describe ordinary single-file uploads. Within a valid ZIP,
+the selected-drawing failure is returned with the inventory as described below.
 
 DXF-derived views report `extraction.status`, observed omitted entity types and
 reasons, approximation information and imported counts. Omission counts refer
@@ -129,6 +149,103 @@ are available separately; unsupported viewport content must remain flagged.
 A view or paper-layout name does not establish the building floor count or
 whether a particular view is ground/first/upper floor. PDF text-based annotations
 are not changed by this CAD-specific improvement.
+
+## ZIP project-package contract
+
+`app/project_package.py` validates the archive inventory before inspecting any
+drawing. It sorts supported paths deterministically and opens either the exact
+`package_entry` or the first supported path. Folder names are preserved;
+ordinary backslash separators are normalized to `/`. Requests must use the
+returned canonical path exactly, so a filename shared by different folders is
+not ambiguous. Only the selected member is streamed/decompressed and parsed.
+
+Successful selected-document results retain their existing `format`,
+`filename`, `drawing_views`, conversion and extraction fields. They add:
+
+```json
+{
+  "package": {
+    "filename": "fictional-project.zip",
+    "entries": [
+      {"path": "Plans/example.pdf", "filename": "example.pdf", "format": "pdf", "size_bytes": 2048}
+    ],
+    "selected_entry": "Plans/example.pdf",
+    "skipped_count": 0,
+    "skipped_counts": {"auxiliary": 0, "unsupported_format": 0, "nested_archive": 0},
+    "skipped_entries": [],
+    "skipped_entries_truncated": false,
+    "uncompressed_bytes": 2048,
+    "warnings": ["Los archivos del paquete se inspeccionan por separado. No se combinan automáticamente ni se ensamblan referencias CAD externas."],
+    "stored": false,
+    "limits": {
+      "archive_bytes": 31457280,
+      "drawing_bytes": 15728640,
+      "archive_entries": 1000,
+      "drawings": 100,
+      "uncompressed_bytes": 157286400,
+      "inspection": "one_selected_document"
+    }
+  }
+}
+```
+
+The example paths and sizes above are fictional. The upload may contain at
+most **1,000 archive entries** and **100 supported PDF/DXF/DWG drawings**.
+Each supported drawing is limited to **15 MiB** and advertised aggregate
+uncompressed content to **150 MiB**. Entries at least **1 MiB** with advertised
+expansion greater than **200:1** are rejected. Path length is limited to
+**1,024 characters** and central-directory metadata to **8 MiB**. EOCD/ZIP64
+metadata and actual central-directory counts are checked before allocating
+`ZipInfo` objects, including when a footer understates its entry count.
+
+Only standard stored/deflated ZIP members are accepted. The importer rejects
+unsafe paths, case/Unicode-normalized path collisions, links/special files,
+encryption, malformed metadata and unsupported multi-volume/extensible ZIP64
+metadata. It ignores macOS auxiliary entries and classifies unsupported files
+and nested archives as skipped; it does not recursively open archives. Skipped
+details are capped at 100 entries, with complete counts and a truncation flag.
+The chosen member is read in bounded chunks and its CRC is checked before
+document parsing. No archive member is extracted to the filesystem.
+
+An invalid/unsafe ZIP, a package with no supported drawings, or an invalid
+requested member returns **HTTP 422**. An uploaded ZIP over **30 MiB** returns
+**HTTP 413**. When the archive inventory is valid but the chosen drawing cannot
+be read or parsed, the response is **HTTP 200** with that inventory retained:
+
+```json
+{
+  "format": "pdf",
+  "role": "blueprint",
+  "filename": "example.pdf",
+  "drawing_views": [],
+  "inspection_status": "failed",
+  "inspection_error": "Readable selected-drawing failure",
+  "inspection_error_code": "document_inspection_failed",
+  "inspection_retryable": false,
+  "package": {"selected_entry": "Plans/example.pdf", "entries": []}
+}
+```
+
+The abbreviated package above represents the full retained inventory in an
+actual response. A member read/CRC failure uses `package_member_unreadable`.
+Busy CAD processing and unavailable/busy/timed-out conversion retain explicit
+codes and `inspection_retryable: true`. Unexpected native-parser exceptions
+return sanitized copy and are logged on the server. This lets the user retry
+or choose another member without treating temporary converter contention as
+an invalid archive. The top-level extraction-only flags remain unchanged.
+
+The frontend keeps the selected ZIP `File` in the active page session and
+resends it when another entry is inspected. Switching clears prior geometry,
+selection, scale and illustration state. A page reload requires choosing the
+package again. Files are inspected separately: xrefs are not assembled,
+documents are not aligned, and layers/layouts/files are not classified as
+floors. An IRM required by the activity remains a separate PDF form field; a
+PDF inside the blueprint ZIP is not automatically assigned the IRM role.
+
+A single CAD file may contain multiple drawings or layouts. The ZIP option
+does not create missing sections, elevations, heights or roof geometry, and a
+section marker alone does not supply the referenced profile. There is no
+persistent project, revision database or saved 3D model in this workflow.
 
 ## Other document paths
 
