@@ -18,6 +18,7 @@ Primary references: [ArcGIS feature queries](https://developers.arcgis.com/rest/
 - The first page is usable while its optional overview loads. An overview failure preserves the list, count and current-page polygons and allows retry.
 - New searches, clear actions and leaving discovery cancel obsolete requests. Run identities also reject late responses from transports that ignore cancellation.
 - Camera placement is tied to the search and selected geometry. Appending an overview does not reset a user's pan or repeatedly focus an unchanged selection.
+- Selected outlines are brought above coincident PH polygons so another record with the same parent-lot shape does not hide the active selection.
 - Single-property and batch PUGS calculations both preserve holes and MultiPolygon topology. Invalid or incomplete zoning evidence produces unavailable/ambiguous results rather than false no-intersection.
 - PUGS pagination distinguishes explicit completion from missing completion flags, accepts an exact final 2,000-row result, detects repeated pages and uses a bounded completion probe when necessary.
 
@@ -57,6 +58,14 @@ Supply a native municipal GeoJSON FeatureCollection containing at least 2,000 po
 These are Node v24 measurements in the review environment, with 30 recorded trials after 5 warmups. They measure parsing and bounds preparation, **not browser rendering or mobile responsiveness**. Local gzip size is not observed wire traffic. The local Chromium runner could not start under the environment's socket restriction, and the remote browser could not reach the local Vite server. Consequently no local desktop/mobile frame-rate or interaction-latency claim is made from this run. The production build, mounted component tests and data-path benchmarks are separate checks.
 
 Before raising the default, validate the deployed 1,000/2,000 controls on a representative phone and desktop: time first usable cards and completed overlay separately; pan and select repeatedly; change page/layout; select a result beyond 1,000; revisit a nearby viewport; record network calls, long tasks and interaction latency. Count total vertices and visible paths as well as features. A small parcel and a very detailed parcel are not equal rendering work.
+
+### Deployed checks
+
+The published implementation passed the GitHub [CI run](https://github.com/jayjayanton/Predio-AI/actions/runs/44345396442) and [Pages deployment](https://github.com/jayjayanton/Predio-AI/actions/runs/44345396368). CI verified 234 frontend tests, 310 backend tests with one existing private-DWG test skipped, and the production frontend build.
+
+A live desktop-browser check at 1,363 × 936 CSS pixels used the same Cumbayá/Tumbaco filter and displayed 11,045 matches. The 1,000 and 2,000 overview choices rendered successfully; the larger view had 2,000 SVG paths. With the limit returned to 1,000, card page 1,001–1,200 produced a 1,200-feature map overlay and selected predio 1234871. Returning to the 2,000 overview preserved that selection. The fixture contains 14 records with that same parent-lot polygon; this check motivated bringing the selected path to the front.
+
+Public backend smoke checks returned HTTP 200 for health, property details, individual PUGS and a one-parcel batch. The property retained its matched 2026 geometry and AIVA fields. Fresh individual and batch responses exposed the new hole-aware overlay and cached-index methods, including `shared_tile_requests`; `regulatory_approval` stayed false. These observations verify deployed behavior without asserting a Render management-log or deployment-SHA inspection. Desktop checks do not establish phone responsiveness, frame rates or a production latency objective.
 
 ### 4. GeoParquet remains a conditional analytics change
 

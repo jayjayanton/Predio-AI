@@ -328,6 +328,7 @@ function SearchResultsLayer({results,selected,onSelect,queryKey}) {
   const resultLayerKey=React.useMemo(()=>++layerRevision.current,[results]);
   const fittedQuery=React.useRef(null);
   const focusedSelection=React.useRef(null);
+  const resultLayers=React.useRef(null);
   const onSelectRef=React.useRef(onSelect);
   useEffect(()=>{onSelectRef.current=onSelect;},[onSelect]);
   useEffect(()=>{
@@ -364,6 +365,11 @@ function SearchResultsLayer({results,selected,onSelect,queryKey}) {
     if(!results?.features?.length)return;
     const feature=results.features.find(f=>String(f.properties?.n_predio)===String(selected));
     if(!feature)return;
+    // PH records can share identical parent-lot polygons. Keep the chosen
+    // parcel above coincident outlines, including after the overview remounts.
+    resultLayers.current?.eachLayer(layer=>{
+      if(String(layer.feature?.properties?.n_predio)===String(selected))layer.bringToFront?.();
+    });
     const previous=focusedSelection.current;
     if(previous?.id===String(selected)&&previous.geometry===feature.geometry&&previous.queryKey===queryKey)return;
     const box=geometryBounds(feature.geometry);
@@ -376,7 +382,7 @@ function SearchResultsLayer({results,selected,onSelect,queryKey}) {
   },[selected,results,map,queryKey]);
   if(!results?.features?.length)return null;
   return <>
-    <GeoJSON key={resultLayerKey} data={results}
+    <GeoJSON key={resultLayerKey} ref={resultLayers} data={results}
       style={feature=>{
         const id=String(feature.properties?.n_predio||'');
         // An automatically detected nearest parcel is NOT a user selection.

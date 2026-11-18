@@ -33,13 +33,17 @@ before(async()=>{
     plugins:[{name:'map-contract-test',enforce:'pre',
       resolveId(id){if(id==='leaflet'||id==='react-leaflet')return '\0map-contract-'+id;},
       load(id){
-        if(id==='\0map-contract-react-leaflet')return `import React,{useState} from 'react';
+        if(id==='\0map-contract-react-leaflet')return `import React,{useState,useImperativeHandle,forwardRef} from 'react';
           export const useMap=()=>globalThis.__parcelMapFixture.map;
           export const MapContainer=({children})=>children;
           export const TileLayer=()=>null;export const ScaleControl=()=>null;
           // Real React-Leaflet GeoJSON treats data as immutable. Keeping only
           // mount data catches updates that fail to replace the actual layer.
-          export function GeoJSON({data,className}){const [mounted]=useState(data);return React.createElement('output',{'data-layer':className||'search'},JSON.stringify(mounted));}`;
+          export const GeoJSON=forwardRef(function GeoJSON({data,className},ref){
+            const [mounted]=useState(data);
+            const [layers]=useState(()=>mounted.features.map(feature=>({feature,bringToFront(){globalThis.__parcelMapFixture.fronts.push(String(feature.properties.n_predio));}})));
+            useImperativeHandle(ref,()=>({eachLayer(callback){layers.forEach(callback);}}),[layers]);
+            return React.createElement('output',{'data-layer':className||'search'},JSON.stringify(mounted));});`;
         if(id==='\0map-contract-leaflet')return `const latLng=(lat,lng)=>({lat,lng,distanceTo(other){return Math.hypot(lat-other.lat,lng-other.lng);}});
           export default {latLng,latLngBounds:coordinates=>({coordinates}),GeometryUtil:{geodesicArea(){globalThis.__parcelMapFixture.areaCalls++;return 10;}},DomEvent:{stopPropagation(){}}};`;
       },
@@ -55,7 +59,7 @@ before(async()=>{
 });
 beforeEach(()=>{
   const events=new Map();clock=0;Date.now=()=>clock;
-  fixture={requests:[],views:[],fits:[],areaCalls:0,map:{
+  fixture={requests:[],views:[],fits:[],fronts:[],areaCalls:0,map:{
     on:(name,callback)=>events.set(name,callback),off:name=>events.delete(name),
     getZoom:()=>17,getBounds:()=>({getWest:()=>.0049,getSouth:()=>.0001,getEast:()=>.0051,getNorth:()=>.0049}),
     invalidateSize:()=>{},setView:(...args)=>fixture.views.push(args),fitBounds:(...args)=>fixture.fits.push(args),
@@ -90,6 +94,20 @@ test('overview append and temporary empty filters preserve camera, while a new q
   assert.equal(fixture.fits.length,2);
   await render(SearchResultsLayer,{results:collection([other]),queryKey:'query-b'});
   assert.equal(fixture.views.length,2,'a genuinely new query gets its initial neighborhood view');
+});
+
+test('selected PH geometry stays above coincident parcels after overview replacement without moving the camera again',async()=>{
+  // Several PH records can legitimately share one cadastral lot outline.
+  const records=Array.from({length:14},(_,index)=>feature(1234871+index));
+  await render(SearchResultsLayer,{results:collection(records),queryKey:'ph-query'});
+  assert.equal(fixture.fronts.length,0);
+  await render(SearchResultsLayer,{results:collection(records),queryKey:'ph-query',selected:'1234871'});
+  assert.deepEqual(fixture.fronts,['1234871'],'only the explicit selection is raised above other records');
+  assert.equal(fixture.fits.length,1);
+  await render(SearchResultsLayer,{results:collection([...records,feature(2000000)]),queryKey:'ph-query',selected:'1234871'});
+  assert.deepEqual(fixture.fronts,['1234871','1234871'],'a newly mounted overview restores the selected layer to the front');
+  assert.equal(fixture.fits.length,1,'restoring draw order does not refocus an unchanged selection');
+  assert.equal(fixture.views.length,1,'the same query keeps its current camera');
 });
 
 test('same-ID geometry refresh replaces the mounted nearby layer even while an overlapping tile keeps the old feature visible',async()=>{
