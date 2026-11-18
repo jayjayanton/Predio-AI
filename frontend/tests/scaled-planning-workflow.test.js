@@ -297,6 +297,11 @@ test('selected-figure controls stay compact and rounded inputs never round untou
   assert.deepEqual(snapshot.shapes[0].geometry, geometry);
   await setValue(input('Uso en el escenario'), 'extension'); await click('Aplicar medidas');
   assert.equal(snapshot.shapes[0].role, 'extension'); assert.deepEqual(snapshot.shapes[0].geometry, geometry);
+  const roundedWidth = input('Ancho (m)').value;
+  assert.notEqual(original.widthMetres, Number(roundedWidth));
+  await setValue(input('Ancho (m)'), roundedWidth); await click('Aplicar medidas');
+  closeTo(lastShape().widthMetres, Number(roundedWidth));
+  assert.equal(lastShape().depthMetres, original.depthMetres, 'untouched depth retains full precision');
   await act(async () => container.querySelector('.cad-sketch-disclosure').click());
   assert.equal(container.querySelector('.cad-sketch-tools').hidden, false);
   await click('Dibujar triángulo'); assert.equal(container.querySelector('.cad-sketch-tools').hidden, false);
