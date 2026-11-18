@@ -235,11 +235,24 @@ const floorWithInterior = () => ({
 const illustrationInput = label => container.querySelector(`[aria-label="${label}"]`);
 const illustrationMetric = name => container.querySelector(`.cad-illustration-${name}`)?.textContent;
 
+async function openIllustration() {
+  await click('Ilustración 3D');
+  const deadline = Date.now() + 3000;
+  // Cold dynamic imports can take many event-loop turns on CI. Wait for the
+  // observable panel, with a time limit, while flushing each React update.
+  for (;;) {
+    const failure = container.querySelector('.cad-illustration-error[role="alert"], .cad-illustration-render-error[role="alert"]');
+    assert.equal(failure, null, `the illustration opens without an error: ${failure?.textContent || ''}`);
+    if (container.querySelector('.cad-illustration')) return;
+    assert.ok(Date.now() < deadline, 'the lazy reconstruction panel opens within 3 seconds');
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+  }
+}
+
 async function openFloorIllustration() {
   await click('Seleccionar capa Floor');
   await click('Aplicar unidad');
-  await click('Ilustración 3D');
-  assert.ok(container.querySelector('.cad-illustration'), 'the lazy reconstruction panel opens');
+  await openIllustration();
 }
 
 test('illustration requires one visible closed source contour and an explicitly applied scale', async () => {
@@ -351,7 +364,7 @@ test('selection, scale and view changes discard the illustration and reset its d
   await click('Limpiar');
   assert.equal(container.querySelector('.cad-illustration'), null);
   await click('Seleccionar capa Floor');
-  await click('Ilustración 3D');
+  await openIllustration();
   assert.equal(illustrationInput('Altura supuesta en metros').value, initialHeight);
   assert.equal(illustrationInput('Cubierta supuesta').value, initialRoof);
 
@@ -359,7 +372,7 @@ test('selection, scale and view changes discard the illustration and reset its d
   assert.equal(container.querySelector('.cad-illustration'), null);
   assert.equal(button('Ilustración 3D').disabled, true);
   await click('Aplicar unidad');
-  await click('Ilustración 3D');
+  await openIllustration();
   assert.equal(illustrationInput('Altura supuesta en metros').value, initialHeight);
 
   await setValue(container.querySelector('.cad-view-choice select'), '1');
