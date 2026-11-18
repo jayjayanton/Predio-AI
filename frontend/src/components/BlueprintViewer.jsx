@@ -5,11 +5,13 @@ import { hasPartialExtraction, drawingExtractionMessages } from '../drawingExtra
  * Source-linked vector geometry viewer. Coordinates are not calibrated.
  * Interaction never implies verified distances, wall classification, or area.
  */
-export default function BlueprintViewer({ views = [] }) {
+export default function BlueprintViewer({ views = [], cadLayouts = [] }) {
   const [page, setPage] = useState(views[0]?.page || 1);
   const [selected, setSelected] = useState([]);
   const [multiple, setMultiple] = useState(true);
   const [hiddenLayers, setHiddenLayers] = useState([]);
+  const [showSourceLabels, setShowSourceLabels] = useState(true);
+  const [selectedLabelId, setSelectedLabelId] = useState(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState([0, 0]);
   const [expanded, setExpanded] = useState(false);
@@ -19,9 +21,17 @@ export default function BlueprintViewer({ views = [] }) {
   const extractionMessages = drawingExtractionMessages(view?.extraction);
   const bounds = view?.bounds;
   const elements = view?.elements || [];
-  const layers = useMemo(() => [...new Set(elements.map(e => e.layer || 'Sin capa'))], [elements]);
+  const sourceLabels = view?.source_labels || [];
+  const layers = useMemo(
+    () => [...new Set([...elements, ...sourceLabels].map(e => e.layer || 'Sin capa'))],
+    [elements, sourceLabels],
+  );
   const visible = elements.filter(e => !hiddenLayers.includes(e.layer || 'Sin capa'));
   const active = visible.filter(e => selected.includes(e.id));
+  const visibleSourceLabels = sourceLabels.filter(e => !hiddenLayers.includes(e.layer || 'Sin capa'));
+  const selectedSourceLabel = sourceLabels.find(e => e.id === selectedLabelId);
+  const featuredLabels = sourceLabels.filter(e => e.kind === 'source_area' || e.kind === 'source_dimension');
+  const labelsForList = featuredLabels.length ? featuredLabels : sourceLabels;
   const choose = (id) => setSelected(current => multiple
     ? current.includes(id) ? current.filter(v => v !== id) : [...current, id]
     : [id]);
@@ -31,6 +41,8 @@ export default function BlueprintViewer({ views = [] }) {
   const height = bounds ? Math.max(1, bounds[3] - bounds[1]) : 1;
   const viewWidth = width / zoom;
   const viewHeight = height / zoom;
+  const baseLabelSize = Math.max(width, height) / 190;
+  const labelSize = label => Math.max(baseLabelSize, Math.min(label.text_height || 0, Math.max(width, height) / 30));
   const x = bounds ? bounds[0] + (width - viewWidth) / 2 + offset[0] : 0;
   const y = bounds ? bounds[1] + (height - viewHeight) / 2 + offset[1] : 0;
 
@@ -53,7 +65,7 @@ export default function BlueprintViewer({ views = [] }) {
       <div className="blueprint-content">
         <div className="blueprint-canvas">
           {views.length > 1 && <label>Página <select value={page} onChange={e => {
-            setPage(Number(e.target.value)); setSelected([]); setHiddenLayers([]); reset();
+            setPage(Number(e.target.value)); setSelected([]); setSelectedLabelId(null); setHiddenLayers([]); reset();
           }}>{views.map(v => <option key={v.page} value={v.page}>{v.page}</option>)}</select></label>}
           {bounds && visible.length > 0 ? (
             <svg viewBox={`${x} ${y} ${viewWidth} ${viewHeight}`}
@@ -83,9 +95,21 @@ export default function BlueprintViewer({ views = [] }) {
                 onClick={() => choose(el.id)}>
                 <title>{el.id}{el.layer ? ` · Capa ${el.layer}` : ''}</title>
               </polyline>)}
+              {showSourceLabels && visibleSourceLabels.map(label => (
+                <text key={label.id} x={label.position[0]} y={label.position[1]}
+                  fontSize={labelSize(label)}
+                  fontFamily="Arial, sans-serif"
+                  fill={selectedLabelId === label.id ? '#ba4b25' : label.kind === 'source_area' ? '#146847' : '#263747'}
+                  stroke="#fff" strokeWidth={labelSize(label) * 0.18} paintOrder="stroke"
+                  style={{cursor: 'pointer'}}
+                  onClick={() => setSelectedLabelId(label.id)}>
+                  <title>{label.text} · Texto original del plano, sin verificar</title>
+                  {label.text}
+                </text>
+              ))}
             </svg>
           ) : <div className="empty">No hay geometría vectorial visible. Active una capa o pruebe otro plano; los escaneos requieren procesamiento adicional.</div>}
-          <p className="note">Use los controles para acercar; arrastre el fondo para desplazar. Las unidades y dimensiones no están verificadas.</p>
+          <p className="note">Use los controles para acercar; arrastre el fondo para desplazar. Las etiquetas originales se conservan sin verificar. No representan mediciones calculadas por PredioAI.</p>
         </div>
         <aside className="blueprint-inspector">
           <h3>Capas ({layers.length})</h3>
@@ -95,6 +119,23 @@ export default function BlueprintViewer({ views = [] }) {
           <hr />
           <label className="layer-choice"><input type="checkbox" checked={multiple}
             onChange={event => { setMultiple(event.target.checked); setSelected([]); }} /> Selección múltiple</label>
+          {cadLayouts.length > 0 && <div className="cad-layout-summary">
+            <h3>Vistas y presentaciones del CAD</h3>
+            <p>{cadLayouts.map(layout => `${layout.name}${layout.displayed ? ' (vista actual)' : ''}`).join(' · ')}</p>
+            <p className="note">Solo se muestra el espacio modelo. Los nombres de las presentaciones no confirman cuántos pisos hay.</p>
+          </div>}
+          {sourceLabels.length > 0 && <div className="blueprint-annotations">
+            <h3>Textos y cotas del plano ({sourceLabels.length})</h3>
+            <label className="layer-choice"><input type="checkbox" checked={showSourceLabels} onChange={e => setShowSourceLabels(e.target.checked)} /> Mostrar etiquetas originales</label>
+            <p className="note">Estos valores provienen del archivo CAD; no son cálculos de PredioAI ni están asociados automáticamente a una habitación.</p>
+            {selectedSourceLabel && <p className="source-label-selected" role="status"><strong>Etiqueta seleccionada:</strong> {selectedSourceLabel.text} <span>· {selectedSourceLabel.kind === 'source_area' ? 'Área indicada en plano' : selectedSourceLabel.kind === 'source_dimension' ? 'Cota indicada en plano' : 'Texto del plano'} · Sin verificar</span></p>}
+            <ul className="source-label-list">{labelsForList.slice(0, 40).map(label => <li key={label.id}>
+              <button type="button" onClick={() => { setSelectedLabelId(label.id); setShowSourceLabels(true); }}>
+                {label.text}
+              </button>
+            </li>)}</ul>
+            {labelsForList.length > 40 && <p className="note">Se muestran las primeras 40 etiquetas destacadas; otras permanecen visibles en el plano por capa.</p>}
+          </div>}
           <h3>Selección: {active.length}</h3>
           <button type="button" onClick={() => setSelected([])}>Limpiar selección</button>
           <ul>{active.slice(0, 30).map(el => <li key={el.id}>{el.id}{el.layer ? ` · ${el.layer}` : ''} · Sin medidas verificadas</li>)}</ul>
