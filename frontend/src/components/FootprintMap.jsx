@@ -3,6 +3,8 @@ import {GeoJSON, MapContainer, Marker, Polyline, ScaleControl, TileLayer, Toolti
 import L from 'leaflet';
 import {parcelBounds, parcelEdges} from '../footprintPlanning.js';
 import {parseCoordinateInput} from '../locationAnalysis.js';
+import {setbackEdgeLabel, setbackMeasure, setbackStatusLabel} from './SetbackFeedback.jsx';
+import './FootprintMap.css';
 
 const ANCHOR_ICON = L.divIcon({className: 'footprint-map-anchor', html: '<span aria-hidden="true">✣</span>', iconSize: [32, 32], iconAnchor: [16, 16]});
 const ROLE_STYLE = {
@@ -10,6 +12,33 @@ const ROLE_STYLE = {
   extension: {color: '#b56a21', weight: 2.5, fillColor: '#e6ab64', fillOpacity: 0.48, dashArray: '6 4'},
   furniture: {color: '#5d6c8a', weight: 1.2, fillColor: '#7c89a2', fillOpacity: 0.18},
 };
+const STATUS_STYLE = {
+  conflict: {color: '#af3441', fillColor: '#dc6a74', fillOpacity: 0.5, weight: 3},
+  at_limit: {color: '#97651b', fillColor: '#ecc265', fillOpacity: 0.45, weight: 3},
+  within_reviewed_limits: {color: '#287152', fillColor: '#7dbd93', fillOpacity: 0.4},
+};
+const EMPTY_CHECKS = Object.freeze([]);
+
+function featureCheck(feature, checks) {
+  const {id, role, label, setback_status: status} = feature.properties || {};
+  if (role === 'furniture') return null;
+  return checks.find(check => check.id === id && check.role === role) || {id, role, label, status: status || 'pending'};
+}
+
+export function footprintFeatureStyle(feature, checks = EMPTY_CHECKS) {
+  const role = feature?.properties?.role;
+  const check = featureCheck(feature, checks);
+  return {...(ROLE_STYLE[role] || ROLE_STYLE.extension), ...(check ? STATUS_STYLE[check.status] : null)};
+}
+
+function ShapeTooltip({feature, check}) {
+  const label = feature.properties?.label || (feature.properties?.role === 'existing' ? 'Huella existente' : feature.properties?.role === 'furniture' ? 'Mobiliario' : 'Ampliación');
+  const edge = (check?.setback_edges || []).filter(item => typeof item.actual_m === 'number' && typeof item.required_m === 'number' && item.status !== 'pending')
+    .sort((a, b) => a.actual_m - a.required_m - (b.actual_m - b.required_m))[0];
+  return <Tooltip sticky className="footprint-shape-tooltip"><strong>{label}</strong><span>{check ? setbackStatusLabel(check) : 'Mobiliario · no incrementa la ocupación'}</span>
+    {edge && <small>{setbackEdgeLabel(edge)}: {setbackMeasure(edge.actual_m)} m · mínimo {setbackMeasure(edge.required_m)} m</small>}
+  </Tooltip>;
+}
 
 function MapBehavior({geometry, placement, placeOnClick, onPlacementChange, frame}) {
   const map = useMap();
@@ -36,7 +65,7 @@ function MapBehavior({geometry, placement, placeOnClick, onPlacementChange, fram
     }}}><Tooltip direction="top" offset={[0, -16]}>Arrastra para ubicar la huella</Tooltip></Marker>;
 }
 
-export default function FootprintMap({geometry, placement, placed, onPlacementChange, edgesVisible = false, selectedEdge, onSelectEdge, edgeKinds = {}}) {
+export default function FootprintMap({geometry, placement, placed, onPlacementChange, edgesVisible = false, selectedEdge, onSelectEdge, edgeKinds = {}, shapeChecks = EMPTY_CHECKS}) {
   const bounds = useMemo(() => parcelBounds(geometry), [geometry]);
   const edges = useMemo(() => parcelEdges(geometry), [geometry]);
   const [placeOnClick, setPlaceOnClick] = useState(false);
@@ -44,6 +73,8 @@ export default function FootprintMap({geometry, placement, placed, onPlacementCh
   const [frame, setFrame] = useState(0);
   const mapId = useRef(`footprint-map-${Math.random().toString(36).slice(2)}`);
   const visible = useMemo(() => ({type: 'FeatureCollection', features: (placed?.features || []).filter(feature => feature.properties?.role !== 'combined')}), [placed]);
+  const visibleChecks = visible.features.map(feature => featureCheck(feature, shapeChecks)).filter(Boolean);
+  const hasReviewed = visibleChecks.some(check => ['conflict', 'at_limit', 'within_reviewed_limits'].includes(check.status));
   if (!bounds) return null;
   return <div className="footprint-map-shell">
     <div className="footprint-map-tools">
@@ -58,7 +89,9 @@ export default function FootprintMap({geometry, placement, placed, onPlacementCh
           url={satellite ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'}
           attribution="Tiles &copy; Esri and contributors" maxNativeZoom={19} maxZoom={22}/>
         <GeoJSON key={JSON.stringify(geometry)} data={geometry} style={{color: '#405b80', weight: 3, fillColor: '#e6edf7', fillOpacity: satellite ? 0.1 : 0.28}} interactive={false}/>
-        {visible.features.length > 0 && <GeoJSON key={JSON.stringify(visible)} data={visible} style={feature => ROLE_STYLE[feature.properties?.role] || ROLE_STYLE.extension} interactive={false}/>}
+        {visible.features.map(feature => <GeoJSON key={JSON.stringify(feature)} data={feature} style={() => footprintFeatureStyle(feature, shapeChecks)} bubblingMouseEvents>
+          <ShapeTooltip feature={feature} check={featureCheck(feature, shapeChecks)}/>
+        </GeoJSON>)}
         {edgesVisible && edges.map(edge => <Polyline key={edge.id} positions={edge.positions} bubblingMouseEvents={false}
           pathOptions={{color: selectedEdge === edge.id ? '#b56a21' : edgeKinds[edge.id] ? '#405b80' : '#99a5b4', weight: selectedEdge === edge.id ? 8 : 5, opacity: 0.9}}
           eventHandlers={{click(event) {L.DomEvent.stopPropagation(event.originalEvent); onSelectEdge?.(edge.id);}}}>
@@ -70,6 +103,9 @@ export default function FootprintMap({geometry, placement, placed, onPlacementCh
       <span className="footprint-north" aria-label="Norte geográfico">N ↑</span>
     </div>
     <div className="footprint-legend" aria-label="Leyenda de implantación"><span><i className="is-parcel"/>Predio</span><span><i className="is-existing"/>Huella existente</span><span><i className="is-extension"/>Ampliación propuesta</span></div>
+    {hasReviewed && <div className="footprint-legend footprint-setback-legend" aria-label="Estados de retiros revisados"><span><i className="is-setback-conflict"/>Conflicto</span><span><i className="is-setback-limit"/>En el límite</span><span><i className="is-setback-within"/>Dentro de los retiros revisados</span></div>}
+    {hasReviewed && <ul className="footprint-map-checks" aria-label="Retiros por figura">{visibleChecks.filter(check => check.status !== 'pending').map(check =>
+      <li key={`${check.role}:${check.id}`} className={`is-${check.status}`}><strong>{check.role === 'existing' ? 'Huella existente' : check.label || 'Ampliación'}</strong><span>{setbackStatusLabel(check)}</span></li>)}</ul>}
     <p className="footprint-fine">La cruz fija el origen del contorno. Muévela y ajusta el giro sin cambiar sus dimensiones. La orientación del plano se propone manualmente.</p>
   </div>;
 }

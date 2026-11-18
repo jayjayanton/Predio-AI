@@ -8,6 +8,7 @@ import {JSDOM} from 'jsdom';
 import {build} from 'vite';
 import {fitTransform, prepareDrawing} from '../src/drawingGeometry.js';
 import {planningShapeMetrics, shapeDrawingRing} from '../src/scaledPlanning.js';
+import {setbackSourceKey} from '../src/liveSetbacks.js';
 
 const frontendRoot = fileURLToPath(new URL('..', import.meta.url));
 const makeView = name => ({name, page: 1, extraction: {scope: 'modelspace'}, elements: [{id: 'footprint', kind: 'polyline', source_type: 'LWPOLYLINE', layer: 'Ground', closed: true, points: [[0, 0], [10000, 0], [10000, 6000], [0, 6000]]}]});
@@ -89,6 +90,53 @@ function handlePoint(kind, index) {
     : [Number(rect.getAttribute('x')) + 5, Number(rect.getAttribute('y')) + 5];
 }
 const closeTo = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} ≈ ${expected}`);
+
+// Synthetic metric parcel solely for interaction tests, never project evidence.
+function reviewedSetbacks() {
+  const ring = [[-10, -10], [10, -10], [10, 10], [-10, 10], [-10, -10]];
+  return {version: 1, coordinate_space: 'local_metres', ready: true, complete: true, tolerance_m: 1e-6,
+    parcel: {type: 'Polygon', coordinates: [ring]}, pending_reasons: [],
+    edges: ring.slice(0, -1).map((point, edge) => ({polygon: 0, ring: 0, edge, kind: edge % 2 ? 'side' : edge === 0 ? 'front' : 'rear',
+      required_m: edge % 2 ? 5 : 0, points: [point, ring[edge + 1]]}))};
+}
+const activeSetbackStatus = () => container.querySelector('.cad-design-panel [data-setback-status]')?.dataset.setbackStatus;
+
+test('live extension conflict and exact-limit feedback follow dragging without committing a canceled preview', async () => {
+  await click('Aplicar unidad'); await extractFootprint(); await click('＋ Ampliación');
+  assert.equal(activeSetbackStatus(), 'pending');
+  await render({setbackReview: {sourceKey: setbackSourceKey(snapshot), context: reviewedSetbacks()}});
+  assert.equal(activeSetbackStatus(), 'within_reviewed_limits');
+  const saved = JSON.stringify(snapshot);
+  const pixelsPerMetre = fitTransform(prepareDrawing(props.views[0]).bounds, 800, 560).scale / .001;
+  await pointer('pointerdown', [400, 280]); await pointer('pointermove', [400 + 4 * pixelsPerMetre, 280]);
+  assert.equal(activeSetbackStatus(), 'conflict');
+  assert.match(container.querySelector('.cad-design-panel').textContent, /invade el retiro revisado/);
+  assert.equal(JSON.stringify(snapshot), saved, 'live warning does not publish unfinished geometry');
+  await pointer('pointercancel', [400 + 4 * pixelsPerMetre, 280]);
+  assert.equal(activeSetbackStatus(), 'within_reviewed_limits'); assert.equal(JSON.stringify(snapshot), saved);
+  await pointer('pointerdown', [400, 280]); await pointer('pointermove', [400 + 3.5 * pixelsPerMetre, 280]);
+  assert.equal(activeSetbackStatus(), 'at_limit', 'exactly 5 m satisfies the minimum and is not red');
+  await pointer('pointerup', [400 + 3.5 * pixelsPerMetre, 280]);
+  assert.equal(activeSetbackStatus(), 'at_limit'); assert.notEqual(JSON.stringify(snapshot), saved);
+  await render({setbackReview: null}); assert.equal(activeSetbackStatus(), 'pending', 'reference invalidation removes prior pass/conflict');
+});
+
+test('a valid unfinished polygon turns red without changing the source or committing its proposal', async () => {
+  await click('Aplicar unidad'); await extractFootprint(); await click('Figuras');
+  await setValue(input('Uso del nuevo dibujo'), 'extension');
+  const context = reviewedSetbacks(); context.edges[1].required_m = 7;
+  const review = {sourceKey: setbackSourceKey(snapshot), context};
+  await render({setbackReview: review});
+  const originalFootprint = JSON.stringify(snapshot.footprint);
+  await drawPolygon([[650, 210], [740, 210], [740, 330]], false);
+  assert.equal(activeSetbackStatus(), 'conflict'); assert.equal(snapshot.shapes.length, 0);
+  assert.ok(container.querySelector('.cad-draft-path.is-conflict'));
+  await key('Enter'); assert.equal(snapshot.shapes.length, 1);
+  assert.equal(activeSetbackStatus(), 'conflict', 'a hypothetical conflict stays editable and visible');
+  assert.equal(JSON.stringify(snapshot.footprint), originalFootprint);
+  await render({documentName: 'different-source.dwg', setbackReview: review});
+  assert.equal(activeSetbackStatus(), 'pending', 'another CAD source cannot inherit the rule context');
+});
 
 test('units gate figures; editing, zoom, undo and redo preserve real dimensions', async () => {
   assert.equal(button('▭ Mesa').disabled, true); assert.equal(snapshot, null);

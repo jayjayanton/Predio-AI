@@ -313,7 +313,7 @@ export function createPlanningSnapshot({footprint, shapes, scale, source}) {
     })};
 }
 
-export function paintPlanningOverlay(context, transform, shapes, metresPerUnit, selectedId, footprint = null, showShapes = true) {
+export function paintPlanningOverlay(context, transform, shapes, metresPerUnit, selectedId, footprint = null, showShapes = true, shapeChecks = {}) {
   if (!positive(metresPerUnit)) return;
   if (footprint?.ok && footprint.metresPerUnit === metresPerUnit) {
     context.save(); context.beginPath();
@@ -325,9 +325,12 @@ export function paintPlanningOverlay(context, transform, shapes, metresPerUnit, 
   for (const shape of shapes) {
     const ring = shapeDrawingRing(shape, metresPerUnit); if (!ring) continue;
     const active = shape.id === selectedId, extension = shape.role === 'extension';
+    const status = extension ? shapeChecks[shape.id]?.status : null;
+    const conflict = status === 'conflict', atLimit = status === 'at_limit';
+    const stroke = conflict ? '#b53535' : atLimit ? '#a56b16' : extension ? '#ae6728' : '#246c5c';
     context.save(); context.beginPath(); context.moveTo(...ring[0]); ring.slice(1).forEach(p => context.lineTo(...p)); context.closePath();
-    context.fillStyle = extension ? '#d78a3e30' : '#287c6a2c'; context.fill();
-    context.strokeStyle = extension ? '#ae6728' : '#246c5c'; context.lineWidth = (active ? 2.8 : 1.8) / transform.scale;
+    context.fillStyle = conflict ? '#d64b4b40' : atLimit ? '#e3ad403d' : extension ? '#d78a3e30' : '#287c6a2c'; context.fill();
+    context.strokeStyle = stroke; context.lineWidth = (active || conflict ? 2.8 : 1.8) / transform.scale;
     if (extension) context.setLineDash([7 / transform.scale, 4 / transform.scale]); context.stroke(); context.setLineDash([]);
     if (active) {
       context.beginPath(); context.arc(shape.center[0], shape.center[1], 4.5 / transform.scale, 0, Math.PI * 2); context.fillStyle = '#fff'; context.fill(); context.stroke();
@@ -339,11 +342,11 @@ export function paintPlanningOverlay(context, transform, shapes, metresPerUnit, 
       const dimensions = shape.kind === 'circle' ? `Ø ${format(shape.widthMetres)} m`
         : shape.kind === 'polygon' ? `${format(planningShapeMetrics(shape).areaM2)} m² · ${shape.verticesMetres.length} vértices`
           : `${format(shape.widthMetres)} × ${format(shape.depthMetres)} m`;
-      const text = `${shape.label} · ${dimensions}`;
+      const text = `${conflict ? '⚠ Conflicto · ' : atLimit ? 'En el límite · ' : ''}${shape.label} · ${dimensions}`;
       context.font = `${11 / transform.scale}px Arial, sans-serif`; context.textAlign = 'center'; context.textBaseline = 'bottom';
       const x = shape.center[0], y = bounds[1] - 8 / transform.scale, width = context.measureText(text).width;
       context.fillStyle = '#ffffffed'; context.fillRect(x - width / 2 - 5 / transform.scale, y - 14 / transform.scale, width + 10 / transform.scale, 17 / transform.scale);
-      context.fillStyle = extension ? '#8b521e' : '#1c5549'; context.fillText(text, x, y);
+      context.fillStyle = conflict || atLimit ? stroke : extension ? '#8b521e' : '#1c5549'; context.fillText(text, x, y);
     }
     context.restore();
   }

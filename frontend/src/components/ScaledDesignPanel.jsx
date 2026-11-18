@@ -1,5 +1,6 @@
 import React, {useEffect, useId, useState} from 'react';
 import {normalizeRotation, parseDimension, planningShapeMetrics, PLANNING_LIMITS} from '../scaledPlanning.js';
+import SetbackFeedback from './SetbackFeedback.jsx';
 
 const format = n => Number.isFinite(n) ? n.toLocaleString('es-EC', {maximumFractionDigits: 2}) : '—';
 const dimensionInput = n => Number.isFinite(n) ? String(Number(n.toFixed(4))) : '';
@@ -27,7 +28,8 @@ export default function ScaledDesignPanel({shapes, selectedId, scale, showShapes
   onDuplicate, onDelete, onMove, onReturn, onConfirmScale, onAdd, history, onUndo, onRedo,
   drawingTool = null, onStartDrawing, drawingPointsCount = 0, onFinishDrawing, onUndoPoint, onCancelDrawing,
   drawingRole = 'furniture', onDrawingRoleChange, draftMetrics = null, draftError = '',
-  editMode = 'vertices', onEditModeChange, selectedVertex = null, onSelectVertex, onInsertVertex, onRemoveVertex}) {
+  editMode = 'vertices', onEditModeChange, selectedVertex = null, onSelectVertex, onInsertVertex, onRemoveVertex,
+  setbackCheck = null, setbackLive = false}) {
   const selected = shapes.find(shape => shape.id === selectedId);
   const id = useId();
   const [fields, setFields] = useState({});
@@ -105,6 +107,7 @@ export default function ScaledDesignPanel({shapes, selectedId, scale, showShapes
       <small>{drawingByPoints ? 'Enter: terminar · Esc: cancelar' : 'Esc: cancelar'}</small>
     </div>}
     {draftError && <p className="cad-design-error" role="alert">{draftError}</p>}
+    {setbackCheck && <SetbackFeedback check={setbackCheck} live={setbackLive}/>}
     {shapes.length > 0 && <>
       <label className="cad-studio-field">Figura activa<select aria-label="Figura activa" disabled={isDrawing} value={selected?.id || ''} onChange={event => onSelect(event.target.value)}><option value="">Selecciona una figura…</option>{shapes.map(shape => <option key={shape.id} value={shape.id}>{shape.label} · {dimensionLabel(shape)}</option>)}</select></label>
     </>}

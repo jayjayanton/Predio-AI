@@ -1,0 +1,35 @@
+.setback-feedback { --setback-ink: #4a5a61; --setback-muted: #66747a; --setback-line: #d7dfe2; --setback-wash: #f4f6f7; --setback-mark: #e3e9ec; margin: 14px 0; padding: 13px; border: 1px solid var(--setback-line); border-left: 3px solid var(--setback-ink); border-radius: 8px; background: var(--setback-wash); color: var(--setback-ink); text-align: left; min-width: 0; }
+.setback-feedback, .setback-feedback * { box-sizing: border-box; }
+.setback-feedback.is-conflict { --setback-ink: #9f3039; --setback-muted: #844951; --setback-line: #edc2c6; --setback-wash: #fff4f4; --setback-mark: #f8dce0; }
+.setback-feedback.is-at_limit { --setback-ink: #805613; --setback-muted: #7c663d; --setback-line: #e8d3a6; --setback-wash: #fff9eb; --setback-mark: #f5e7c5; }
+.setback-feedback.is-within_reviewed_limits { --setback-ink: #285f49; --setback-muted: #4e705c; --setback-line: #c9decf; --setback-wash: #f1f7f1; --setback-mark: #dcecdf; }
+.setback-feedback-heading { display: grid; grid-template-columns: 23px minmax(0, 1fr); gap: 9px; align-items: start; }
+.setback-feedback-icon { display: grid; place-items: center; background: var(--setback-mark); width: 23px; height: 23px; border-radius: 50%; font-size: 14px; font-weight: 750; line-height: 1; }
+.setback-feedback-heading strong { display: block; color: var(--setback-ink); font-size: 12px; font-weight: 650; line-height: 1.45; overflow-wrap: anywhere; }
+.setback-feedback-eyebrow { display: block; margin: 0 0 5px; color: var(--setback-muted); font-size: 8px; font-weight: 650; letter-spacing: .09em; line-height: 1.4; }
+.setback-feedback-name { display: block; margin-bottom: 3px; font-size: 10px; color: var(--setback-muted); line-height: 1.5; overflow-wrap: anywhere; }
+.setback-feedback-live { display: inline-block; margin-top: 8px; font-size: 8px; line-height: 1.5; letter-spacing: .03em; color: var(--setback-muted); }
+.setback-feedback-edge { margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--setback-line); }
+.setback-feedback-edge > span { display: block; color: var(--setback-muted); font-size: 10px; line-height: 1.5; }
+.setback-feedback-values { display: flex; flex-wrap: wrap; gap: 11px 17px; margin: 8px 0 0; padding: 0; }
+.setback-feedback-values > div { min-width: 60px; }
+.setback-feedback-values dt { margin: 0 0 3px; font-size: 9px; line-height: 1.45; color: var(--setback-muted); font-weight: 450; }
+.setback-feedback-values dd { margin: 0; color: var(--setback-ink); font-size: 16px; font-weight: 650; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.setback-feedback-values dd small { font-size: 10px; font-weight: 450; }
+.setback-feedback .setback-feedback-instruction { margin: 10px 0 0; color: var(--setback-ink); font-size: 10px; line-height: 1.65; }
+.setback-feedback .setback-feedback-note { margin: 9px 0 0; padding-top: 8px; border-top: 1px solid var(--setback-line); color: var(--setback-muted); font-size: 10px; line-height: 1.6; }
+.setback-feedback-pending { margin: 8px 0 0; padding-left: 15px; color: var(--setback-muted); font-size: 10px; line-height: 1.6; }
+.setback-feedback-pending li + li { margin-top: 5px; }
+.setback-feedback-details { margin-top: 10px; font-size: 10px; line-height: 1.6; color: var(--setback-muted); }
+.setback-feedback-details summary { cursor: pointer; font-weight: 600; }
+.setback-feedback-details summary:focus-visible { outline: 2px solid var(--setback-ink); outline-offset: 3px; }
+.setback-feedback-details ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.setback-feedback-details li { display: grid; gap: 2px; padding: 7px 0; border-top: 1px solid var(--setback-line); }
+.setback-feedback-details li strong { font-size: 10px; font-weight: 600; color: var(--setback-ink); }
+.setback-feedback.is-compact { margin: 0; padding: 10px 12px; }
+.setback-feedback.is-compact .setback-feedback-eyebrow { display: none; }
+.setback-feedback.is-compact .setback-feedback-heading { align-items: center; }
+.setback-feedback.is-compact .setback-feedback-edge { margin-top: 8px; padding-top: 7px; }
+.setback-feedback.is-compact .setback-feedback-values { margin-top: 5px; gap: 7px 15px; }
+.setback-feedback.is-compact .setback-feedback-values dd { font-size: 14px; }
+.setback-feedback.is-compact .setback-feedback-instruction { margin-top: 7px; }

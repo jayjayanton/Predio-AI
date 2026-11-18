@@ -141,6 +141,12 @@
 .cad-sketch-hud > span { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #718370; }
 .cad-sketch-hud > strong { font-size: 14px; font-weight: 600; }
 .cad-sketch-hud > small { font-size: 10px; color: #617a65; }
+.cad-sketch-hud.is-conflict { border-color: #dca3a0; }
+.cad-sketch-hud.is-at_limit { border-color: #d9bd7c; }
+.cad-sketch-hud .setback-feedback { max-width: 310px; }
+.cad-draft-path.is-conflict, .cad-draft-path.is-conflict text { stroke: #b53535; }
+.cad-draft-path.is-conflict text { fill: #b53535; stroke: #fff; }
+.cad-draft-path.is-at_limit { stroke: #a56b16; }
 @container cad-viewer (max-width: 850px) {
   .cad-studio-tabs { max-width: 480px; }
   .cad-design-panel, .cad-footprint-panel { max-width: 640px; }

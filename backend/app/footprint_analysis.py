@@ -28,6 +28,8 @@ MAX_TOTAL_VERTICES = 10_000
 MAX_SHAPES = 100
 MAX_LOCAL_COORDINATE = 10_000
 MAX_PARCEL_RADIUS = 25_000
+SETBACK_TOLERANCE_M = 1e-6
+MAX_LIVE_SETBACK_COMPARISONS = 20_000
 _ASSESSMENT_SLOTS = BoundedSemaphore(2)
 
 
@@ -306,6 +308,7 @@ def _assess(request: PlanningRequest) -> dict:
         outside, 0, "m² fuera"))
 
     regulation_ready = scope_ready and placement_ready
+    area_consistency_ready = True
     if constraints.area_terreno is not None and scope_ready:
         metrics["geometric_coverage_percent"] = _rounded(100 * combined.area / constraints.area_terreno)
         if counted_ground_area is not None:
@@ -316,6 +319,7 @@ def _assess(request: PlanningRequest) -> dict:
         if metrics["parcel_geometry_m2"] is not None and abs(metrics["parcel_geometry_m2"] - constraints.area_terreno) / constraints.area_terreno > 0.05:
             warnings.append("El área del polígono y el área de terreno revisada difieren más del 5 %. Contrasta el lote, el documento y sus bases de área.")
             regulation_ready = False
+            area_consistency_ready = False
             checks.append(_check("area_consistency", "pending", "Base de área del terreno", "Las áreas gráfica y documental difieren más del 5 %; la comparación normativa permanece pendiente.", metrics["parcel_geometry_m2"], constraints.area_terreno, "m²"))
     coverage_ready = regulation_ready and metrics["coverage_percent"] is not None and constraints.cos_pb is not None
     checks.append(_check("coverage", "pending" if not coverage_ready else "conflict" if metrics["coverage_percent"] > constraints.cos_pb + 1e-6 else "within_reviewed_limits",
@@ -341,6 +345,19 @@ def _assess(request: PlanningRequest) -> dict:
         "Se detecta una distancia inferior al retiro revisado en al menos un borde clasificado."
         if setback_status == "conflict" else "Las distancias a todos los bordes clasificados alcanzan los retiros revisados."
         if setback_status == "within_reviewed_limits" else "Clasifica todos los bordes exteriores como frente, lateral o posterior y revisa sus retiros. Huecos, afectaciones y bordes especiales requieren revisión adicional."))
+    pending_reasons = [reason for reason, ready in (
+        ("identity", identity_ready), ("scope", scope_ready),
+        ("placement", placement_ready), ("area_consistency", area_consistency_ready),
+    ) if not ready]
+    setback_context = _live_setback_context(request, parcel, local_parcel, regulation_ready, pending_reasons)
+    shape_checks = _shape_setback_checks(existing, shapes, setback_context)
+    if placed is not None:
+        shape_statuses = {(item["role"], item["id"]): item["status"] for item in shape_checks}
+        for feature in placed["features"]:
+            properties = feature["properties"]
+            status = shape_statuses.get((properties["role"], properties["id"]))
+            if status is not None:
+                properties["setback_status"] = status
     for check_id, title, actual, limit, unit in (
         ("height", "Altura máxima", proposal.height_m, constraints.altura, "m"),
         ("floors", "Número de pisos", proposal.floors, constraints.pisos, "pisos"),
@@ -356,7 +373,8 @@ def _assess(request: PlanningRequest) -> dict:
             "Comparación de la condición final de toda la edificación con el límite revisado del IRM."
             if ready else "Faltan datos revisados del IRM o de la condición final de toda la edificación; no se infieren a partir de una planta.", actual, limit, unit))
     return {"status": "preliminary", "verified": False, "metrics": metrics, "checks": checks,
-            "placed": placed, "setback_edges": setback_edges, "warnings": warnings,
+            "placed": placed, "setback_edges": setback_edges, "setback_context": setback_context,
+            "shape_checks": shape_checks, "warnings": warnings,
             "coordinate_convention": "Local metres: X east, Y north; clockwise rotation around (0,0).",
             "regulatory_approval": False}
 
@@ -380,3 +398,80 @@ def _setbacks(request, parcel, local_parcel, combined, ready):
         status = "pending" if not ready or actual is None or required is None else "conflict" if actual + 1e-6 < required else "within_reviewed_limits"
         output.append({**edge.model_dump(), "required_m": required, "actual_m": _rounded(actual), "status": status})
     return output
+
+
+def _live_setback_context(request, parcel, local_parcel, ready, pending_reasons):
+    """Expose reviewed metric edges, independent of the changing proposal.
+
+    The inverse rotation brings the projected parcel into the source snapshot's
+    coordinate space. Preserve ring ordering so edge identities still refer to
+    the same parcel segments. Geometry is deliberately unavailable when its
+    documentary, scope or placement prerequisites have not been reviewed.
+    """
+    reasons = list(pending_reasons)
+    parts = [] if parcel is None else [parcel] if parcel.geom_type == "Polygon" else list(parcel.geoms)
+    expected = {(i, 0, edge) for i, part in enumerate(parts) for edge in range(len(part.exterior.coords) - 1)}
+    provided = {(edge.polygon, edge.ring, edge.edge) for edge in request.edges}
+    all_classified = bool(expected) and expected == provided
+    no_holes = all(not part.interiors for part in parts)
+    constraints = (request.irm or IrmInput()).constraints
+    requirements = {"front": constraints.retiro_frontal, "side": constraints.retiro_lateral,
+                    "rear": constraints.retiro_posterior}
+    known_limits = [requirements[edge.kind] is not None for edge in request.edges]
+    if not all_classified:
+        reasons.append("unclassified_edges")
+    if known_limits and not all(known_limits):
+        reasons.append("missing_limits")
+    if not no_holes:
+        reasons.append("parcel_holes")
+    usable = bool(ready and local_parcel is not None and any(known_limits))
+    local_geometry = None
+    edges = []
+    if usable:
+        local_geometry = rotate(local_parcel, request.placement.rotation_degrees, origin=(0, 0))
+        local_parts = [local_geometry] if local_geometry.geom_type == "Polygon" else list(local_geometry.geoms)
+        for edge in request.edges:
+            points = list(local_parts[edge.polygon].exterior.coords)
+            edges.append({**edge.model_dump(), "required_m": requirements[edge.kind],
+                          "points": [list(points[edge.edge]), list(points[edge.edge + 1])]})
+    return {"version": 1, "coordinate_space": "local_metres", "tolerance_m": SETBACK_TOLERANCE_M,
+            "ready": usable, "complete": bool(usable and all_classified and no_holes and all(known_limits)),
+            "parcel": mapping(local_geometry) if local_geometry is not None else None,
+            "edges": edges, "pending_reasons": reasons}
+
+
+def _shape_setback_checks(existing, shapes, context):
+    """Keep an existing conflict separate from every proposed extension."""
+    candidates = [("existing-footprint", "existing", "Huella extraída", existing)]
+    candidates.extend((item.id, item.role, item.label, geometry) for item, geometry in shapes if item.role == "extension")
+    # Bound the multiplicative response size, not just the input vertex count.
+    # This affects batch feedback only: the reusable reviewed context remains
+    # independent of how many proposal figures are currently on the drawing.
+    if len(candidates) * len(context["edges"]) > MAX_LIVE_SETBACK_COMPARISONS:
+        context = {**context, "ready": False, "complete": False, "parcel": None, "edges": [],
+                   "pending_reasons": [*context["pending_reasons"], "complexity"]}
+    parcel = shape(context["parcel"]) if context["ready"] else None
+    boundaries = [(edge, LineString(edge["points"])) for edge in context["edges"]]
+    results = []
+    for identifier, role, label, geometry in candidates:
+        outside = geometry.difference(parcel).area if parcel is not None else None
+        containment_status = ("pending" if outside is None else "conflict" if outside > 1e-6
+                              else "within_reviewed_limits")
+        edge_checks = []
+        for edge, line in boundaries:
+            actual = geometry.distance(line)
+            required = edge["required_m"]
+            status = ("pending" if required is None else "conflict" if actual + SETBACK_TOLERANCE_M < required
+                      else "at_limit" if abs(actual - required) <= SETBACK_TOLERANCE_M else "within_reviewed_limits")
+            edge_checks.append({key: edge[key] for key in ("polygon", "ring", "edge", "kind", "required_m")} |
+                               {"actual_m": _rounded(actual), "shortfall_m": None if required is None else _rounded(max(0, required - actual)),
+                                "status": status})
+        status = ("conflict" if containment_status == "conflict" or any(edge["status"] == "conflict" for edge in edge_checks)
+                  else "pending" if not context["complete"]
+                  else "at_limit" if any(edge["status"] == "at_limit" for edge in edge_checks)
+                  else "within_reviewed_limits")
+        results.append({"id": identifier, "role": role, "label": label, "status": status,
+                        "outside_parcel_m2": _rounded(outside), "containment_status": containment_status,
+                        "setback_edges": edge_checks, "complete": context["complete"],
+                        "pending_reasons": list(context["pending_reasons"])})
+    return results

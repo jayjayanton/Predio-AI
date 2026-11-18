@@ -1,6 +1,8 @@
 import React, { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react';
 import MeasurementPanel from './MeasurementPanel.jsx';
 import ScaledDesignPanel, {GroundFootprintPanel} from './ScaledDesignPanel.jsx';
+import SetbackFeedback from './SetbackFeedback.jsx';
+import {evaluatePlanningShape, setbackSourceKey} from '../liveSetbacks.js';
 import {commitDesign, createDesignHistory, createPlanningShape, createPlanningSnapshot, extractPlanningFootprint,
   hitPlanningShape, paintPlanningOverlay, PLANNING_LIMITS, redoDesign, shapeBounds, undoDesign,
   createDrawnPlanningShape, createPolygonPlanningShape, planningShapeMetrics, planningEditHandles,
@@ -101,7 +103,7 @@ function paintDrawing(canvas, size, transform, items, selected, viewport = null,
     }
   }
   if (planning) paintPlanningOverlay(context, transform, planning.shapes, planning.metresPerUnit,
-    planning.selectedId, planning.footprint, planning.showShapes);
+    planning.selectedId, planning.footprint, planning.showShapes, planning.shapeChecks);
   if (viewport) {
     context.fillStyle = '#176d7040'; context.strokeStyle = '#176d70'; context.lineWidth = 1.5 / transform.scale;
     context.fillRect(viewport[0], viewport[1], viewport[2] - viewport[0], viewport[3] - viewport[1]);
@@ -111,7 +113,7 @@ function paintDrawing(canvas, size, transform, items, selected, viewport = null,
 
 /** Imported geometry, source annotations and estimates with user-confirmed scale. */
 export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPTY_VIEWS, documentFormat = '', unitsCode = null, documentName = '',
-  onPlanningChange, draftState = null, onDraftStateChange }) {
+  onPlanningChange, draftState = null, onDraftStateChange, setbackReview = null }) {
   const initialDraft = draftState?.views === views ? draftState : null;
   const initialIndex = initialDraft?.viewIndex || 0;
   const initialView = views[initialIndex] || views[0] || EMPTY_VIEW;
@@ -188,8 +190,6 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     ? planningEditHandles(editableShape, measurementScale.metresPerUnit, editMode) : [], [tool, showShapes, editableShape, measurementScale, editMode]);
   const metricPreview = activePreview || shapePreview;
   const draftMetrics = metricPreview ? {...planningShapeMetrics(metricPreview), widthMetres: metricPreview.widthMetres, depthMetres: metricPreview.depthMetres} : null;
-  const planningPaint = useMemo(() => ({shapes: displayShapes, selectedId: selectedShapeId, metresPerUnit: measurementScale?.metresPerUnit,
-    footprint: activeFootprint, showShapes}), [displayShapes, selectedShapeId, measurementScale, activeFootprint, showShapes]);
   const drawing = useMemo(() => prepareDrawing(view), [view]);
   const index = useMemo(() => buildSpatialIndex(drawing.items, drawing.bounds), [drawing]);
   const visible = useMemo(() => filterDrawingItems(drawing.items, {hiddenLayers, showText}), [drawing, hiddenLayers, showText]);
@@ -241,6 +241,20 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const overviewViewport = rectangle(toScreen(viewport.slice(0, 2), overviewTransform), toScreen(viewport.slice(2), overviewTransform));
   const planningSnapshot = useMemo(() => createPlanningSnapshot({footprint: activeFootprint, shapes: design.shapes, scale: measurementScale,
     source: {documentName, viewName: viewName(view, viewIndex), viewIndex, unitsCode}}), [activeFootprint, design.shapes, measurementScale, documentName, view, viewIndex, unitsCode]);
+  const liveSourceKey = useMemo(() => setbackSourceKey(planningSnapshot), [planningSnapshot]);
+  const reviewContext = setbackReview?.sourceKey === liveSourceKey ? setbackReview.context : null;
+  const metricSpace = useMemo(() => ({origin: activeFootprint?.origin || [0, 0], metresPerUnit: measurementScale?.metresPerUnit}), [activeFootprint, measurementScale]);
+  const committedChecks = useMemo(() => Object.fromEntries(design.shapes.map(shape => [shape.id,
+    evaluatePlanningShape(shape, metricSpace, reviewContext)])), [design.shapes, metricSpace, reviewContext]);
+  const previewCheck = useMemo(() => metricPreview ? evaluatePlanningShape(metricPreview, metricSpace, reviewContext) : null,
+    [metricPreview, metricSpace, reviewContext]);
+  const shapeChecks = useMemo(() => previewCheck ? {...committedChecks, [metricPreview.id]: previewCheck} : committedChecks,
+    [committedChecks, previewCheck, metricPreview]);
+  const activeSetbackCheck = drawingTool ? drawingRole === 'extension' ? previewCheck || {
+    role: 'extension', status: 'pending', pending_reasons: [reviewContext?.ready ? 'drawing_incomplete' : 'review_required'], setback_edges: [],
+  } : null : editableShape?.role === 'extension' ? shapeChecks[editableShape.id] : null;
+  const planningPaint = useMemo(() => ({shapes: displayShapes, selectedId: selectedShapeId, metresPerUnit: measurementScale?.metresPerUnit,
+    footprint: activeFootprint, showShapes, shapeChecks}), [displayShapes, selectedShapeId, measurementScale, activeFootprint, showShapes, shapeChecks]);
   const scaleBarMetres = measurementScale ? 10 ** Math.floor(Math.log10(90 * measurementScale.metresPerUnit / transform.scale)) : null;
   const scaleBarWidth = scaleBarMetres ? scaleBarMetres / measurementScale.metresPerUnit * transform.scale : null;
 
@@ -740,14 +754,17 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
                       : <><circle cx={x} cy={y} r={active ? 6.5 : 5} />{active && <text x={x + 11} y={y - 10}>{handle.index + 1}</text>}</>}
                 </g>;
               })}
-              {pointDrawing && draftPoints.length > 0 && <g className={`cad-draft-path${draftError ? ' is-invalid' : ''}`}>
+              {pointDrawing && draftPoints.length > 0 && <g className={`cad-draft-path${draftError ? ' is-invalid' : ''}${activeSetbackCheck ? ` is-${activeSetbackCheck.status}` : ''}`}>
                 <polyline points={[...draftPoints, ...(draftCursor ? [draftCursor] : [])].map(point => toScreen(point, transform).join(',')).join(' ')} />
                 {draftPoints.length > 1 && <line className="cad-draft-closing" x1={toScreen(draftCursor || draftPoints.at(-1), transform)[0]} y1={toScreen(draftCursor || draftPoints.at(-1), transform)[1]} x2={toScreen(draftPoints[0], transform)[0]} y2={toScreen(draftPoints[0], transform)[1]} />}
                 {draftPoints.map((point, index) => { const [x, y] = toScreen(point, transform); return <g key={index}>{index === 0 && draftPoints.length >= 3 && <circle className="cad-close-target" cx={x} cy={y} r="12" />}<circle cx={x} cy={y} r="4.5" /><text x={x + 9} y={y - 9}>{index + 1}</text></g>; })}
               </g>}
               {invalidHandlePoint && <circle className="cad-invalid-handle" cx={toScreen(invalidHandlePoint, transform)[0]} cy={toScreen(invalidHandlePoint, transform)[1]} r="8" />}
             </svg>
-            {draftMetrics && <div className="cad-sketch-hud"><span>{drawingTool ? 'Dibujo en curso' : 'Ajustando figura'}</span><strong>{formatDrawingNumber(draftMetrics.widthMetres)} × {formatDrawingNumber(draftMetrics.depthMetres)} m</strong><small>{formatDrawingNumber(draftMetrics.areaM2)} m² · perímetro {formatDrawingNumber(draftMetrics.perimeterM)} m</small></div>}
+            {(draftMetrics || (activeSetbackCheck && tool === 'design')) && <div className={`cad-sketch-hud${activeSetbackCheck ? ` is-${activeSetbackCheck.status}` : ''}`}>
+              {draftMetrics && <><span>{drawingTool ? 'Dibujo en curso' : 'Ajustando figura'}</span><strong>{formatDrawingNumber(draftMetrics.widthMetres)} × {formatDrawingNumber(draftMetrics.depthMetres)} m</strong><small>{formatDrawingNumber(draftMetrics.areaM2)} m² · perímetro {formatDrawingNumber(draftMetrics.perimeterM)} m</small></>}
+              {activeSetbackCheck && <SetbackFeedback check={activeSetbackCheck} compact live={Boolean(metricPreview)}/>}
+            </div>}
             {selectionBox && <div className="cad-selection-box" style={{left: selectionBox[0], top: selectionBox[1], width: selectionBox[2] - selectionBox[0], height: selectionBox[3] - selectionBox[1]}} />}
             {!visible.length && <div className="cad-empty">{drawing.items.length ? 'No hay elementos visibles con estos filtros. Activa las capas o los textos.' : 'No se recibió geometría seleccionable para esta vista. Los planos escaneados necesitan otro procesamiento.'}</div>}
             <div className="cad-overview"><button type="button" className="cad-overview-title" aria-expanded={showOverview} onClick={() => setShowOverview(value => !value)}>Vista general · {showOverview ? 'ocultar' : 'mostrar'}</button>
@@ -797,7 +814,7 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
               history={designHistory} onUndo={() => historyAction(undoDesign)} onRedo={() => historyAction(redoDesign)}
               drawingTool={drawingTool} onStartDrawing={startDrawing} drawingPointsCount={draftPoints.length} onFinishDrawing={() => finishDrawing()}
               onUndoPoint={undoDraftPoint} onCancelDrawing={cancelDrawing} drawingRole={drawingRole} onDrawingRoleChange={setDrawingRole}
-              draftMetrics={draftMetrics} draftError={draftError} editMode={editMode} onEditModeChange={mode => { clearGesture(); setDraftError(''); setSelectedVertex(null); setEditMode(mode); returnToDrawing(); }}
+              draftMetrics={draftMetrics} draftError={draftError} setbackCheck={activeSetbackCheck} setbackLive={Boolean(metricPreview)} editMode={editMode} onEditModeChange={mode => { clearGesture(); setDraftError(''); setSelectedVertex(null); setEditMode(mode); returnToDrawing(); }}
               selectedVertex={selectedVertex} onSelectVertex={index => { setSelectedVertex(index); returnToDrawing(); }}
               onInsertVertex={index => editVertex(insertPlanningVertex, index)} onRemoveVertex={index => editVertex(removePlanningVertex, index)} />
           </div>

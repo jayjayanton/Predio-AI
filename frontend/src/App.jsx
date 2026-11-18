@@ -617,6 +617,15 @@ export default function App() {
 
   // Municipal property attributes
   const properties = data?.features?.[0]?.properties;
+  const planningParcel = drawingExample ? null : data;
+  const planningIrm = drawingExample ? null : inspection?.irm;
+  const saveSetbackReview = React.useCallback(review => setPlanningRecords(records =>
+    updatePlanningRecord(records, displayedDrawing, 'setbackReview', {review, parcel: planningParcel, irm: planningIrm})),
+  [displayedDrawing, planningParcel, planningIrm]);
+  // A review belongs to the linked parcel and document as well as the CAD source.
+  // A document/parcel switch must not briefly reuse the previous project's colors.
+  const currentSetbackReview = currentPlanning.setbackReview?.parcel === planningParcel
+    && currentPlanning.setbackReview?.irm === planningIrm ? currentPlanning.setbackReview.review : null;
 
   // Cadastral facts are descriptive, not permission to subdivide or construct.
   const lotProfile = properties ? {
@@ -2364,13 +2373,15 @@ export default function App() {
                 : inspection && <div className="inspection-result-header"><p role={selectedDocumentError ? 'alert' : 'status'}><strong>{selectedDocumentError ? 'No se pudo abrir este dibujo.' : blueprintConversion?.title || 'Archivo inspeccionado.'}</strong> {selectedDocumentError || blueprintConversion?.detail || 'Revisa el dibujo y sus capas antes de abrir el resumen.'}</p><button type="button" className="secondary" onClick={() => setStep('report')}>Ver resumen documental →</button></div>}
               {displayedDrawing?.drawing_views?.length
                 ? <BlueprintViewer key={`${displayedDrawing.package?.selected_entry || ''}:${displayedDrawing.filename}`} views={displayedDrawing.drawing_views} cadLayouts={displayedDrawing.cad_layouts || []} documentFormat={displayedDrawing.format} unitsCode={displayedDrawing.units_code} documentName={displayedDrawing.package?.selected_entry || displayedDrawing.filename}
-                  draftState={currentPlanning.draft} onDraftStateChange={savePlanningDraft} onPlanningChange={savePlanningSnapshot} />
+                  draftState={currentPlanning.draft} onDraftStateChange={savePlanningDraft} onPlanningChange={savePlanningSnapshot}
+                  setbackReview={currentSetbackReview} />
                 : <div className="empty"><strong>{inspecting ? 'Abriendo el dibujo…' : selectedDocumentError ? 'Elige otro dibujo o vuelve a intentarlo.' : inspection ? 'No se encontró geometría vectorial seleccionable.' : activePackage ? 'Selecciona un dibujo del paquete.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspecting ? 'La geometría y las medidas aparecerán cuando termine la inspección de este archivo.' : selectedDocumentError ? 'El listado del ZIP sigue disponible arriba. No se muestran medidas ni geometría del archivo anterior.' : inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y contrasta el contenido con el archivo original.' : activePackage ? 'Completa los documentos requeridos y pulsa «Abrir dibujo» para inspeccionar el archivo elegido.' : 'Adjunta un PDF, DXF, DWG o ZIP y pulsa «Inspeccionar». Podrás acercar el dibujo, seleccionar líneas y usar el panel Medidas.'}</p><p className="note">Confirma unidades o calibra una longitud conocida antes de obtener metros o m². Los resultados geométricos requieren revisión con el plano y las condiciones reales.</p></div>}
               {displayedDrawing?.drawing_views?.length > 0 && <FootprintPlanner
                 snapshot={currentPlanning.snapshot} parcel={drawingExample ? null : data}
                 parcelProperties={drawingExample ? null : properties} blueprint={displayedDrawing}
                 irm={drawingExample ? null : inspection?.irm} apiBase={API}
                 state={currentPlanning.placement} onStateChange={savePlanningPlacement}
+                onSetbackReviewChange={saveSetbackReview}
                 onLinkParcel={() => setStep('property')} />}
               {!drawingExample && inspection && !selectedDocumentError && <DrawingLocationPanel
                 blueprint={inspection.blueprint} irm={inspection.irm}

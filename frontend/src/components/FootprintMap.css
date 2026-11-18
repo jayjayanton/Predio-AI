@@ -1,0 +1,13 @@
+.footprint-legend .is-setback-conflict { border-color: #af3441; background: #f3bdc4; }
+.footprint-legend .is-setback-limit { border-color: #97651b; background: #f1d693; }
+.footprint-legend .is-setback-within { border-color: #287152; background: #b4d7bd; }
+.footprint-setback-legend { padding-top: 9px; border-top: 1px solid #dbe4da; }
+.footprint-map-checks { list-style: none; display: grid; gap: 5px; margin: 11px 0; padding: 0; }
+.footprint-map-checks li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 10px; padding: 7px 10px; color: #36634c; border-left: 3px solid #58946d; background: #f0f6ed; border-radius: 3px; font-size: 10px; line-height: 1.5; }
+.footprint-map-checks li strong { font-size: 10px; font-weight: 600; overflow-wrap: anywhere; }
+.footprint-map-checks li.is-conflict { color: #9f3039; border-color: #af3441; background: #fff2f3; }
+.footprint-map-checks li.is-at_limit { color: #805613; border-color: #97651b; background: #fff8e8; }
+.footprint-shape-tooltip strong, .footprint-shape-tooltip span, .footprint-shape-tooltip small { display: block; max-width: 230px; white-space: normal; overflow-wrap: anywhere; }
+.footprint-shape-tooltip strong { color: #284c3a; margin-bottom: 4px; font-size: 11px; }
+.footprint-shape-tooltip span { font-size: 10px; line-height: 1.5; color: #53685a; }
+.footprint-shape-tooltip small { margin-top: 4px; color: #6c7e70; font-size: 10px; line-height: 1.5; font-variant-numeric: tabular-nums; }

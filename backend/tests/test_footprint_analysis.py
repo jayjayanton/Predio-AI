@@ -353,3 +353,189 @@ def test_local_area_independent_of_zoom_and_arbitrary_global_translation():
     assert a["metrics"]["existing_footprint_m2"] == b["metrics"]["existing_footprint_m2"]
     with pytest.raises(ValidationError):
         PlanningRequest.model_validate({"footprint": polygon(), "zoom": 2})
+
+
+def shape_check(result, identifier):
+    return next(item for item in result["shape_checks"] if item["id"] == identifier)
+
+
+@pytest.mark.parametrize("right, status, shortfall", [
+    (6.75, "within_reviewed_limits", 0),
+    (7, "at_limit", 0),
+    (7.25, "conflict", .25),
+])
+def test_each_extension_reports_clearance_and_allows_exact_minimum(right, status, shortfall):
+    request = reviewed_request()
+    request["shapes"] = [{"id": "room", "label": "Ampliación de prueba", "role": "extension", "geometry": polygon(5, -1, right, 1)}]
+    result = assess_planning(request)
+    feedback = shape_check(result, "room")
+    assert feedback["status"] == status
+    assert feedback["label"] == "Ampliación de prueba"
+    assert feedback["containment_status"] == "within_reviewed_limits"
+    edge = next(edge for edge in feedback["setback_edges"] if edge["edge"] == 1)
+    assert edge["actual_m"] == pytest.approx(10 - right, abs=1e-5)
+    assert edge["required_m"] == 3
+    assert edge["shortfall_m"] == pytest.approx(shortfall, abs=1e-5)
+    assert edge["status"] == status
+    feature = next(feature for feature in result["placed"]["features"] if feature["properties"]["id"] == "room")
+    assert feature["properties"]["setback_status"] == status
+
+
+def test_existing_conflict_does_not_color_a_separate_extension_red():
+    request = reviewed_request()
+    request["irm"]["constraints"]["retiro_frontal"] = 6
+    request["shapes"] = [
+        {"id": "room", "role": "extension", "geometry": polygon(0, 5, 1, 6)},
+        {"id": "table", "role": "furniture", "geometry": polygon(-20, -20, 20, 20)},
+    ]
+    result = assess_planning(request)
+    assert check(result, "setbacks")["status"] == "conflict"
+    assert shape_check(result, "existing-footprint")["status"] == "conflict"
+    assert shape_check(result, "room")["status"] == "within_reviewed_limits"
+    assert {item["id"] for item in result["shape_checks"]} == {"existing-footprint", "room"}
+    furniture = next(feature for feature in result["placed"]["features"] if feature["properties"]["id"] == "table")
+    assert "setback_status" not in furniture["properties"]
+
+
+def test_context_remains_usable_when_a_proposal_crosses_the_parcel():
+    request = reviewed_request()
+    request["shapes"] = [
+        {"id": "outside", "role": "extension", "geometry": polygon(9, -1, 11, 1)},
+        {"id": "inside", "role": "extension", "geometry": polygon(0, 5, 1, 6)},
+    ]
+    result = assess_planning(request)
+    assert result["setback_context"]["ready"] is True
+    assert result["setback_context"]["complete"] is True
+    assert shape_check(result, "outside")["status"] == "conflict"
+    assert shape_check(result, "outside")["outside_parcel_m2"] == pytest.approx(2, abs=1e-5)
+    assert shape_check(result, "outside")["containment_status"] == "conflict"
+    assert shape_check(result, "inside")["status"] == "within_reviewed_limits"
+    # Preserve the existing aggregate gate while exposing independent feedback.
+    assert check(result, "setbacks")["status"] == "pending"
+
+
+def test_context_is_independent_of_draft_extensions_and_counted_cos_area():
+    request = reviewed_request()
+    before = assess_planning(request)["setback_context"]
+    request["shapes"] = [{"id": "room", "role": "extension", "geometry": polygon(5, -1, 8, 1)}]
+    request["proposal"].update(footprint_is_counted_area=False, total_floor_area_m2=None)
+    result = assess_planning(request)
+    assert check(result, "coverage")["status"] == "pending"
+    assert result["setback_context"] == before
+    assert shape_check(result, "room")["status"] == "conflict"
+
+
+@pytest.mark.parametrize("section, field, value, reason", [
+    ("irm", "provided", False, "identity"),
+    ("irm", "reviewed", False, "identity"),
+    ("irm", "irm_predio", "98765", "identity"),
+    ("irm", "restrictions_reviewed", False, "scope"),
+    ("irm", "property_regime", "horizontal", "scope"),
+    ("proposal", "ground_floor_confirmed", False, "scope"),
+    ("proposal", "existing_footprint_complete", False, "scope"),
+    ("placement", "confirmed", False, "placement"),
+])
+def test_unreviewed_context_never_exposes_usable_rules(section, field, value, reason):
+    request = reviewed_request()
+    request[section][field] = value
+    result = assess_planning(request)
+    context = result["setback_context"]
+    assert context["ready"] is False and context["complete"] is False
+    assert context["parcel"] is None and context["edges"] == []
+    assert reason in context["pending_reasons"]
+    assert shape_check(result, "existing-footprint")["status"] == "pending"
+    assert result["placed"]["features"][0]["properties"]["setback_status"] == "pending"
+
+
+def test_live_context_remains_pending_on_parcel_area_discrepancy():
+    request = reviewed_request()
+    request["irm"]["constraints"]["area_terreno"] = 1000
+    context = assess_planning(request)["setback_context"]
+    assert context["ready"] is False
+    assert "area_consistency" in context["pending_reasons"]
+    assert context["parcel"] is None
+
+
+@pytest.mark.parametrize("rotation", [0, 37, 90, -145])
+def test_metric_context_inverse_rotation_matches_authoritative_edge_distances(rotation):
+    from shapely.affinity import rotate
+    from shapely.geometry import LineString
+
+    request = reviewed_request()
+    request["placement"]["rotation_degrees"] = rotation
+    result = assess_planning(request)
+    context = result["setback_context"]
+    assert context["coordinate_space"] == "local_metres"
+    assert context["version"] == 1
+    assert context["tolerance_m"] == 1e-6
+    expected = rotate(shape(polygon(-10, -10, 10, 10)), rotation, origin=(0, 0))
+    assert shape(context["parcel"]).hausdorff_distance(expected) < 1e-6
+    for edge in context["edges"]:
+        actual = shape(request["footprint"]).distance(LineString(edge["points"]))
+        authoritative = next(item for item in result["setback_edges"] if item["edge"] == edge["edge"])
+        assert actual == pytest.approx(authoritative["actual_m"], abs=1e-6)
+
+
+def test_partial_rules_can_detect_conflicts_but_never_all_clear():
+    request = reviewed_request()
+    request["edges"] = request["edges"][:1]
+    request["shapes"] = [{"id": "front-room", "role": "extension", "geometry": polygon(-1, -6, 1, -4)}]
+    result = assess_planning(request)
+    context = result["setback_context"]
+    assert context["ready"] is True and context["complete"] is False
+    assert context["pending_reasons"] == ["unclassified_edges"]
+    assert shape_check(result, "existing-footprint")["status"] == "pending"
+    assert shape_check(result, "front-room")["status"] == "conflict"
+    request = reviewed_request()
+    request["irm"]["constraints"]["retiro_lateral"] = None
+    result = assess_planning(request)
+    assert result["setback_context"]["ready"] is True
+    assert result["setback_context"]["complete"] is False
+    assert "missing_limits" in result["setback_context"]["pending_reasons"]
+    assert shape_check(result, "existing-footprint")["status"] == "pending"
+
+
+def test_no_known_edge_limit_does_not_enable_live_checks():
+    request = reviewed_request()
+    request["irm"]["constraints"].update(retiro_frontal=None, retiro_lateral=None, retiro_posterior=None)
+    context = assess_planning(request)["setback_context"]
+    assert context["ready"] is False
+    assert context["parcel"] is None
+    assert context["edges"] == []
+    assert "missing_limits" in context["pending_reasons"]
+
+
+def test_parcel_holes_preserve_partial_review_and_report_actual_intrusion():
+    request = reviewed_request()
+    request["parcel"] = geographic(polygon(-10, -10, 10, 10,
+        holes=[[[-1, -1], [-1, 1], [1, 1], [1, -1], [-1, -1]]]))
+    result = assess_planning(request)
+    assert result["setback_context"]["ready"] is True
+    assert result["setback_context"]["complete"] is False
+    assert "parcel_holes" in result["setback_context"]["pending_reasons"]
+    feedback = shape_check(result, "existing-footprint")
+    assert feedback["status"] == "conflict"
+    assert feedback["outside_parcel_m2"] == pytest.approx(4, abs=1e-5)
+
+
+def test_zero_setbacks_are_known_limits_and_parcel_contact_is_allowed():
+    request = reviewed_request()
+    request["irm"]["constraints"].update(retiro_frontal=0, retiro_lateral=0, retiro_posterior=0)
+    request["shapes"] = [{"id": "touching", "role": "extension", "geometry": polygon(5, -1, 10, 1)}]
+    result = assess_planning(request)
+    assert result["setback_context"]["ready"] is True
+    assert result["setback_context"]["complete"] is True
+    assert shape_check(result, "touching")["status"] == "at_limit"
+
+
+def test_batch_feedback_budget_preserves_reusable_context_and_aggregate(monkeypatch):
+    monkeypatch.setattr("app.footprint_analysis.MAX_LIVE_SETBACK_COMPARISONS", 4)
+    request = reviewed_request()
+    before = assess_planning(request)
+    assert shape_check(before, "existing-footprint")["status"] == "at_limit"
+    request["shapes"] = [{"id": "room", "role": "extension", "geometry": polygon(5, -1, 8, 1)}]
+    result = assess_planning(request)
+    assert result["setback_context"] == before["setback_context"]
+    assert check(result, "setbacks")["status"] == "conflict"
+    assert all(item["status"] == "pending" and item["complete"] is False for item in result["shape_checks"])
+    assert all(item["setback_edges"] == [] and "complexity" in item["pending_reasons"] for item in result["shape_checks"])

@@ -9,7 +9,7 @@ import {build} from 'vite';
 
 const frontendRoot=fileURLToPath(new URL('..',import.meta.url));
 const oldGlobals=new Map();
-let dom, tempDirectory, Panel, mapModuleUrl, createRoot, root, container, requests, changes, props;
+let dom, tempDirectory, Panel, mapModuleUrl, createRoot, root, container, requests, changes, reviews, props;
 const ring=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y]];
 const shape=(width=3,role='extension')=>({id:'addition',label:'Ampliación',role,geometry:{type:'Polygon',coordinates:[ring(4,-2,width,4)]}});
 const snapshot=()=>({coordinateSpace:'local_metres',source:{documentName:'standalone.dwg',viewName:'Model',entityId:'42'},scale:{metresPerUnit:.001,method:'unit',unit:'mm'},origin:[0,0],
@@ -37,11 +37,11 @@ before(async()=>{
   mapModuleUrl=pathToFileURL(join(tempDirectory,mapChunk.fileName)).href;
   ({default:Panel}=await import(pathToFileURL(join(tempDirectory,entry.fileName)).href));
 });
-beforeEach(async()=>{container=document.createElement('div');document.body.appendChild(container);root=createRoot(container);requests=[];changes=[];
+beforeEach(async()=>{container=document.createElement('div');document.body.appendChild(container);root=createRoot(container);requests=[];changes=[];reviews=[];
   props={snapshot:snapshot(),apiBase:'https://api.predio.test'};await render();});
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();});
 after(async()=>{dom?.window.close();for(const[name,descriptor]of oldGlobals){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}if(tempDirectory)await rm(tempDirectory,{recursive:true,force:true});});
-async function render(extra={}){props={...props,...extra};await act(async()=>root.render(React.createElement(Panel,{...props,onStateChange:value=>changes.push(value)})));}
+async function render(extra={}){props={...props,...extra};await act(async()=>root.render(React.createElement(Panel,{...props,onStateChange:value=>changes.push(value),onSetbackReviewChange:value=>reviews.push(value)})));}
 async function settle(){await act(async()=>new Promise(resolve=>setTimeout(resolve,340)));}
 function button(label){const el=[...container.querySelectorAll('button')].find(el=>el.textContent.includes(label));assert.ok(el,`button ${label}`);return el;}
 async function click(label){await act(async()=>button(label).click());}
@@ -116,4 +116,35 @@ test('a remounted workspace preserves the exact draft and current response for t
   await act(async()=>root.unmount());root=createRoot(container);await render({state:saved});
   assert.equal(input('Área útil/computable final en planta baja').value,'74');
   assert.equal(container.querySelectorAll('.footprint-check-list').length,1);
+});
+
+test('metric rule context survives extension edits but becomes pending immediately when placement changes',async()=>{
+  await render({parcel,parcelProperties:parcel.features[0].properties,irm:irm()});await settle();
+  const metricRing=ring(-15,-15,30,30);
+  const context={version:1,coordinate_space:'local_metres',ready:true,complete:true,tolerance_m:1e-6,
+    parcel:{type:'Polygon',coordinates:[metricRing]},pending_reasons:[],edges:metricRing.slice(0,-1).map((point,edge)=>({
+      polygon:0,ring:0,edge,kind:'side',required_m:5,points:[point,metricRing[edge+1]]}))};
+  await complete(requests.at(-1),{...response(),setback_context:context});
+  const accepted=reviews.at(-1);assert.equal(accepted.context,context);
+  const edited=snapshot();edited.shapes=[shape(4)];await render({snapshot:edited});
+  assert.equal(reviews.at(-1).context,context,'the same reviewed metre frame remains usable during a proposal edit');
+  assert.equal(reviews.at(-1).sourceKey,accepted.sourceKey);
+  await settle();const beforePlacement=requests.at(-1);
+  await click('Ubicar en el predio');await waitForPlacementMap();await value('Giro horario','30');
+  assert.equal(reviews.at(-1),null,'changing orientation clears live regulatory colors before a new response');
+  await complete(beforePlacement,{...response(),setback_context:context});
+  assert.equal(reviews.at(-1),null,'an obsolete response cannot restore an old metric reference');
+  await settle();const moved=requests.at(-1);assert.equal(JSON.parse(moved.body).placement.rotation_degrees,30);
+  await complete(moved,{...response(),setback_context:{...context,ready:false,complete:false,parcel:null,edges:[],pending_reasons:['placement']}});
+  assert.equal(reviews.at(-1).context.ready,false);
+});
+
+test('the five-metre tutorial never associates its fictional rules with a drawing-only project',async()=>{
+  await settle();const original=JSON.parse(requests[0].body);
+  await click('Invade el retiro');
+  assert.equal(container.querySelector('.setback-example [data-setback-status]')?.dataset.setbackStatus,'conflict');
+  assert.match(container.querySelector('.setback-example').textContent,/ficticio/);
+  assert.equal(requests.length,1,'example controls never submit project geometry or rules');
+  assert.equal(original.irm.provided,false);assert.equal(original.parcel,null);
+  assert.equal(reviews.at(-1),null);
 });

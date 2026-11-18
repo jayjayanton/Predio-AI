@@ -1,8 +1,11 @@
-import React, {lazy, Suspense, useEffect, useId, useMemo, useRef, useState} from 'react';
+import React, {lazy, Suspense, useEffect, useId, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {PLANNING_FIELDS, buildPlanningRequest, candidateField, downloadPlanningJson, extensionGeometryKey, initialPlannerDraft, invalidateCountedAreas,
   localPlanningExport, localSvgPath, nudgePlacement, parcelEdges, parcelIdentifier, placedPlanningExport,
   plannerContextKey, plannerSpatialKey, planningBounds, planningIdentity, polygonArea, preserveSpatialDraft, selectedParcelGeometry, usableFootprint} from '../footprintPlanning.js';
 import './FootprintPlanner.css';
+import SetbackFeedback from './SetbackFeedback.jsx';
+import SetbackExample from './SetbackExample.jsx';
+import {evaluateSetbackGeometry, setbackContextKey, setbackSourceKey} from '../liveSetbacks.js';
 
 const FootprintMap = lazy(() => import('./FootprintMap.jsx'));
 const fmt = (value, digits = 2) => typeof value === 'number' && Number.isFinite(value)
@@ -17,7 +20,7 @@ class MapBoundary extends React.Component {
   render() {return this.state.failed ? <p className="footprint-notice">No se pudo abrir el mapa. Puedes ajustar las coordenadas y descargar la geometría. Recarga la página para volver a intentarlo.</p> : this.props.children;}
 }
 
-function LocalFootprintPreview({snapshot}) {
+function LocalFootprintPreview({snapshot, shapeChecks = []}) {
   const bounds = planningBounds(snapshot);
   const gridId = useId().replaceAll(':', '');
   if (!bounds) return null;
@@ -26,14 +29,17 @@ function LocalFootprintPreview({snapshot}) {
   const extent = [bounds[0] - padding, -bounds[3] - padding, width + padding * 2, height + padding * 2];
   const maxDimension = Math.max(width, height);
   const grid = maxDimension <= 15 ? 1 : maxDimension <= 60 ? 5 : maxDimension <= 150 ? 10 : 50;
+  const checksById = new Map(shapeChecks.map(check => [check.id, check]));
+  const color = (id, fallback) => checksById.get(id)?.status === 'conflict' ? '#b53535'
+    : checksById.get(id)?.status === 'at_limit' ? '#a56b16' : fallback;
   return <div className="footprint-local-preview">
     <div className="footprint-preview-label"><span>VISTA EN PLANTA</span><span>Cuadrícula · {grid} m</span></div>
     <svg viewBox={extent.join(' ')} role="img" aria-label="Huella extraída y figuras propuestas a la misma escala, en coordenadas locales">
       <defs><pattern id={gridId} width={grid} height={grid} patternUnits="userSpaceOnUse"><path d={`M ${grid} 0 L 0 0 0 ${grid}`} fill="none" stroke="#d9e4dc" strokeWidth={Math.min(maxDimension / 1100, grid / 30)}/></pattern></defs>
       <rect x={extent[0]} y={extent[1]} width={extent[2]} height={extent[3]} fill={`url(#${gridId})`}/>
-      <path d={localSvgPath(snapshot.footprint)} fill="#4e967b35" fillRule="evenodd" stroke="#286653" strokeWidth="2" vectorEffect="non-scaling-stroke"/>
-      {(snapshot.shapes || []).map(shape => <path key={shape.id} d={localSvgPath(shape.geometry)} fill={shape.role === 'extension' ? '#d5934a45' : '#7886a733'}
-        stroke={shape.role === 'extension' ? '#b46e2b' : '#667593'} strokeWidth="1.8" strokeDasharray={shape.role === 'extension' ? '6 4' : undefined} fillRule="evenodd" vectorEffect="non-scaling-stroke"><title>{shape.label || (shape.role === 'extension' ? 'Ampliación' : 'Mobiliario')}</title></path>)}
+      <path d={localSvgPath(snapshot.footprint)} fill={`${color('existing-footprint', '#4e967b')}35`} fillRule="evenodd" stroke={color('existing-footprint', '#286653')} strokeWidth="2" vectorEffect="non-scaling-stroke"/>
+      {(snapshot.shapes || []).map(shape => <path key={shape.id} d={localSvgPath(shape.geometry)} fill={shape.role === 'extension' ? `${color(shape.id, '#d5934a')}45` : '#7886a733'}
+        stroke={shape.role === 'extension' ? color(shape.id, '#b46e2b') : '#667593'} strokeWidth="1.8" strokeDasharray={shape.role === 'extension' ? '6 4' : undefined} fillRule="evenodd" vectorEffect="non-scaling-stroke"><title>{shape.label || (shape.role === 'extension' ? 'Ampliación' : 'Mobiliario')}{checksById.get(shape.id)?.status === 'conflict' ? ' · Conflicto con el retiro revisado' : ''}</title></path>)}
       <g stroke="#35544c" strokeWidth="1.2" vectorEffect="non-scaling-stroke"><path d={`M ${-maxDimension * .018} 0 H ${maxDimension * .018} M 0 ${-maxDimension * .018} V ${maxDimension * .018}`}/></g>
     </svg>
     <div className="footprint-preview-dimensions"><span>Extensión del conjunto <strong>{fmt(width)} × {fmt(height)} m</strong></span><span>Origen local <strong>0, 0</strong></span></div>
@@ -57,7 +63,7 @@ function StatusChecks({result, pending, error, onRetry}) {
 
 /** A selected CAD footprint stays local until explicitly positioned on a linked parcel. */
 export default function FootprintPlanner({snapshot, parcel = null, parcelProperties = EMPTY, blueprint = null, irm = null, apiBase = '', onLinkParcel,
-  state: savedState, onStateChange}) {
+  state: savedState, onStateChange, onSetbackReviewChange}) {
   const titleId = useId();
   const geometry = useMemo(() => selectedParcelGeometry(parcel, parcelProperties), [parcel, parcelProperties]);
   const hasFootprint = usableFootprint(snapshot);
@@ -85,10 +91,26 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
   const knownHorizontal = /horizontal/i.test(String(parcelProperties?.tipo_propi || '')) || irm?.planning_evidence?.property_regime === 'horizontal';
   const built = useMemo(() => buildPlanningRequest({snapshot, geometry, properties: parcelProperties, blueprint, irm, draft}), [snapshot, geometry, parcelProperties, blueprint, irm, draft]);
   const requestKey = built.request ? JSON.stringify(built.request) : '';
+  const liveContextKey = useMemo(() => built.request ? setbackContextKey({snapshot, request: built.request}) : '', [snapshot, built.request]);
+  const liveSourceKey = useMemo(() => setbackSourceKey(snapshot), [snapshot]);
   const result = resultRecord?.key === requestKey ? resultRecord.value : null;
   const error = errorRecord?.key === requestKey ? errorRecord.message : '';
   const extensions = (snapshot?.shapes || []).filter(shape => shape.role === 'extension');
   const placement = built.request?.placement;
+  // Changing a proposed shape invalidates its submitted assessment, but the
+  // reviewed metric parcel/rules still apply while the user edits that shape.
+  const setbackReview = useMemo(() => liveContextKey && resultRecord?.liveContextKey === liveContextKey && resultRecord.value?.setback_context
+    ? {sourceKey: liveSourceKey, contextKey: liveContextKey, context: resultRecord.value.setback_context} : null,
+  [liveContextKey, liveSourceKey, resultRecord]);
+  const shapeChecks = useMemo(() => {
+    if (result?.shape_checks) return result.shape_checks;
+    if (!setbackReview?.context?.ready) return [];
+    return [{id: 'existing-footprint', role: 'existing', label: 'Huella existente', geometry: snapshot.footprint}, ...extensions]
+      .map(shape => ({...evaluateSetbackGeometry(shape.geometry, setbackReview.context), id: shape.id, role: shape.role, label: shape.label}));
+  }, [snapshot, setbackReview, result]);
+
+  // Clear obsolete drawing feedback before the changed reference is painted.
+  useLayoutEffect(() => {onSetbackReviewChange?.(setbackReview);}, [setbackReview, onSetbackReviewChange]);
 
   useEffect(() => {
     setRecord(current => {
@@ -103,7 +125,7 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
   }, [record, contextKey, spatialContextKey, extensionKey, resultRecord]);
   useEffect(() => {
     if (!requestKey) {setBusy(false); return undefined;}
-    if (resultRecord?.key === requestKey && retry === 0) {setBusy(false); return undefined;}
+    if (resultRecord?.key === requestKey && resultRecord?.liveContextKey === liveContextKey && retry === 0) {setBusy(false); return undefined;}
     const controller = new AbortController();
     let active = true, timeout = null, timedOut = false;
     setBusy(true); setErrorRecord(null);
@@ -114,7 +136,7 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
         const payload = await response.json();
         if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : 'No se pudo revisar esta geometría. Comprueba la huella y los valores introducidos.');
         if (!payload.metrics || !Array.isArray(payload.checks)) throw new Error('El servicio no devolvió una revisión completa. Vuelve a intentarlo.');
-        if (active) setResultRecord({key: requestKey, value: payload});
+        if (active) setResultRecord({key: requestKey, liveContextKey, value: payload});
       } catch (problem) {
         if (active && (!controller.signal.aborted || timedOut)) setErrorRecord({key: requestKey, message: timedOut
           ? 'El servicio está tardando en responder. La huella local sigue disponible; vuelve a intentar el análisis.'
@@ -122,7 +144,7 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
       } finally {clearTimeout(timeout); if (active) setBusy(false);}
     }, 300);
     return () => {active = false; clearTimeout(debounce); clearTimeout(timeout); controller.abort();};
-  }, [requestKey, apiBase, retry]);
+  }, [requestKey, liveContextKey, apiBase, retry]);
 
   const update = updater => setRecord(current => {
     const previous = current.contextKey !== contextKey ? preserveSpatialDraft(defaults, current, spatialContextKey)
@@ -154,7 +176,7 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
         <div><span>Huella geométrica resultante</span><strong>{fmt(result?.metrics?.combined_footprint_m2)} <small>m²</small></strong><small>Mobiliario excluido</small></div>
       </div>
 
-      {activeTab === 'footprint' && <div className="footprint-preview-grid"><LocalFootprintPreview snapshot={snapshot}/><div className="footprint-preview-detail">
+      {activeTab === 'footprint' && <div className="footprint-preview-grid"><LocalFootprintPreview snapshot={snapshot} shapeChecks={shapeChecks}/><div className="footprint-preview-detail">
         <span className="footprint-eyebrow">TU PROPUESTA</span><h4>La misma escala, en cada vista</h4><p>El contorno conserva sus huecos interiores. Las figuras marcadas como ampliación se suman a la ocupación; las mesas y otros muebles solo ayudan a visualizar el espacio.</p>
         <div className="footprint-legend"><span><i className="is-existing"/>Huella existente</span><span><i className="is-extension"/>Ampliación</span><span><i className="is-furniture"/>Mobiliario</span></div>
         <p className="footprint-item-count"><strong>{extensions.length}</strong> {extensions.length === 1 ? 'figura de ampliación' : 'figuras de ampliación'} · <strong>{(snapshot.shapes || []).length - extensions.length}</strong> de mobiliario</p>
@@ -167,7 +189,7 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
 
       {activeTab === 'placement' && (!geometry ? <div className="footprint-missing"><span className="footprint-empty-symbol" aria-hidden="true">⌖</span><div><h4>La huella está lista. Falta el predio.</h4><p>Vincula el predio correspondiente para colocar el contorno sobre su polígono. El dibujo conserva sus dimensiones y tú defines su posición y orientación.</p>
         <p className="footprint-fine">No se ha atribuido este plano a una propiedad ni a una ubicación.</p></div>{onLinkParcel && <button type="button" className="footprint-primary" onClick={onLinkParcel}>Vincular predio</button>}</div> : <>
-        <div className="footprint-placement-grid"><div><MapBoundary key={JSON.stringify(geometry)}><Suspense fallback={<div className="footprint-map-loading" role="status">Preparando el mapa de implantación…</div>}><FootprintMap geometry={geometry} placement={draft.placement} placed={result?.placed} onPlacementChange={changePlacement}/></Suspense></MapBoundary></div>
+        <div className="footprint-placement-grid"><div><MapBoundary key={JSON.stringify(geometry)}><Suspense fallback={<div className="footprint-map-loading" role="status">Preparando el mapa de implantación…</div>}><FootprintMap geometry={geometry} placement={draft.placement} placed={result?.placed} shapeChecks={shapeChecks} onPlacementChange={changePlacement}/></Suspense></MapBoundary></div>
           <div className="footprint-placement-controls"><span className="footprint-eyebrow">UBICACIÓN PROPUESTA</span><h4>Predio {parcelIdentifier(parcelProperties) || 'vinculado'}</h4><p>La primera posición usa el centro de la extensión del predio como punto de partida. Ajusta el origen y el giro con una referencia del terreno.</p>
             <div className="footprint-fields"><label>Latitud del origen<input type="text" inputMode="decimal" value={draft.placement?.latitude || ''} onChange={event => changePlacement({latitude: event.target.value})}/></label>
               <label>Longitud del origen<input type="text" inputMode="decimal" value={draft.placement?.longitude || ''} onChange={event => changePlacement({longitude: event.target.value})}/></label>
@@ -206,16 +228,22 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
           <label className="footprint-check-label"><input type="checkbox" checked={draft.reviewed} onChange={event => update({reviewed: event.target.checked, documentChanged: false})}/><span>Contrasté los valores introducidos y las condiciones aplicables con el IRM.</span></label>
           {!geometry && <p className="footprint-fine">Vincula primero el predio correspondiente para revisar la relación entre los documentos.</p>}</div>
         <details className="footprint-advanced"><summary>Retiros: identificar los lados del predio <span>{classified}/{edges.length || '—'} asignados</span></summary><p>Selecciona cada lado en el mapa o en la lista y clasifícalo según el frente vial y el IRM. No se deduce el frente a partir del norte ni de la forma del lote.</p>
-          {geometry ? <div className="footprint-edge-grid"><MapBoundary><Suspense fallback={<p>Preparando los lados del predio…</p>}><FootprintMap geometry={geometry} placement={draft.placement} placed={result?.placed} onPlacementChange={changePlacement} edgesVisible selectedEdge={selectedEdge} onSelectEdge={setSelectedEdge} edgeKinds={draft.edgeKinds}/></Suspense></MapBoundary>
+          {geometry ? <div className="footprint-edge-grid"><MapBoundary><Suspense fallback={<p>Preparando los lados del predio…</p>}><FootprintMap geometry={geometry} placement={draft.placement} placed={result?.placed} shapeChecks={shapeChecks} onPlacementChange={changePlacement} edgesVisible selectedEdge={selectedEdge} onSelectEdge={setSelectedEdge} edgeKinds={draft.edgeKinds}/></Suspense></MapBoundary>
             <div className="footprint-edge-list" aria-label="Clasificación de lados del predio">{edges.map(edge => <label key={edge.id} className={selectedEdge === edge.id ? 'is-selected' : ''} onFocus={() => setSelectedEdge(edge.id)}>{edge.label}<select aria-label={`Clasificación de ${edge.label.toLowerCase()}`} value={draft.edgeKinds[edge.id] || ''} onChange={event => update(previous => ({...previous, edgeKinds: {...previous.edgeKinds, [edge.id]: event.target.value}}))}><option value="">Sin asignar</option>{Object.entries(EDGE_KINDS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>)}</div>
           </div> : <p className="footprint-fine">Los lados estarán disponibles cuando vincules un predio.</p>}</details>
         <details className="footprint-advanced"><summary>Altura, pisos y superficie total de la propuesta</summary><p>Introduce los totales finales del conjunto de edificaciones, incluyendo lo existente. La planta baja por sí sola no permite inferir estos valores.</p>
           <div className="footprint-review-grid">{[['height_m', 'Altura máxima final (m)'], ['floors', 'Número final de pisos'], ['total_floor_area_m2', 'Área computable final de todos los pisos (m²)']].map(([key, label]) => <label key={key}>{label}<input type="text" inputMode="decimal" placeholder="Pendiente" value={draft.proposal[key]} onChange={event => update(previous => ({...previous, proposal: {...previous.proposal, [key]: event.target.value}}))}/></label>)}</div></details>
         <StatusChecks result={result} pending={busy} error={error} onRetry={() => setRetry(value => value + 1)}/>
+        {setbackReview?.context?.ready && <div className="footprint-live-ready"><div><strong>Avisos de retiros activos en el plano</strong><p>Al dibujar o ajustar una ampliación, verás su distancia al lindero y cualquier conflicto. El COS y las demás condiciones se revisan por separado.</p></div><button type="button" onClick={returnToDrawing}>Editar en el plano ↑</button></div>}
+        {shapeChecks.length > 0 && <details className="footprint-advanced footprint-shape-checks"><summary>Retiros por figura <span>{shapeChecks.filter(check => check.status === 'conflict').length} con conflicto</span></summary>
+          <p>La huella existente y cada ampliación se comprueban por separado. Una distancia exactamente igual al retiro mínimo se muestra «En el límite».</p>
+          <div className="footprint-shape-check-grid">{shapeChecks.map(check => <SetbackFeedback key={`${check.role}:${check.id}`} check={check}/>)}</div>
+        </details>}
       </>)}
       {built.error && <p className="footprint-error" role="alert">{built.error}</p>}
       {error && activeTab !== 'irm' && <div className="footprint-error" role="alert"><p>{error}</p><button type="button" onClick={() => setRetry(value => value + 1)}>Reintentar análisis</button></div>}
       <footer className="footprint-footer"><span>{geometry ? `Predio ${parcelIdentifier(parcelProperties) || 'vinculado'}` : 'Sin predio vinculado'} · {irm ? 'IRM aportado' : 'Sin IRM'} · {placement?.confirmed ? 'Implantación revisada por ti' : 'Ubicación pendiente de revisión'}</span><p>Este estudio compara geometría y condiciones introducidas. No determina viabilidad estructural, derechos de construcción ni aprobación municipal.</p></footer>
     </>}
+    <SetbackExample/>
   </section>;
 }
