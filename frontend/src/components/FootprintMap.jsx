@@ -65,16 +65,19 @@ function MapBehavior({geometry, placement, placeOnClick, onPlacementChange, fram
     }}}><Tooltip direction="top" offset={[0, -16]}>Arrastra para ubicar la huella</Tooltip></Marker>;
 }
 
-export default function FootprintMap({geometry, placement, placed, onPlacementChange, edgesVisible = false, selectedEdge, onSelectEdge, edgeKinds = {}, shapeChecks = EMPTY_CHECKS}) {
+export default function FootprintMap({geometry, placement, placed, onPlacementChange, edgesVisible = false, selectedEdge, onSelectEdge, edgeKinds = {}, edgeLimits = {}, shapeChecks = EMPTY_CHECKS, envelope = null, placing = false, limitsActive = false}) {
   const bounds = useMemo(() => parcelBounds(geometry), [geometry]);
   const edges = useMemo(() => parcelEdges(geometry), [geometry]);
   const [placeOnClick, setPlaceOnClick] = useState(false);
-  const [satellite, setSatellite] = useState(false);
+  const [satellite, setSatellite] = useState(true);
   const [frame, setFrame] = useState(0);
   const mapId = useRef(`footprint-map-${Math.random().toString(36).slice(2)}`);
   const visible = useMemo(() => ({type: 'FeatureCollection', features: (placed?.features || []).filter(feature => feature.properties?.role !== 'combined')}), [placed]);
   const visibleChecks = visible.features.map(feature => featureCheck(feature, shapeChecks)).filter(Boolean);
   const hasReviewed = visibleChecks.some(check => ['conflict', 'at_limit', 'within_reviewed_limits'].includes(check.status));
+  const hasEnvelope = envelope?.status === 'ready' && ['Polygon', 'MultiPolygon'].includes(envelope.geometry?.type);
+  const noEnvelopeArea = envelope?.status === 'empty';
+  const reviewedLimit = hasEnvelope || noEnvelopeArea;
   if (!bounds) return null;
   return <div className="footprint-map-shell">
     <div className="footprint-map-tools">
@@ -82,30 +85,38 @@ export default function FootprintMap({geometry, placement, placed, onPlacementCh
         <button type="button" onClick={() => setFrame(value => value + 1)}>Encuadrar predio</button></div>
       <button type="button" aria-pressed={satellite} className={satellite ? 'is-active' : ''} onClick={() => setSatellite(value => !value)}>{satellite ? 'Ver calles' : 'Ver satélite'}</button>
     </div>
+    <div className={`footprint-map-guidance${reviewedLimit ? ' has-limits' : ''}`}><span>{edgesVisible ? 'Toca un lado del predio para identificarlo.' : placement?.confirmed ? 'Ubicación revisada por ti' : 'Posición inicial · arrastra la cruz y ajusta el giro'}</span><small>Mapa base de Esri</small></div>
     <div className="footprint-map-frame" id={mapId.current}>
       <MapContainer center={[(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2]} zoom={18} maxZoom={22} minZoom={3}
         scrollWheelZoom={false} className="footprint-leaflet-map" aria-label="Implantación propuesta de la huella sobre el predio">
         <TileLayer key={satellite ? 'satellite' : 'streets'}
           url={satellite ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'}
           attribution="Tiles &copy; Esri and contributors" maxNativeZoom={19} maxZoom={22}/>
-        <GeoJSON key={JSON.stringify(geometry)} data={geometry} style={{color: '#405b80', weight: 3, fillColor: '#e6edf7', fillOpacity: satellite ? 0.1 : 0.28}} interactive={false}/>
+        <GeoJSON key={JSON.stringify(geometry)} data={geometry} style={{color: '#405b80', weight: 3, fillColor: reviewedLimit ? '#de8f83' : '#e6edf7', fillOpacity: reviewedLimit ? 0.32 : satellite ? 0.1 : 0.28}} interactive={false}/>
+        {hasEnvelope && <GeoJSON key={`envelope:${JSON.stringify(envelope.geometry)}`} data={envelope.geometry}
+          style={{color: '#1c765d', weight: 2.5, dashArray: '7 5', fillColor: '#a1d1b2', fillOpacity: 0.48}} interactive={false}/>}
         {visible.features.map(feature => <GeoJSON key={JSON.stringify(feature)} data={feature} style={() => footprintFeatureStyle(feature, shapeChecks)} bubblingMouseEvents>
           <ShapeTooltip feature={feature} check={featureCheck(feature, shapeChecks)}/>
         </GeoJSON>)}
         {edgesVisible && edges.map(edge => <Polyline key={edge.id} positions={edge.positions} bubblingMouseEvents={false}
           pathOptions={{color: selectedEdge === edge.id ? '#b56a21' : edgeKinds[edge.id] ? '#405b80' : '#99a5b4', weight: selectedEdge === edge.id ? 8 : 5, opacity: 0.9}}
           eventHandlers={{click(event) {L.DomEvent.stopPropagation(event.originalEvent); onSelectEdge?.(edge.id);}}}>
-          <Tooltip sticky>{edge.label} · {{front: 'frontal', side: 'lateral', rear: 'posterior'}[edgeKinds[edge.id]] || 'sin asignar'}</Tooltip>
+          <Tooltip sticky>{edge.label} · {{front: 'frontal', side: 'lateral', rear: 'posterior'}[edgeKinds[edge.id]] || 'sin asignar'}{edgeKinds[edge.id] && edgeLimits[edgeKinds[edge.id]] !== undefined && edgeLimits[edgeKinds[edge.id]] !== '' ? ` · retiro ${edgeLimits[edgeKinds[edge.id]]} m` : ''}</Tooltip>
         </Polyline>)}
         <MapBehavior geometry={geometry} placement={placement} placeOnClick={placeOnClick} onPlacementChange={onPlacementChange} frame={frame}/>
         <ScaleControl position="bottomleft" metric imperial={false}/>
       </MapContainer>
       <span className="footprint-north" aria-label="Norte geográfico">N ↑</span>
+      {placing && <span className="footprint-map-updating" role="status">Ubicando la huella…</span>}
     </div>
     <div className="footprint-legend" aria-label="Leyenda de implantación"><span><i className="is-parcel"/>Predio</span><span><i className="is-existing"/>Huella existente</span><span><i className="is-extension"/>Ampliación propuesta</span></div>
+    {reviewedLimit && <div className="footprint-legend footprint-envelope-legend" aria-label="Límite según retiros revisados">{hasEnvelope && <span><i className="is-envelope"/>Dentro de los retiros revisados</span>}<span><i className="is-excluded"/>Franja de retiro</span></div>}
+    {noEnvelopeArea && <p className="footprint-envelope-empty" role="status">Los retiros revisados no dejan un área disponible dentro de este predio.</p>}
     {hasReviewed && <div className="footprint-legend footprint-setback-legend" aria-label="Estados de retiros revisados"><span><i className="is-setback-conflict"/>Conflicto</span><span><i className="is-setback-limit"/>En el límite</span><span><i className="is-setback-within"/>Dentro de los retiros revisados</span></div>}
     {hasReviewed && <ul className="footprint-map-checks" aria-label="Retiros por figura">{visibleChecks.filter(check => check.status !== 'pending').map(check =>
       <li key={`${check.role}:${check.id}`} className={`is-${check.status}`}><strong>{check.role === 'existing' ? 'Huella existente' : check.label || 'Ampliación'}</strong><span>{setbackStatusLabel(check)}</span></li>)}</ul>}
-    <p className="footprint-fine">La cruz fija el origen del contorno. Muévela y ajusta el giro sin cambiar sus dimensiones. La orientación del plano se propone manualmente.</p>
+    <p className="footprint-fine">{reviewedLimit ? 'El límite sombreado usa los retiros revisados del IRM. Las distancias se comprueban por figura; las demás condiciones de construcción se revisan por separado.'
+      : limitsActive ? 'Los avisos de distancia por figura están activos. La vista del límite de retiros todavía no está disponible.'
+        : 'El mapa se centra en el predio vinculado. Para mostrar la franja de retiro, confirma la ubicación, los valores del IRM y los lados del predio.'}</p>
   </div>;
 }

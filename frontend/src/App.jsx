@@ -413,7 +413,32 @@ export default function App() {
     updatePlanningRecord(records, displayedDrawing, 'snapshot', snapshot)), [displayedDrawing]);
   const savePlanningPlacement = React.useCallback(placement => setPlanningRecords(records =>
     updatePlanningRecord(records, displayedDrawing, 'placement', placement)), [displayedDrawing]);
+  const [plannerActivation, setPlannerActivation] = useState({drawing: null, sequence: 0, tab: 'placement'});
+  const lastPlannerFocus = React.useRef(0);
+  const openFootprintPlanner = React.useCallback((tab = 'placement') => {
+    setPlannerActivation(previous => ({drawing: displayedDrawing, sequence: previous.sequence + 1, tab: tab === 'irm' ? 'irm' : 'placement'}));
+  }, [displayedDrawing]);
+  useEffect(() => {
+    if (plannerActivation.drawing !== displayedDrawing || !currentPlanning.snapshot?.footprint
+        || plannerActivation.sequence === lastPlannerFocus.current) return undefined;
+    const frame = requestAnimationFrame(() => {
+      const panel = document.getElementById('footprint-planner');
+      if (!panel) return;
+      lastPlannerFocus.current = plannerActivation.sequence;
+      panel.scrollIntoView({behavior: scrollBehavior(), block: 'start'});
+      panel.focus({preventScroll: true});
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [plannerActivation, displayedDrawing, currentPlanning.snapshot]);
   const [projectSetupOpen, setProjectSetupOpen] = useState(true);
+  const openIrmUpload = React.useCallback(() => {
+    setProjectSetupOpen(true);
+    requestAnimationFrame(() => {
+      const input = document.getElementById('irm-upload');
+      input?.scrollIntoView({behavior: scrollBehavior(), block: 'center'});
+      input?.focus({preventScroll: true});
+    });
+  }, []);
   const [inspectedIrmFile, setInspectedIrmFile] = useState(null);
   const [attachingIrm, setAttachingIrm] = useState(false);
   const [irmAttachNotice, setIrmAttachNotice] = useState('');
@@ -2400,19 +2425,21 @@ export default function App() {
               {displayedDrawing?.drawing_views?.length
                 ? <BlueprintViewer key={`${displayedDrawing.package?.selected_entry || ''}:${displayedDrawing.filename}`} views={displayedDrawing.drawing_views} cadLayouts={displayedDrawing.cad_layouts || []} documentFormat={displayedDrawing.format} unitsCode={displayedDrawing.units_code} documentName={displayedDrawing.package?.selected_entry || displayedDrawing.filename}
                   draftState={currentPlanning.draft} onDraftStateChange={savePlanningDraft} onPlanningChange={savePlanningSnapshot}
-                  setbackReview={currentSetbackReview}
+                  setbackReview={currentSetbackReview} onOpenPlanner={openFootprintPlanner} hasLinkedParcel={Boolean(planningParcel)}
                   onSaveProjectSelection={!drawingExample ? selection => setProjectSelections(existing => addProjectSelection(existing, selection)) : null} />
                 : <div className="empty"><strong>{inspecting ? 'Abriendo el dibujo…' : selectedDocumentError ? 'Elige otro dibujo o vuelve a intentarlo.' : inspection ? 'No se encontró geometría vectorial seleccionable.' : activePackage ? 'Selecciona un dibujo del paquete.' : 'Aquí aparecerá tu plano.'}</strong><p>{inspecting ? 'La geometría y las medidas aparecerán cuando termine la inspección de este archivo.' : selectedDocumentError ? 'El listado del ZIP sigue disponible arriba. No se muestran medidas ni geometría del archivo anterior.' : inspection ? 'El archivo puede ser un escaneo o no contener trazos compatibles. Revisa el resumen y contrasta el contenido con el archivo original.' : activePackage ? 'Completa los documentos requeridos y pulsa «Abrir dibujo» para inspeccionar el archivo elegido.' : 'Adjunta un PDF, DXF, DWG o ZIP y pulsa «Inspeccionar». Podrás acercar el dibujo, seleccionar líneas y usar el panel Medidas.'}</p><p className="note">Confirma unidades o calibra una longitud conocida antes de obtener metros o m². Los resultados geométricos requieren revisión con el plano y las condiciones reales.</p></div>}
-              {!drawingExample && (inspection || projectSelections.length > 0) && <ProjectSelections records={projectSelections}
-                onRemove={id => setProjectSelections(current => removeProjectSelection(current, id))}
-                onClear={() => setProjectSelections([])} />}
               {displayedDrawing?.drawing_views?.length > 0 && <FootprintPlanner
                 snapshot={currentPlanning.snapshot} parcel={drawingExample ? null : data}
                 parcelProperties={drawingExample ? null : properties} blueprint={displayedDrawing}
                 irm={drawingExample ? null : inspection?.irm} apiBase={API}
+                irmFile={!drawingExample && inspection?.irm && inspectedIrmFile === irmPdf ? irmPdf : null} onAddIrm={openIrmUpload}
                 state={currentPlanning.placement} onStateChange={savePlanningPlacement}
+                activationToken={plannerActivation.drawing === displayedDrawing ? plannerActivation.sequence : 0} activationTab={plannerActivation.tab}
                 onSetbackReviewChange={saveSetbackReview}
                 onLinkParcel={() => setStep('property')} />}
+              {!drawingExample && (inspection || projectSelections.length > 0) && <ProjectSelections records={projectSelections}
+                onRemove={id => setProjectSelections(current => removeProjectSelection(current, id))}
+                onClear={() => setProjectSelections([])} />}
               {!drawingExample && inspection && !selectedDocumentError && <DrawingLocationPanel
                 blueprint={inspection.blueprint} irm={inspection.irm}
                 selectedPredio={inspection.predio_number || properties?.n_predio || properties?.predio}

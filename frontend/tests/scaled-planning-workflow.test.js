@@ -101,6 +101,43 @@ function reviewedSetbacks() {
 }
 const activeSetbackStatus = () => container.querySelector('.cad-design-panel [data-setback-status]')?.dataset.setbackStatus;
 
+test('explicit footprint selection opens its map once; figure edits stay in the drawing', async () => {
+  const activations = [];
+  await render({onOpenPlanner: tab => activations.push({tab, footprint: snapshot?.footprint}), hasLinkedParcel: true});
+  await click('Aplicar unidad');
+  assert.equal(activations.length, 0);
+  await extractFootprint();
+  assert.equal(activations.length, 1);
+  assert.equal(activations[0].tab, 'placement');
+  assert.deepEqual(activations[0].footprint, snapshot.footprint, 'map activation receives the exact newly selected footprint');
+  assert.match(container.querySelector('.cad-footprint-active').textContent, /antes de recargar, salir o cambiar de plano/);
+  await click('＋ Ampliación');
+  assert.equal(activations.length, 1, 'continuous editing does not scroll the user away');
+  await click('Huella');
+  await click('Ver huella en el mapa ↓');
+  assert.equal(activations.length, 2);
+});
+
+test('reviewed envelope appears at drawing scale and clears for stale source, pending evidence and removed footprint', async () => {
+  await click('Aplicar unidad'); await extractFootprint();
+  const context = reviewedSetbacks();
+  const envelope = {status: 'ready', local_geometry: {type: 'Polygon', coordinates: [[[-5, -10], [5, -10], [5, 10], [-5, 10], [-5, -10]]]}};
+  const review = {sourceKey: setbackSourceKey(snapshot), context, envelope};
+  await render({setbackReview: review});
+  assert.ok(container.querySelector('.cad-setback-envelope')?.getAttribute('d').startsWith('M'));
+  assert.ok(container.querySelector('.cad-setback-excluded'));
+  await render({setbackReview: {...review, sourceKey: 'previous drawing'}});
+  assert.equal(container.querySelector('.cad-reviewed-limits'), null);
+  await render({setbackReview: {...review, context: {...context, complete: false}}});
+  assert.equal(container.querySelector('.cad-reviewed-limits'), null);
+  await render({setbackReview: {...review, envelope: {status: 'empty', local_geometry: null}}});
+  assert.ok(container.querySelector('.cad-setback-excluded'));
+  assert.equal(container.querySelector('.cad-setback-envelope'), null);
+  assert.match(container.textContent, /Sin espacio dentro de los retiros revisados/);
+  await click('Quitar huella');
+  assert.equal(container.querySelector('.cad-reviewed-limits'), null);
+});
+
 test('live extension conflict and exact-limit feedback follow dragging without committing a canceled preview', async () => {
   await click('Aplicar unidad'); await extractFootprint(); await click('＋ Ampliación');
   assert.equal(activeSetbackStatus(), 'pending');

@@ -119,7 +119,7 @@ export function initialPlannerDraft({geometry, properties, irm}) {
     regime: /horizontal/i.test(String(properties?.tipo_propi || '')) || irm?.planning_evidence?.property_regime === 'horizontal' ? 'horizontal' : 'unknown',
     zone: 'unknown', restrictions: 'unknown', sourceLabel: '', manualIrmPredio: '', edgeKinds: {},
     footprintIsCountedArea: false,
-    proposal: {ground_floor_counted_area_m2: '', height_m: '', floors: '', total_floor_area_m2: ''}, activeTab: 'footprint',
+    proposal: {ground_floor_counted_area_m2: '', height_m: '', floors: '', total_floor_area_m2: ''}, activeTab: geometry ? 'placement' : 'footprint',
   };
 }
 

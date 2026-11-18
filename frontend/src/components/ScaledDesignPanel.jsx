@@ -163,13 +163,14 @@ const FOOTPRINT_REASONS = {
   size_range: 'La dimensión supera 5 km. Revisa la escala antes de usar este contorno.',
   complexity_limit: 'El contorno tiene demasiados segmentos para esta revisión. Elige una frontera más sencilla.',
 };
-export function GroundFootprintPanel({choice, selectedElement, footprint, scale, onUse, onClear, onChoose, onConfirmScale}) {
+export function GroundFootprintPanel({choice, selectedElement, footprint, scale, onUse, onClear, onChoose, onConfirmScale,
+  onOpenPlanner = null, onDownload = null, hasLinkedParcel = false}) {
   const [confirmed, setConfirmed] = useState(false);
   useEffect(() => setConfirmed(false), [selectedElement, scale]);
   return <section className="cad-footprint-panel" aria-label="Extraer huella de planta">
     <div className="cad-studio-panel-heading"><div><span className="cad-studio-eyebrow">DEL PLANO AL TERRENO</span><h3>Huella de planta</h3></div><span aria-hidden="true" className="cad-footprint-icon">⌑</span></div>
-    <p className="cad-studio-description">Elige el polígono que representa la planta baja para probar su implantación sobre un predio.</p>
-    <ol className="cad-footprint-steps"><li>Confirma la escala del dibujo.</li><li>Selecciona un contorno cerrado del CAD.</li><li>Declara su uso como huella y extráelo.</li></ol>
+    <p className="cad-studio-description">La huella es el espacio que ocupa la casa sobre el terreno. Selecciónala aquí y revísala en el mapa de tu predio.</p>
+    {!footprint && <ol className="cad-footprint-steps"><li>Confirma la escala del dibujo.</li><li>Elige el contorno cerrado de planta baja.</li><li>Pulsa «Usar como huella» para abrir su implantación.</li></ol>}
     {!scale && <button type="button" onClick={onConfirmScale}>Confirmar escala en Medidas</button>}
     <button type="button" onClick={onChoose}>Elegir contorno en el plano</button>
     {selectedElement && <div className="cad-footprint-candidate"><span>Contorno seleccionado</span><strong>{selectedElement.source_handle || selectedElement.source_id || selectedElement.id}</strong><small>{selectedElement.layer}</small></div>}
@@ -178,7 +179,12 @@ export function GroundFootprintPanel({choice, selectedElement, footprint, scale,
       <label className="cad-footprint-confirm"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} /><span>Este contorno representa la huella de la planta baja que quiero analizar.</span></label>
       <button type="button" className="cad-studio-primary" disabled={!confirmed} onClick={() => {onUse(choice); setConfirmed(false);}}>Usar como huella</button>
     </div>}
-    {footprint && <div className="cad-footprint-active" role="status"><span>Huella extraída</span><strong>{format(footprint.areaM2)} m²</strong><p>Contorno azul · {footprint.holes} hueco(s). Lista para el panel de implantación, debajo del visor.</p><button type="button" onClick={onClear}>Quitar huella</button></div>}
-    <p className="cad-studio-footnote">La selección no identifica automáticamente el edificio. La huella conserva coordenadas locales; su ubicación en el predio se revisa por separado.</p>
+    {footprint && <div className="cad-footprint-active" role="status"><span>Huella lista en este estudio</span><strong>{format(footprint.areaM2)} m²</strong>
+      <p>{hasLinkedParcel ? 'Tu huella y el predio están juntos en el mapa, justo debajo del visor.' : 'La huella está lista. Vincula el predio para colocarla sobre el terreno.'}</p>
+      {onOpenPlanner && <button type="button" className="cad-studio-primary" onClick={onOpenPlanner}>{hasLinkedParcel ? 'Ver huella en el mapa ↓' : 'Ver huella y vincular predio ↓'}</button>}
+      <p className="cad-footprint-storage">Borrador de esta sesión. Descárgala antes de recargar, salir o cambiar de plano.</p>
+      <div className="cad-footprint-file-actions">{onDownload && <button type="button" onClick={onDownload}>Descargar huella</button>}<button type="button" onClick={onClear}>Quitar huella</button></div>
+    </div>}
+    <p className="cad-studio-footnote">El mapa conserva el tamaño del plano. Tú revisas la posición y el giro para alinearlo con el terreno.</p>
   </section>;
 }

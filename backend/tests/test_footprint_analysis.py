@@ -539,3 +539,140 @@ def test_batch_feedback_budget_preserves_reusable_context_and_aggregate(monkeypa
     assert check(result, "setbacks")["status"] == "conflict"
     assert all(item["status"] == "pending" and item["complete"] is False for item in result["shape_checks"])
     assert all(item["setback_edges"] == [] and "complexity" in item["pending_reasons"] for item in result["shape_checks"])
+
+
+def test_envelope_applies_unequal_reviewed_setbacks_in_metres():
+    result = assess_planning(reviewed_request())
+    envelope = result["buildable_envelope"]
+    assert envelope["status"] == "ready"
+    local = shape(envelope["local_geometry"])
+    # A 20 × 20 lot, front 5 m, rear 3 m and each side 3 m.
+    assert local.bounds == pytest.approx((-7, -5, 7, 7), abs=1e-6)
+    assert envelope["area_m2"] == pytest.approx(14 * 12, abs=1e-5)
+    assert envelope["area_m2"] != result["metrics"]["max_counted_ground_area_m2"]
+    assert shape(envelope["geometry"]).hausdorff_distance(shape(geographic(polygon(-7, -5, 7, 7)))) < 1e-10
+    assert envelope["pending_reasons"] == []
+    assert envelope["visual_only"] is True and envelope["regulatory_approval"] is False
+    assert 0 < envelope["maximum_curve_error_m"] <= .005 + 1e-12
+
+
+@pytest.mark.parametrize("section, field, value, reason", [
+    ("irm", "reviewed", False, "identity"),
+    ("irm", "irm_predio", "99999", "identity"),
+    ("irm", "restrictions_reviewed", False, "scope"),
+    ("proposal", "existing_footprint_complete", False, "scope"),
+    ("placement", "confirmed", False, "placement"),
+])
+def test_envelope_is_withheld_until_its_evidence_is_reviewed(section, field, value, reason):
+    request = reviewed_request()
+    request[section][field] = value
+    envelope = assess_planning(request)["buildable_envelope"]
+    assert envelope["status"] == "pending"
+    assert envelope["local_geometry"] is None and envelope["geometry"] is None
+    assert envelope["area_m2"] is None
+    assert reason in envelope["pending_reasons"]
+
+
+@pytest.mark.parametrize("change, reason", [
+    ("unclassified", "unclassified_edges"), ("missing_limit", "missing_limits"),
+    ("hole", "parcel_holes"), ("area", "area_consistency"),
+])
+def test_partial_setback_review_never_draws_an_apparently_complete_envelope(change, reason):
+    request = reviewed_request()
+    if change == "unclassified":
+        request["edges"].pop()
+    elif change == "missing_limit":
+        request["irm"]["constraints"]["retiro_lateral"] = None
+    elif change == "hole":
+        request["parcel"] = geographic(polygon(-10, -10, 10, 10,
+            holes=[[[-1, -1], [-1, 1], [1, 1], [1, -1], [-1, -1]]]))
+    else:
+        request["irm"]["constraints"]["area_terreno"] = 1000
+    envelope = assess_planning(request)["buildable_envelope"]
+    assert envelope["status"] == "pending" and reason in envelope["pending_reasons"]
+    assert envelope["geometry"] is None and envelope["local_geometry"] is None
+
+
+def test_zero_setbacks_preserve_the_parcel_and_excessive_setbacks_are_explicitly_empty():
+    request = reviewed_request()
+    request["irm"]["constraints"].update(retiro_frontal=0, retiro_lateral=0, retiro_posterior=0)
+    result = assess_planning(request)
+    envelope = result["buildable_envelope"]
+    assert envelope["status"] == "ready" and envelope["area_m2"] == pytest.approx(400, abs=1e-5)
+    assert shape(envelope["local_geometry"]).equals(shape(result["setback_context"]["parcel"]))
+    assert envelope["maximum_curve_error_m"] == 0
+    request["irm"]["constraints"]["retiro_frontal"] = 30
+    envelope = assess_planning(request)["buildable_envelope"]
+    assert envelope["status"] == "empty" and envelope["area_m2"] == 0
+    assert envelope["local_geometry"] is None and envelope["geometry"] is None
+    assert envelope["pending_reasons"] == []
+    request["irm"]["constraints"].update(retiro_frontal=10, retiro_lateral=10, retiro_posterior=10)
+    # Opposite offsets meet: sub-micrometre projection residue is not buildable area.
+    envelope = assess_planning(request)["buildable_envelope"]
+    assert envelope["status"] == "empty" and envelope["area_m2"] == 0
+
+
+def test_concave_envelope_follows_the_actual_parcel_and_conservative_corner_distances():
+    from shapely.geometry import LineString, Point
+
+    request = reviewed_request()
+    concave = {"type": "Polygon", "coordinates": [[[-10, -10], [10, -10],
+        [10, 0], [0, 0], [0, 10], [-10, 10], [-10, -10]]]}
+    request["parcel"] = geographic(concave)
+    request["irm"]["constraints"].update(area_terreno=300, retiro_lateral=2)
+    request["edges"] = [{"polygon": 0, "ring": 0, "edge": i, "kind": "side"} for i in range(6)]
+    result = assess_planning(request)
+    envelope = result["buildable_envelope"]
+    assert envelope["status"] == "ready"
+    region = shape(envelope["local_geometry"])
+    assert shape(result["setback_context"]["parcel"]).covers(region)
+    assert region.covers(Point(-5, 5)) and region.covers(Point(5, -5))
+    assert not region.covers(Point(5, 5))
+    # Check vertices and segment midpoints independently of buffer construction.
+    ring = list(region.exterior.coords)
+    samples = [*ring, *[((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) for a, b in zip(ring, ring[1:])]]
+    for edge in result["setback_context"]["edges"]:
+        line = LineString(edge["points"])
+        assert min(Point(p).distance(line) for p in samples) >= 2 - 1e-7
+    # An existing violation does not erase the available area for a new proposal.
+    assert shape_check(result, "existing-footprint")["status"] == "conflict"
+
+
+def test_multipart_envelope_preserves_separate_parcel_parts():
+    request = reviewed_request()
+    request["parcel"] = {"type": "MultiPolygon", "coordinates": [
+        geographic(polygon(-10, -10, 10, 10))["coordinates"],
+        geographic(polygon(30, -10, 50, 10))["coordinates"]]}
+    request["irm"]["constraints"].update(area_terreno=800, retiro_lateral=2)
+    request["edges"] = [{"polygon": part, "ring": 0, "edge": edge, "kind": "side"}
+                        for part in range(2) for edge in range(4)]
+    envelope = assess_planning(request)["buildable_envelope"]
+    assert envelope["status"] == "ready" and envelope["local_geometry"]["type"] == "MultiPolygon"
+    assert len(envelope["local_geometry"]["coordinates"]) == 2
+    assert envelope["area_m2"] == pytest.approx(2 * 16 * 16, abs=1e-5)
+
+
+def test_envelope_is_unchanged_by_extensions_and_rotates_consistently():
+    from shapely.affinity import rotate
+
+    request = reviewed_request()
+    before = assess_planning(request)["buildable_envelope"]
+    request["shapes"] = [{"id": "outside", "role": "extension", "geometry": polygon(9, -1, 11, 1)}]
+    assert assess_planning(request)["buildable_envelope"] == before
+    request["placement"]["rotation_degrees"] = 37
+    rotated = assess_planning(request)["buildable_envelope"]
+    assert shape(rotated["local_geometry"]).hausdorff_distance(rotate(shape(before["local_geometry"]), 37, origin=(0, 0))) < 1e-6
+    assert shape(rotated["geometry"]).hausdorff_distance(shape(before["geometry"])) < 1e-10
+    request["placement"]["confirmed"] = False
+    assert assess_planning(request)["buildable_envelope"]["status"] == "pending"
+
+
+@pytest.mark.parametrize("budget", ["MAX_ENVELOPE_EDGES", "MAX_ENVELOPE_BUFFER_VERTICES", "MAX_ENVELOPE_OUTPUT_VERTICES"])
+def test_envelope_budget_keeps_exact_setback_checks_available(monkeypatch, budget):
+    monkeypatch.setattr("app.footprint_analysis." + budget, 1)
+    result = assess_planning(reviewed_request())
+    envelope = result["buildable_envelope"]
+    assert envelope["status"] == "pending" and envelope["pending_reasons"] == ["envelope_complexity"]
+    assert result["setback_context"]["complete"] is True
+    assert shape_check(result, "existing-footprint")["status"] == "at_limit"
+    assert check(result, "setbacks")["status"] == "within_reviewed_limits"

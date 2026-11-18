@@ -101,6 +101,20 @@
 .cad-footprint-active > strong { font-size: 21px; }
 .cad-footprint-active > p { font-size: 11px; line-height: 1.6; margin: 4px 0; }
 .cad-footprint-active button { color: #3b6187; border-color: #c8d9e9; font-size: 11px; width: auto; }
+.cad-footprint-active .cad-studio-primary { color: #fff; background: #285d47; border-color: #285d47; min-height: 42px; }
+.cad-footprint-file-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cad-footprint-active .cad-footprint-storage { padding-top: 9px; margin-top: 5px; border-top: 1px solid #c8d9e9; color: #536a7e; }
+.cad-setback-guide { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 14px; margin: 10px 0; border: 1px solid #d6dfd5; border-radius: 8px; background: #f7f8f3; color: #526550; }
+.cad-setback-guide.is-ready { border-color: #adc9b4; background: #eff6ed; }
+.cad-setback-guide > div { flex: 1 1 260px; min-width: 0; }
+.cad-setback-guide strong, .cad-setback-guide span { display: block; font-size: 11px; line-height: 1.6; }
+.cad-setback-guide strong { color: #2c5940; font-size: 12px; }
+.cad-viewer .cad-setback-guide button { width: auto; min-height: 40px; font-size: 11px; }
+.cad-setback-guide label { font-size: 11px; }
+.cad-reviewed-limits path { vector-effect: non-scaling-stroke; pointer-events: none; }
+.cad-setback-excluded { fill: #d7576330; stroke: none; }
+.cad-setback-envelope { fill: #4a926617; stroke: #287447; stroke-width: 2; stroke-dasharray: 8 5; }
+.cad-setback-parcel { fill: none; stroke: #586e9a; stroke-width: 1.5; stroke-dasharray: 3 4; }
 .cad-design-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 9px 11px; margin-bottom: 10px; border: 1px solid #d6e1d4; background: #f5f8f1; border-radius: 8px; font-size: 11px; color: #496553; }
 .cad-design-toolbar > div { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .cad-design-toolbar > div > span { margin-right: 5px; font-weight: 650; }

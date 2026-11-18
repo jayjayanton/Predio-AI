@@ -258,6 +258,20 @@ async function extractOccupationDiagram(pdf){
   return null;
 }
 
+/** Read only the reference diagram; the planning workflow owns its reviewed fields. */
+export async function inspectIrmDiagramInBrowser(file) {
+  if (!file || !/\.pdf$/i.test(file.name)) throw new Error('Seleccione un PDF válido.');
+  if (file.size > 15 * 1024 * 1024) throw new Error('El PDF supera 15 MB.');
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (String.fromCharCode(...bytes.slice(0, 5)) !== '%PDF-') throw new Error('El archivo no es un PDF válido.');
+  const loading = pdfjs.getDocument({data: bytes});
+  try {
+    const pdf = await loading.promise;
+    if (pdf.numPages > 100) throw new Error('El documento supera 100 páginas.');
+    return await extractOccupationDiagram(pdf);
+  } finally {await loading.destroy();}
+}
+
 export async function inspectIrmInBrowser(file) {
   if (!file || !/\.pdf$/i.test(file.name)) throw new Error('Seleccione un PDF válido.');
   if (file.size > 15 * 1024 * 1024) throw new Error('El PDF supera 15 MB.');

@@ -17,8 +17,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 from pyproj import CRS, Transformer
+from shapely.errors import GEOSException
 from shapely.affinity import rotate
-from shapely.geometry import LineString, mapping, shape
+from shapely.geometry import LineString, Polygon, mapping, shape
 from shapely.geometry.polygon import orient
 from shapely.ops import transform, unary_union
 from shapely.validation import explain_validity
@@ -30,6 +31,10 @@ MAX_LOCAL_COORDINATE = 10_000
 MAX_PARCEL_RADIUS = 25_000
 SETBACK_TOLERANCE_M = 1e-6
 MAX_LIVE_SETBACK_COMPARISONS = 20_000
+MAX_ENVELOPE_EDGES = 512
+MAX_ENVELOPE_BUFFER_VERTICES = 65_536
+MAX_ENVELOPE_OUTPUT_VERTICES = 20_000
+ENVELOPE_CURVE_ERROR_M = 0.005
 _ASSESSMENT_SLOTS = BoundedSemaphore(2)
 
 
@@ -265,6 +270,7 @@ def _assess(request: PlanningRequest) -> dict:
     local_parcel = None
     rotated_combined = combined
     placement = request.placement
+    inverse = None
     placement_ready = bool(placement and placement.confirmed and parcel is not None)
     if placement:
         forward, inverse = _projection(placement)
@@ -350,6 +356,7 @@ def _assess(request: PlanningRequest) -> dict:
         ("placement", placement_ready), ("area_consistency", area_consistency_ready),
     ) if not ready]
     setback_context = _live_setback_context(request, parcel, local_parcel, regulation_ready, pending_reasons)
+    buildable_envelope = _buildable_envelope(setback_context, placement, inverse)
     shape_checks = _shape_setback_checks(existing, shapes, setback_context)
     if placed is not None:
         shape_statuses = {(item["role"], item["id"]): item["status"] for item in shape_checks}
@@ -374,7 +381,7 @@ def _assess(request: PlanningRequest) -> dict:
             if ready else "Faltan datos revisados del IRM o de la condición final de toda la edificación; no se infieren a partir de una planta.", actual, limit, unit))
     return {"status": "preliminary", "verified": False, "metrics": metrics, "checks": checks,
             "placed": placed, "setback_edges": setback_edges, "setback_context": setback_context,
-            "shape_checks": shape_checks, "warnings": warnings,
+            "shape_checks": shape_checks, "buildable_envelope": buildable_envelope, "warnings": warnings,
             "coordinate_convention": "Local metres: X east, Y north; clockwise rotation around (0,0).",
             "regulatory_approval": False}
 
@@ -444,6 +451,89 @@ def _live_setback_context(request, parcel, local_parcel, ready, pending_reasons)
             "ready": usable, "complete": bool(usable and all_classified and no_holes and all(known_limits)),
             "parcel": mapping(local_geometry) if local_geometry is not None else None,
             "edges": edges, "pending_reasons": reasons}
+
+
+def _round_buffer_segments(radius):
+    # A circumscribed arc stays outside the true required-distance buffer.
+    # Its maximum radial excess is r * (sec(pi / (4q)) - 1).
+    return max(8, math.ceil(math.pi / (4 * math.acos(radius / (radius + ENVELOPE_CURVE_ERROR_M)))))
+
+
+def _conservative_edge_buffer(points, radius, quadrants):
+    """Round-capped metric buffer with exact straight offsets and outward arcs.
+
+    GEOS's usual inscribed circular approximation can leave tiny green wedges
+    that are actually inside a setback. Circumscribed cap segments avoid that;
+    straight portions remain at the exact required distance, including the
+    familiar rectangular-lot case. Only this display polygon is approximate.
+    """
+    a, b = points
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length = math.hypot(dx, dy)
+    if not length:
+        raise ValueError("Un lindero proyectado tiene longitud cero.")
+    tx, ty = dx / length, dy / length
+    step = math.pi / (2 * quadrants)
+    outer_radius = radius / math.cos(step / 2)
+    vertices = []
+    for center, start in ((b, -math.pi / 2), (a, math.pi / 2)):
+        for index in range(2 * quadrants):
+            angle = start + (index + 0.5) * step
+            along, across = outer_radius * math.cos(angle), outer_radius * math.sin(angle)
+            vertices.append((center[0] + tx * along - ty * across,
+                             center[1] + ty * along + tx * across))
+    return Polygon(vertices), outer_radius - radius
+
+
+def _buildable_envelope(context, placement, inverse):
+    """Display the complete reviewed setback area without changing exact checks.
+
+    The parcel is clipped against each finite, classified boundary segment in
+    local metres. No axis-aligned rectangle, map pixels, unreviewed PDF number,
+    or COS percentage supplies a boundary. The result is preliminary and does
+    not represent other restrictions or permission to build.
+    """
+    output = {"status": "pending", "local_geometry": None, "geometry": None,
+              "area_m2": None, "pending_reasons": list(context["pending_reasons"]),
+              "source": "reviewed_irm_setbacks", "method": "parcel_minus_reviewed_edge_buffers",
+              "local_coordinate_space": "local_metres", "coordinate_reference": "EPSG:4326",
+              "approximate": True, "visual_only": True, "maximum_curve_error_m": None,
+              "verified": False, "regulatory_approval": False}
+    if not context["complete"] or placement is None or inverse is None:
+        if not output["pending_reasons"]:
+            output["pending_reasons"] = ["review_required"]
+        return output
+    edges = context["edges"]
+    specifications = [(edge, _round_buffer_segments(edge["required_m"]))
+                      for edge in edges if edge["required_m"] > 0]
+    if (len(edges) > MAX_ENVELOPE_EDGES or
+            sum(4 * count + 1 for _, count in specifications) > MAX_ENVELOPE_BUFFER_VERTICES):
+        return {**output, "pending_reasons": ["envelope_complexity"]}
+    try:
+        parcel = shape(context["parcel"])
+        buffers = [_conservative_edge_buffer(edge["points"], edge["required_m"], count)
+                   for edge, count in specifications]
+        envelope = parcel.difference(unary_union([item[0] for item in buffers])) if buffers else parcel
+        curve_error = max((item[1] for item in buffers), default=0)
+        if envelope.is_empty or envelope.area <= 1e-6:
+            return {**output, "status": "empty", "area_m2": 0.0, "pending_reasons": [],
+                    "maximum_curve_error_m": curve_error}
+        if envelope.geom_type not in {"Polygon", "MultiPolygon"} or not envelope.is_valid:
+            return {**output, "pending_reasons": ["envelope_geometry"]}
+        parts = [envelope] if envelope.geom_type == "Polygon" else list(envelope.geoms)
+        vertex_count = sum(len(part.exterior.coords) + sum(len(ring.coords) for ring in part.interiors)
+                           for part in parts)
+        if vertex_count > MAX_ENVELOPE_OUTPUT_VERTICES:
+            return {**output, "pending_reasons": ["envelope_complexity"]}
+        geographic = _feature(rotate(envelope, -placement.rotation_degrees, origin=(0, 0)),
+                              inverse, "setback_envelope", "setback-envelope",
+                              "Área dentro de los retiros revisados", placement)["geometry"]
+        return {**output, "status": "ready", "local_geometry": mapping(envelope),
+                "geometry": geographic, "area_m2": _rounded(envelope.area),
+                "pending_reasons": [], "maximum_curve_error_m": curve_error}
+    except (GEOSException, ValueError):
+        # A display failure must not discard the independent distance checks.
+        return {**output, "pending_reasons": ["envelope_geometry"]}
 
 
 def _shape_setback_checks(existing, shapes, context):

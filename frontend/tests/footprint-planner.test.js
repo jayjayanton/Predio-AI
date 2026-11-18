@@ -27,7 +27,7 @@ before(async()=>{
   ({createRoot}=await import('react-dom/client'));
   const output=await build({configFile:false,root:frontendRoot,logLevel:'silent',plugins:[{name:'map-test-boundary',enforce:'pre',
     resolveId(source){if(source.endsWith('/FootprintMap.jsx'))return '\0footprint-map-test';},
-    load(id){if(id==='\0footprint-map-test')return `import React from 'react';export default function Map(){return React.createElement('div',{'data-testid':'placement-map'},'Mapa de implantación');}`;}}],
+    load(id){if(id==='\0footprint-map-test')return `import React from 'react';export default function Map({envelope,edgesVisible,onSelectEdge}){return React.createElement('div',{'data-testid':'placement-map','data-envelope-status':envelope?.status||'pending'},'Mapa de implantación',edgesVisible&&React.createElement('button',{onClick:()=>onSelectEdge('0:0:1')},'Seleccionar lado 2 en mapa'));}`;}}],
     build:{ssr:join(frontendRoot,'src/components/FootprintPlanner.jsx'),write:false,target:'node20',minify:false}});
   const cacheRoot=join(frontendRoot,'node_modules/.cache/predio-component-tests');await mkdir(cacheRoot,{recursive:true});tempDirectory=await mkdtemp(join(cacheRoot,'footprint-'));
   for(const item of output.output)if(item.type==='chunk'){await mkdir(join(tempDirectory,item.fileName,'..'),{recursive:true});await writeFile(join(tempDirectory,item.fileName),item.code);}
@@ -147,4 +147,68 @@ test('the five-metre tutorial never associates its fictional rules with a drawin
   assert.equal(requests.length,1,'example controls never submit project geometry or rules');
   assert.equal(original.irm.provided,false);assert.equal(original.parcel,null);
   assert.equal(reviews.at(-1),null);
+});
+
+test('explicit footprint actions open the parcel map while ordinary shape edits preserve the chosen panel',async()=>{
+  await render({parcel,parcelProperties:{n_predio:'123456'},irm:irm()});
+  await waitForPlacementMap();
+  await value('Giro horario','23');
+  await click('Revisar con el IRM');
+  await render({activationToken:1,activationTab:'placement'});await waitForPlacementMap();
+  assert.equal(input('Giro horario').value,'23','opening the map retains the reviewed draft position');
+  assert.match(container.querySelector('.footprint-save-receipt').textContent,/antes de recargar, salir o cambiar de plano/);
+  assert.equal(button('Descargar huella').disabled,false);
+  assert.equal(button('Descargar ubicación').disabled,true,'a geographic export waits for an actual placed geometry');
+  await render({activationToken:2,activationTab:'irm'});
+  assert.ok(container.querySelector('.footprint-edge-setup'));
+  assert.equal(container.querySelector('.footprint-edge-setup').closest('details'),null,'essential side classification is immediately visible');
+  await render({snapshot:{...props.snapshot,shapes:[shape(5)]}});
+  assert.ok(container.querySelector('.footprint-edge-setup'),'continuous geometry updates do not steal focus back to the map');
+  await waitForPlacementMap();await click('Seleccionar lado 2 en mapa');
+  assert.equal(document.activeElement.getAttribute('aria-label'),'Clasificación de lado 2');
+});
+
+test('a reviewed envelope survives extension editing and is removed immediately when the placement changes',async()=>{
+  await render({parcel,parcelProperties:{n_predio:'123456'},irm:irm()});await waitForPlacementMap();await settle();
+  const metricRing=ring(-15,-15,30,30);
+  const context={version:1,coordinate_space:'local_metres',ready:true,complete:true,tolerance_m:1e-6,
+    parcel:{type:'Polygon',coordinates:[metricRing]},pending_reasons:[],edges:metricRing.slice(0,-1).map((point,edge)=>({
+      polygon:0,ring:0,edge,kind:'side',required_m:5,points:[point,metricRing[edge+1]]}))};
+  const envelope={status:'ready',local_geometry:{type:'Polygon',coordinates:[ring(-10,-10,20,20)]},geometry:parcel.features[0].geometry,area_m2:400,pending_reasons:[]};
+  await complete(requests.at(-1),{...response(),setback_context:context,buildable_envelope:envelope});
+  assert.equal(reviews.at(-1).envelope,envelope);
+  assert.equal(container.querySelector('[data-testid="placement-map"]').dataset.envelopeStatus,'ready');
+  assert.match(container.querySelector('.footprint-limits-status').textContent,/400 m²/);
+  await render({snapshot:{...props.snapshot,shapes:[shape(4)]}});
+  assert.equal(container.querySelector('[data-testid="placement-map"]').dataset.envelopeStatus,'ready');
+  await value('Giro horario','30');
+  assert.equal(reviews.at(-1),null);
+  assert.equal(container.querySelector('[data-testid="placement-map"]').dataset.envelopeStatus,'pending');
+  assert.doesNotMatch(container.querySelector('.footprint-limits-status').textContent,/avisos activos/);
+});
+
+test('zero available area is an explicit conflict state instead of an absent map or a pending envelope',async()=>{
+  await render({parcel,parcelProperties:{n_predio:'123456'},irm:irm()});await waitForPlacementMap();await settle();
+  await complete(requests.at(-1),{...response(),buildable_envelope:{status:'empty',geometry:null,local_geometry:null,area_m2:0,pending_reasons:[]}});
+  assert.equal(container.querySelector('[data-testid="placement-map"]').dataset.envelopeStatus,'empty');
+  assert.match(container.querySelector('.footprint-limits-status').textContent,/Sin área disponible con estos retiros/);
+});
+
+test('returning from the report restores the chosen panel instead of replaying an already-consumed footprint action',async()=>{
+  await render({parcel,parcelProperties:{n_predio:'123456'},irm:irm(),activationToken:8,activationTab:'placement'});await waitForPlacementMap();
+  await click('Revisar con el IRM');await value('Área útil/computable final en planta baja','64');
+  const saved=changes.at(-1);assert.equal(saved.activationToken,8);
+  await act(async()=>root.unmount());root=createRoot(container);await render({state:saved});
+  assert.equal(input('Área útil/computable final en planta baja').value,'64');
+  assert.ok(container.querySelector('.footprint-edge-setup'));
+  await render({activationToken:9,activationTab:'placement'});await waitForPlacementMap();
+  assert.equal(container.querySelector('.footprint-edge-setup'),null,'a new explicit action can still reopen the placement panel');
+});
+
+test('the missing-IRM action opens the project upload flow through its explicit callback',async()=>{
+  let opened=0;await render({parcel,parcelProperties:{n_predio:'123456'},onAddIrm:()=>opened++});
+  await click('Añadir IRM');assert.equal(opened,1);
+  await click('Revisar con el IRM');
+  const missing=container.querySelector('.footprint-missing button');await act(async()=>missing.click());
+  assert.equal(opened,2);
 });

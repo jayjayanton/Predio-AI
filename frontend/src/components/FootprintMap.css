@@ -11,3 +11,14 @@
 .footprint-shape-tooltip strong { color: #284c3a; margin-bottom: 4px; font-size: 11px; }
 .footprint-shape-tooltip span { font-size: 10px; line-height: 1.5; color: #53685a; }
 .footprint-shape-tooltip small { margin-top: 4px; color: #6c7e70; font-size: 10px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.footprint-map-guidance { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 5px 12px; padding: 10px 12px; border: 1px solid #d9e2d5; border-bottom: 0; border-radius: 9px 9px 0 0; background: #f1f5ec; color: #506d55; font-size: 12px; line-height: 1.5; }
+.footprint-map-guidance small { color: #70816c; font-size: 10px; }
+.footprint-map-guidance + .footprint-map-frame { border-top-left-radius: 0; border-top-right-radius: 0; }
+.footprint-map-guidance.has-limits { background: #edf6ef; border-color: #c3dacb; }
+.footprint-map-updating { position: absolute; z-index: 400; bottom: 32px; right: 12px; padding: 8px 12px; color: #345944; background: #fffef7ee; border: 1px solid #d1ddcc; border-radius: 6px; font-size: 11px; pointer-events: none; }
+.footprint-legend .is-envelope { border-color: #1c765d; border-style: dashed; background: #b9ddc6; }
+.footprint-legend .is-excluded { border-color: #bc7267; background: #eec9bf; }
+.footprint-envelope-legend { padding: 9px 0; border-top: 1px solid #dbe4da; border-bottom: 1px solid #dbe4da; }
+.footprint-envelope-empty { margin: 9px 0; padding: 10px 12px; background: #fff0ed; border-radius: 7px; color: #93443b; font-size: 12px; }
+.footprint-map-tools button { font-size: 12px; min-height: 40px; }
+@media(max-width: 480px) { .footprint-map-tools button { font-size: 11px; min-height: 40px; } }

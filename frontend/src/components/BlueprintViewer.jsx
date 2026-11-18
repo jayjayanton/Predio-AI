@@ -3,6 +3,8 @@ import MeasurementPanel from './MeasurementPanel.jsx';
 import ScaledDesignPanel, {GroundFootprintPanel} from './ScaledDesignPanel.jsx';
 import SetbackFeedback from './SetbackFeedback.jsx';
 import {evaluatePlanningShape, setbackSourceKey} from '../liveSetbacks.js';
+import {downloadPlanningJson, localPlanningExport} from '../footprintPlanning.js';
+import {localGeometryScreenPath} from '../setbackOverlay.js';
 import {commitDesign, createDesignHistory, createPlanningShape, createPlanningSnapshot, extractPlanningFootprint,
   hitPlanningShape, paintPlanningOverlay, PLANNING_LIMITS, redoDesign, shapeBounds, undoDesign,
   createDrawnPlanningShape, createPolygonPlanningShape, planningShapeMetrics, planningEditHandles,
@@ -113,7 +115,8 @@ function paintDrawing(canvas, size, transform, items, selected, viewport = null,
 
 /** Imported geometry, source annotations and estimates with user-confirmed scale. */
 export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPTY_VIEWS, documentFormat = '', unitsCode = null, documentName = '',
-  onPlanningChange, draftState = null, onDraftStateChange, setbackReview = null, onSaveProjectSelection = null }) {
+  onPlanningChange, draftState = null, onDraftStateChange, setbackReview = null, onSaveProjectSelection = null,
+  onOpenPlanner = null, hasLinkedParcel = false }) {
   const initialDraft = draftState?.views === views ? draftState : null;
   const initialIndex = initialDraft?.viewIndex || 0;
   const initialView = views[initialIndex] || views[0] || EMPTY_VIEW;
@@ -141,6 +144,7 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const [designRecord, setDesignRecord] = useState(() => ({view: initialView, history: initialRecord?.history || createDesignHistory()}));
   const [selectedShapeId, setSelectedShapeId] = useState(initialRecord?.selectedShapeId || null);
   const [showShapes, setShowShapes] = useState(initialRecord?.showShapes !== false);
+  const [showReviewedLimits, setShowReviewedLimits] = useState(true);
   const [shapePreview, setShapePreview] = useState(null);
   const [drawingPreview, setDrawingPreview] = useState(null);
   const [draftPoints, setDraftPoints] = useState([]);
@@ -261,6 +265,13 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
   const liveSourceKey = useMemo(() => setbackSourceKey(planningSnapshot), [planningSnapshot]);
   const reviewContext = setbackReview?.sourceKey === liveSourceKey ? setbackReview.context : null;
   const metricSpace = useMemo(() => ({origin: activeFootprint?.origin || [0, 0], metresPerUnit: measurementScale?.metresPerUnit}), [activeFootprint, measurementScale]);
+  const reviewedEnvelope = reviewContext?.ready && reviewContext?.complete
+    && ['ready', 'empty'].includes(setbackReview?.envelope?.status) ? setbackReview.envelope : null;
+  const limitPaths = useMemo(() => reviewedEnvelope ? {
+    parcel: localGeometryScreenPath(reviewContext.parcel, metricSpace, transform),
+    envelope: localGeometryScreenPath(reviewedEnvelope.local_geometry, metricSpace, transform),
+  } : null, [reviewedEnvelope, reviewContext, metricSpace, transform]);
+  const canShowLimits = Boolean(limitPaths?.parcel && (reviewedEnvelope?.status === 'empty' || limitPaths.envelope));
   const committedChecks = useMemo(() => Object.fromEntries(design.shapes.map(shape => [shape.id,
     evaluatePlanningShape(shape, metricSpace, reviewContext)])), [design.shapes, metricSpace, reviewContext]);
   const previewCheck = useMemo(() => metricPreview ? evaluatePlanningShape(metricPreview, metricSpace, reviewContext) : null,
@@ -373,6 +384,19 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
     const present = typeof update === 'function' ? update(history.present) : update;
     return {view, history: commitDesign(history, present)};
   });
+  const openPlanner = (tab = 'placement') => {
+    setExpanded(false);
+    onOpenPlanner?.(tab);
+  };
+  const useSelectedFootprint = footprint => {
+    updateDesign(current => ({...current, footprint}));
+    // Publish this exact selection before moving to the map, even when a
+    // previous footprint is still present in the parent during this event.
+    planningCallbacks.current.onPlanningChange?.(createPlanningSnapshot({footprint, shapes: design.shapes, scale: measurementScale,
+      source: {documentName, viewName: viewName(view, viewIndex), viewIndex, unitsCode}}));
+    setPlanningNotice(hasLinkedParcel ? 'Huella lista. Revisa su ubicación en el mapa del predio.' : 'Huella lista en este estudio. Vincula el predio para verla en el mapa.');
+    openPlanner();
+  };
   const clearGesture = () => {
     drag.current = null; pointers.current.clear(); pinch.current = null;
     setShapePreview(null); setDrawingPreview(null); setSelectionBox(null);
@@ -745,6 +769,12 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
           {tool === 'design' && <div className="cad-design-mode-help"><p>{editableShape ? 'Arrastra una esquina para cambiar la forma o el tamaño; arrastra el interior para mover la figura. Mayús al redimensionar conserva la proporción.' : 'Selecciona una figura para editar sus esquinas, o elige una herramienta y dibuja tu propio contorno.'}</p><button type="button" onClick={() => openInspector('design')}>Editar medidas</button></div>}
           {drawingTool && <div className="cad-sketch-instructions"><p><strong>{drawingLabel(tool.slice(5))}</strong>{pointDrawing ? tool === 'draw-triangle' ? ' · Marca tres esquinas.' : ` · ${draftPoints.length} puntos. Marca cada esquina y cierra en el primer punto.` : ' · Arrastra de una esquina a la opuesta para definir el tamaño.'}<small>Espacio + arrastrar: mover plano · Esc: cancelar{pointDrawing ? ' · Enter: terminar' : ''}</small></p><div>{pointDrawing && <button type="button" disabled={draftPoints.length < 3} onClick={() => finishDrawing()}>Terminar contorno</button>}<button type="button" onClick={cancelDrawing}>Cancelar</button></div></div>}
           {planningNotice && <p className="cad-planning-notice" role="status">{planningNotice}</p>}
+          {activeFootprint && <div className={`cad-setback-guide${canShowLimits ? ' is-ready' : ''}`}>
+            <div><strong>{canShowLimits ? reviewedEnvelope.status === 'empty' ? 'Sin espacio dentro de los retiros revisados' : 'Límite según los retiros revisados' : 'Activa los límites del IRM'}</strong>
+              <span>{canShowLimits ? 'El área roja corresponde a los retiros. Las ampliaciones muestran avisos al dibujar o mover sus puntos.' : 'Ubica la huella y confirma los retiros y los lados del predio para ver dónde puede encajar tu propuesta.'}</span></div>
+            {canShowLimits && <label className="cad-inline-check"><input type="checkbox" checked={showReviewedLimits} onChange={event => setShowReviewedLimits(event.target.checked)} /> Mostrar límite</label>}
+            {onOpenPlanner && <button type="button" onClick={() => openPlanner(canShowLimits ? 'placement' : 'irm')}>{canShowLimits ? 'Ver en el mapa' : 'Configurar retiros'}</button>}
+          </div>}
           {tool === 'contour' && <div className="cad-contour-help">
             <p>Toca dentro de un contorno cerrado del CAD. Se selecciona uno a la vez y se mide su exterior, sin descontar recortes interiores. Revisa el borde naranja; no identifica automáticamente una habitación.</p>
             {contourFeedback && <p role="status">{contourFeedback.notice}</p>}
@@ -762,6 +792,11 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
               onPointerLeave={() => { if (!drag.current) {setDraftCursor(null); setHoveredHandle(null);} }}
               onKeyDown={canvasKey} onKeyUp={event => { if (event.key === ' ') spacePressed.current = false; }} onBlur={() => { spacePressed.current = false; }} />
             <svg className="cad-sketch-overlay" viewBox={`0 0 ${size.width} ${size.height}`} aria-hidden="true">
+              {canShowLimits && showReviewedLimits && <g className="cad-reviewed-limits" data-envelope-status={reviewedEnvelope.status}>
+                <path className="cad-setback-excluded" d={`${limitPaths.parcel} ${limitPaths.envelope}`} fillRule="evenodd" />
+                {limitPaths.envelope && <path className="cad-setback-envelope" d={limitPaths.envelope} fillRule="evenodd" />}
+                <path className="cad-setback-parcel" d={limitPaths.parcel} fillRule="evenodd" />
+              </g>}
               {editMode === 'resize' && editableShape?.kind === 'polygon' && editHandles.length === 4 && <polygon className="cad-resize-frame" points={editHandles.map(handle => toScreen(handle.point, transform).join(',')).join(' ')} />}
               {editHandles.map(handle => {
                 const [x, y] = toScreen(handle.point, transform), active = handle.kind === 'vertex' && selectedVertex === handle.index;
@@ -848,7 +883,8 @@ export default function BlueprintViewer({ views = EMPTY_VIEWS, cadLayouts = EMPT
           </div>
           <div className="cad-inspector-section" id={`${instructionsId}-footprint-panel`} role="tabpanel" aria-labelledby={`${instructionsId}-footprint-tab`} hidden={inspectorTab !== 'footprint'}>
             <GroundFootprintPanel choice={footprintChoice} selectedElement={selectedFootprintElement} footprint={activeFootprint} scale={measurementScale}
-              onUse={footprint => { updateDesign(current => ({...current, footprint})); setPlanningNotice('Huella extraída. Continúa en Implantación y ampliación debajo del visor para ubicarla sobre un predio.'); }}
+              onUse={useSelectedFootprint} onOpenPlanner={onOpenPlanner ? () => openPlanner() : null} hasLinkedParcel={hasLinkedParcel}
+              onDownload={() => downloadPlanningJson(localPlanningExport(planningSnapshot), 'predioai-huella-local.json')}
               onClear={() => updateDesign(current => ({...current, footprint: null}))} onChoose={startContourSelection} onConfirmScale={showMeasurements} />
           </div>
           <div className="cad-inspector-section" id={`${instructionsId}-layers-panel`} role="tabpanel" aria-labelledby={`${instructionsId}-layers-tab`} hidden={inspectorTab !== 'layers'}>

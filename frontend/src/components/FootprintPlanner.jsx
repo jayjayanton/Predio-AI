@@ -5,6 +5,7 @@ import {PLANNING_FIELDS, buildPlanningRequest, candidateField, downloadPlanningJ
 import './FootprintPlanner.css';
 import SetbackFeedback from './SetbackFeedback.jsx';
 import SetbackExample from './SetbackExample.jsx';
+import IrmDiagramReference from './IrmDiagramReference.jsx';
 import {evaluateSetbackGeometry, setbackContextKey, setbackSourceKey} from '../liveSetbacks.js';
 
 const FootprintMap = lazy(() => import('./FootprintMap.jsx'));
@@ -12,6 +13,17 @@ const fmt = (value, digits = 2) => typeof value === 'number' && Number.isFinite(
   ? value.toLocaleString('es-EC', {maximumFractionDigits: digits}) : '—';
 const CHECK_LABELS = {within_reviewed_limits: 'Dentro del límite revisado', conflict: 'Conflicto detectado', pending: 'Por revisar'};
 const EDGE_KINDS = {front: 'Frontal', side: 'Lateral', rear: 'Posterior'};
+const ENVELOPE_REASONS = {
+  identity: 'Confirma que el plano y el IRM corresponden a este predio.',
+  scope: 'Revisa la planta baja completa y las condiciones aplicables del IRM.',
+  placement: 'Ajusta y confirma la posición de la huella en el mapa.',
+  area_consistency: 'Revisa la diferencia entre el área del predio y la del IRM.',
+  unclassified_edges: 'Identifica los lados frontales, laterales y posteriores del predio.',
+  missing_limits: 'Completa los retiros que faltan, según el IRM.',
+  parcel_holes: 'Este predio tiene huecos interiores que requieren una revisión adicional.',
+  envelope_complexity: 'El predio requiere una revisión geométrica más detallada para mostrar su límite.',
+  envelope_geometry: 'No se pudo dibujar el límite de retiros para esta geometría.',
+};
 const EMPTY = Object.freeze({});
 
 class MapBoundary extends React.Component {
@@ -62,8 +74,8 @@ function StatusChecks({result, pending, error, onRetry}) {
 }
 
 /** A selected CAD footprint stays local until explicitly positioned on a linked parcel. */
-export default function FootprintPlanner({snapshot, parcel = null, parcelProperties = EMPTY, blueprint = null, irm = null, apiBase = '', onLinkParcel,
-  state: savedState, onStateChange, onSetbackReviewChange}) {
+export default function FootprintPlanner({snapshot, parcel = null, parcelProperties = EMPTY, blueprint = null, irm = null, apiBase = '', onLinkParcel, onAddIrm,
+  state: savedState, onStateChange, onSetbackReviewChange, activationToken = 0, activationTab = 'placement', irmFile = null}) {
   const titleId = useId();
   const geometry = useMemo(() => selectedParcelGeometry(parcel, parcelProperties), [parcel, parcelProperties]);
   const hasFootprint = usableFootprint(snapshot);
@@ -79,6 +91,8 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
   const [retry, setRetry] = useState(0);
   const [selectedEdge, setSelectedEdge] = useState('');
   const [nudge, setNudge] = useState('0.5');
+  const lastActivation = useRef(savedState?.activationToken || 0);
+  const edgeSelects = useRef(new Map());
   const callback = useRef(onStateChange);
   callback.current = onStateChange;
   const draft = useMemo(() => record.contextKey !== contextKey ? preserveSpatialDraft(defaults, record, spatialContextKey)
@@ -100,8 +114,11 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
   // Changing a proposed shape invalidates its submitted assessment, but the
   // reviewed metric parcel/rules still apply while the user edits that shape.
   const setbackReview = useMemo(() => liveContextKey && resultRecord?.liveContextKey === liveContextKey && resultRecord.value?.setback_context
-    ? {sourceKey: liveSourceKey, contextKey: liveContextKey, context: resultRecord.value.setback_context} : null,
+    ? {sourceKey: liveSourceKey, contextKey: liveContextKey, context: resultRecord.value.setback_context, envelope: resultRecord.value.buildable_envelope} : null,
   [liveContextKey, liveSourceKey, resultRecord]);
+  // The parcel/rule overlay remains valid during a figure edit, but disappears
+  // immediately after a scale, source, placement or IRM reference changes.
+  const envelope = setbackReview?.context?.ready ? resultRecord.value?.buildable_envelope : result?.buildable_envelope;
   const shapeChecks = useMemo(() => {
     if (result?.shape_checks) return result.shape_checks;
     if (!setbackReview?.context?.ready) return [];
@@ -121,7 +138,16 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
     setSelectedEdge('');
   }, [contextKey, spatialContextKey, extensionKey]);
   useEffect(() => {
-    if (record.contextKey === contextKey && record.extensionKey === extensionKey) callback.current?.({contextKey, spatialContextKey, extensionKey, draft: record.draft, resultRecord});
+    if (!activationToken || lastActivation.current === activationToken) return;
+    lastActivation.current = activationToken;
+    setRecord(current => {
+      const previous = current.contextKey !== contextKey ? preserveSpatialDraft(defaults, current, spatialContextKey)
+        : current.extensionKey === extensionKey ? current.draft : invalidateCountedAreas(current.draft);
+      return {contextKey, spatialContextKey, extensionKey, draft: {...previous, activeTab: activationTab === 'irm' ? 'irm' : geometry ? 'placement' : 'footprint'}};
+    });
+  }, [activationToken, activationTab, contextKey, spatialContextKey, extensionKey, geometry, defaults]);
+  useEffect(() => {
+    if (record.contextKey === contextKey && record.extensionKey === extensionKey) callback.current?.({contextKey, spatialContextKey, extensionKey, draft: record.draft, resultRecord, activationToken: lastActivation.current});
   }, [record, contextKey, spatialContextKey, extensionKey, resultRecord]);
   useEffect(() => {
     if (!requestKey) {setBusy(false); return undefined;}
@@ -157,23 +183,47 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
     const next = nudgePlacement(draft.placement, east * Number(nudge), north * Number(nudge));
     if (next) update({placement: next});
   };
-  const returnToDrawing = () => document.getElementById('drawing-workspace')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  const returnToDrawing = () => document.getElementById('drawing-workspace')?.scrollIntoView({behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
   const activeTab = draft.activeTab || 'footprint';
   const existingArea = result?.metrics?.existing_footprint_m2 ?? polygonArea(snapshot?.footprint);
   const classified = Object.values(draft.edgeKinds).filter(value => Object.hasOwn(EDGE_KINDS, value)).length;
+  const envelopeShown = ['ready', 'empty'].includes(envelope?.status);
+  const exactChecksActive = Boolean(setbackReview?.context?.ready && setbackReview?.context?.complete);
+  const pendingReasons = envelope?.pending_reasons || setbackReview?.context?.pending_reasons || [];
+  const limitNextStep = !geometry ? 'Vincula el predio para ver la huella sobre el terreno.'
+    : !irm ? 'Añade el IRM del predio para incorporar sus retiros.'
+      : !draft.placement?.confirmed ? ENVELOPE_REASONS.placement
+        : pendingReasons.map(reason => ENVELOPE_REASONS[reason]).find(Boolean)
+          || (classified < edges.length ? ENVELOPE_REASONS.unclassified_edges : 'Confirma los valores y las condiciones del IRM para activar los avisos.');
+  const openLimits = () => !geometry ? onLinkParcel?.() : !irm ? (onAddIrm || returnToDrawing)()
+    : update({activeTab: !draft.placement?.confirmed ? 'placement' : 'irm'});
+  const edgeLimits = {front: draft.fields.retiro_frontal, side: draft.fields.retiro_lateral, rear: draft.fields.retiro_posterior};
+  const selectEdge = id => {setSelectedEdge(id); edgeSelects.current.get(id)?.focus();};
 
-  return <section className={`footprint-planner${hasFootprint ? '' : ' is-empty'}`} aria-labelledby={titleId}>
-    <header className="footprint-header"><div><span className="footprint-eyebrow">DEL PLANO AL TERRENO</span><h3 id={titleId}>Ensaya una ampliación a escala</h3>
-      <p>Extrae la huella, prueba su ubicación y contrasta los datos disponibles del IRM.</p></div><span className="footprint-badge">Estudio de implantación</span></header>
+  return <section id="footprint-planner" tabIndex={-1} className={`footprint-planner${hasFootprint ? '' : ' is-empty'}`} aria-labelledby={titleId}>
+    <header className="footprint-header"><div><span className="footprint-eyebrow">DEL PLANO AL TERRENO</span><h3 id={titleId}>Tu huella sobre el predio</h3>
+      <p>Ubica la construcción y visualiza hasta dónde puede llegar tu propuesta según los retiros revisados.</p></div><span className="footprint-badge">Estudio preliminar</span></header>
     {!hasFootprint ? <div className="footprint-empty-state"><svg viewBox="0 0 112 84" aria-hidden="true"><path d="M15 69V26L68 12 98 31V69Z" fill="#edf2ec" stroke="#8aa898" strokeWidth="1.5" strokeDasharray="4 4"/><path d="M31 58V33H59V44H78V58Z" fill="#d3e6db" stroke="#27614b" strokeWidth="2"/><path d="M78 44H93V58H78" fill="#f1dec6" stroke="#b6793a" strokeWidth="2" strokeDasharray="3 2"/></svg>
       <div><h4>Primero, elige el contorno de planta baja</h4><p>En el visor, confirma la escala y selecciona un contorno cerrado. Usa <strong>Usar como huella</strong> cuando hayas identificado el límite que quieres estudiar.</p>
         <p className="footprint-fine">Puedes añadir figuras y trabajar con el plano sin disponer de predio ni IRM.</p></div><button type="button" onClick={returnToDrawing}>Ir al plano ↑</button></div> : <>
       <div className="footprint-source"><span>HUELLA SELECCIONADA</span><strong>{snapshot.source?.documentName || 'Dibujo actual'}</strong><small>{snapshot.source?.viewName || 'Vista actual'}{snapshot.source?.entityId ? ` · ${snapshot.source.entityId}` : ''}</small></div>
+      <div className="footprint-save-receipt"><div><strong>Huella añadida a este estudio</strong><p>Borrador de esta sesión. Descárgalo antes de recargar, salir o cambiar de plano.</p></div>
+        <div className="footprint-save-actions"><button type="button" onClick={() => downloadPlanningJson(localPlanningExport(snapshot), 'predioai-huella-local.json')}>Descargar huella</button>
+          <button type="button" disabled={!result?.placed} onClick={() => downloadPlanningJson(placedPlanningExport(result, snapshot, parcelProperties), 'predioai-implantacion-propuesta.geojson')}>Descargar ubicación</button></div></div>
       <nav className="footprint-tabs" aria-label="Etapas de implantación">{[['footprint', '01', 'Huella y propuesta'], ['placement', '02', 'Ubicar en el predio'], ['irm', '03', 'Revisar con el IRM']].map(([tab, number, label]) =>
         <button type="button" key={tab} className={activeTab === tab ? 'is-active' : ''} aria-pressed={activeTab === tab} onClick={() => update({activeTab: tab})}><span>{number}</span>{label}</button>)}</nav>
       <div className="footprint-metrics" aria-live="polite"><div><span>Huella existente</span><strong>{fmt(existingArea)} <small>m²</small></strong></div>
         <div><span>Área añadida por ampliación</span><strong>{fmt(result?.metrics?.extension_added_m2)} <small>m²</small></strong><small>Sin duplicar solapes</small></div>
         <div><span>Huella geométrica resultante</span><strong>{fmt(result?.metrics?.combined_footprint_m2)} <small>m²</small></strong><small>Mobiliario excluido</small></div>
+      </div>
+      <div className={`footprint-limits-status${envelopeShown ? ` is-${envelope.status}` : ''}`} role="status">
+        <div><span className="footprint-eyebrow">LÍMITES DEL IRM</span><strong>{envelope?.status === 'ready' ? 'Retiros visibles y avisos activos'
+          : envelope?.status === 'empty' ? 'Sin área disponible con estos retiros' : exactChecksActive ? 'Avisos activos · límite visual pendiente' : 'Activa el límite para tu ampliación'}</strong>
+          <p>{envelope?.status === 'ready' ? `≈ ${fmt(envelope.area_m2)} m² dentro de los retiros revisados. Las figuras se comprueban al dibujar o modificarlas.`
+            : envelope?.status === 'empty' ? 'Los retiros revisados ocupan todo el predio. Revisa sus valores y la clasificación de los lados.'
+              : exactChecksActive ? `${pendingReasons.map(reason => ENVELOPE_REASONS[reason]).find(Boolean) || 'La vista del límite todavía no está disponible.'} Las distancias por figura siguen comprobándose.` : limitNextStep}</p></div>
+        <button type="button" onClick={envelopeShown || exactChecksActive ? () => update({activeTab: 'irm'}) : openLimits}>
+          {envelopeShown || exactChecksActive ? 'Ver retiros' : !geometry ? 'Vincular predio' : !irm ? 'Añadir IRM' : !draft.placement?.confirmed ? 'Revisar ubicación' : 'Configurar retiros'}</button>
       </div>
 
       {activeTab === 'footprint' && <div className="footprint-preview-grid"><LocalFootprintPreview snapshot={snapshot} shapeChecks={shapeChecks}/><div className="footprint-preview-detail">
@@ -189,22 +239,23 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
 
       {activeTab === 'placement' && (!geometry ? <div className="footprint-missing"><span className="footprint-empty-symbol" aria-hidden="true">⌖</span><div><h4>La huella está lista. Falta el predio.</h4><p>Vincula el predio correspondiente para colocar el contorno sobre su polígono. El dibujo conserva sus dimensiones y tú defines su posición y orientación.</p>
         <p className="footprint-fine">No se ha atribuido este plano a una propiedad ni a una ubicación.</p></div>{onLinkParcel && <button type="button" className="footprint-primary" onClick={onLinkParcel}>Vincular predio</button>}</div> : <>
-        <div className="footprint-placement-grid"><div><MapBoundary key={JSON.stringify(geometry)}><Suspense fallback={<div className="footprint-map-loading" role="status">Preparando el mapa de implantación…</div>}><FootprintMap geometry={geometry} placement={draft.placement} placed={result?.placed} shapeChecks={shapeChecks} onPlacementChange={changePlacement}/></Suspense></MapBoundary></div>
-          <div className="footprint-placement-controls"><span className="footprint-eyebrow">UBICACIÓN PROPUESTA</span><h4>Predio {parcelIdentifier(parcelProperties) || 'vinculado'}</h4><p>La primera posición usa el centro de la extensión del predio como punto de partida. Ajusta el origen y el giro con una referencia del terreno.</p>
-            <div className="footprint-fields"><label>Latitud del origen<input type="text" inputMode="decimal" value={draft.placement?.latitude || ''} onChange={event => changePlacement({latitude: event.target.value})}/></label>
-              <label>Longitud del origen<input type="text" inputMode="decimal" value={draft.placement?.longitude || ''} onChange={event => changePlacement({longitude: event.target.value})}/></label>
-              <label className="footprint-wide">Giro horario (°)<input type="number" min="-360" max="360" step="1" value={draft.placement?.rotation_degrees || '0'} onChange={event => changePlacement({rotation_degrees: event.target.value})}/></label></div>
+        <div className="footprint-placement-grid"><div><MapBoundary key={JSON.stringify(geometry)}><Suspense fallback={<div className="footprint-map-loading" role="status">Preparando el mapa de implantación…</div>}><FootprintMap geometry={geometry} placement={draft.placement} placed={result?.placed} shapeChecks={shapeChecks} envelope={envelope} limitsActive={exactChecksActive} placing={busy && !result?.placed} onPlacementChange={changePlacement}/></Suspense></MapBoundary></div>
+          <div className="footprint-placement-controls"><span className="footprint-eyebrow">TU PREDIO VINCULADO</span><h4>Predio {parcelIdentifier(parcelProperties) || 'vinculado'}</h4><p>La huella aparece en el centro del predio como punto de partida. Arrastra la cruz hasta su posición y ajusta el giro con una referencia del terreno.</p>
+            <div className="footprint-fields"><label className="footprint-wide">Giro horario (°)<input type="number" min="-360" max="360" step="1" value={draft.placement?.rotation_degrees || '0'} onChange={event => changePlacement({rotation_degrees: event.target.value})}/></label></div>
+            <label className="footprint-check-label footprint-placement-confirm"><input type="checkbox" checked={Boolean(draft.placement?.confirmed)} onChange={event => update(previous => ({...previous, placement: {...previous.placement, confirmed: event.target.checked}}))}/><span>Revisé la posición y la orientación de esta implantación.</span></label>
+            <p className="footprint-fine">La escala se conserva. Mover o girar la huella deja su ubicación pendiente de revisión.</p>
+            <details className="footprint-advanced footprint-coordinate-details"><summary>Coordenadas y ajuste preciso</summary><div className="footprint-fields"><label>Latitud del origen<input type="text" inputMode="decimal" value={draft.placement?.latitude || ''} onChange={event => changePlacement({latitude: event.target.value})}/></label>
+              <label>Longitud del origen<input type="text" inputMode="decimal" value={draft.placement?.longitude || ''} onChange={event => changePlacement({longitude: event.target.value})}/></label></div>
             <div className="footprint-nudge"><label>Paso de desplazamiento<select value={nudge} onChange={event => setNudge(event.target.value)}><option value="0.1">0,10 m</option><option value="0.5">0,50 m</option><option value="1">1 m</option><option value="5">5 m</option></select></label>
               <div className="footprint-nudge-buttons"><button type="button" onClick={() => move(0, 1)} aria-label="Mover huella al norte">↑ N</button><button type="button" onClick={() => move(-1, 0)} aria-label="Mover huella al oeste">← O</button><button type="button" onClick={() => move(1, 0)} aria-label="Mover huella al este">E →</button><button type="button" onClick={() => move(0, -1)} aria-label="Mover huella al sur">↓ S</button></div></div>
-            <label className="footprint-check-label"><input type="checkbox" checked={Boolean(draft.placement?.confirmed)} onChange={event => update(previous => ({...previous, placement: {...previous.placement, confirmed: event.target.checked}}))}/><span>Revisé la posición y la orientación de esta implantación.</span></label>
-            <p className="footprint-fine">Mover el origen o cambiar el giro vuelve a dejar esta revisión pendiente. La escala no se modifica para encajar en el lote.</p>
-            <div className="footprint-actions"><button type="button" className="footprint-primary" onClick={() => update({activeTab: 'irm'})}>Revisar con el IRM →</button><button type="button" disabled={!result?.placed} onClick={() => downloadPlanningJson(placedPlanningExport(result, snapshot, parcelProperties), 'predioai-implantacion-propuesta.geojson')}>Descargar GeoJSON</button></div>
-            <p className="footprint-fine">GeoJSON en WGS84, con la ubicación propuesta y su procedencia. No equivale a una georreferenciación comprobada.</p>
+            </details>
+            <div className="footprint-actions"><button type="button" className="footprint-primary" onClick={() => update({activeTab: 'irm'})}>Revisar con el IRM →</button></div>
+            <p className="footprint-fine">«Descargar ubicación» guarda la propuesta como GeoJSON. La imagen satelital sirve de referencia; la posición requiere tu revisión.</p>
           </div></div>
         <div className="footprint-spatial-summary">{result && <><span>Área del polígono del predio <strong>{fmt(result.metrics?.parcel_geometry_m2)} m²</strong></span><span>Ocupación fuera del predio <strong>{fmt(result.metrics?.outside_parcel_m2)} m²</strong></span></>}{busy && <span role="status">Actualizando implantación…</span>}</div>
       </>)}
 
-      {activeTab === 'irm' && (!irm ? <div className="footprint-missing"><span className="footprint-empty-symbol" aria-hidden="true">▤</span><div><h4>El IRM de este plano todavía no está disponible</h4><p>Puedes seguir probando formas y ubicaciones. Adjunta el IRM correspondiente en los documentos del proyecto para incorporar sus parámetros a este estudio.</p><p className="footprint-fine">La factibilidad, los retiros y el COS permanecen pendientes.</p></div><button type="button" onClick={returnToDrawing}>Volver a los documentos ↑</button></div> : <>
+      {activeTab === 'irm' && (!irm ? <div className="footprint-missing"><span className="footprint-empty-symbol" aria-hidden="true">▤</span><div><h4>El IRM de este plano todavía no está disponible</h4><p>Puedes seguir probando formas y ubicaciones. Adjunta el IRM correspondiente en los documentos del proyecto para incorporar sus parámetros a este estudio.</p><p className="footprint-fine">La factibilidad, los retiros y el COS permanecen pendientes.</p></div><button type="button" onClick={onAddIrm || returnToDrawing}>Añadir IRM</button></div> : <>
         <div className="footprint-review-intro"><div><span className="footprint-eyebrow">DATOS DEL IRM APORTADO</span><h4>Confirma las condiciones del predio</h4><p>Los valores extraídos son candidatos. Contrástalos con el documento, corrige lo necesario y deja vacíos los datos que aún no conoces.</p></div><span className="footprint-badge">Revisión del usuario</span></div>
         {draft.documentChanged && <p className="footprint-notice" role="status">Se actualizó el IRM. Conservamos la posición de la huella; revisa los nuevos parámetros y las áreas computables.</p>}
         {identityMismatch && <div className="footprint-error" role="alert"><strong>Los identificadores de predio no coinciden.</strong><p>Seleccionado: {identity.selected || 'sin identificar'} · Plano: {identity.drawing.join(', ') || 'sin identificar'} · IRM: {identity.report.join(', ') || draft.manualIrmPredio || 'sin identificar'}. Corrige la vinculación o los documentos antes de comparar condiciones normativas.</p></div>}
@@ -212,6 +263,15 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
         <div className="footprint-review-grid"><div className="footprint-identity-evidence"><span>Predio vinculado</span><strong>{identity.selected || 'Pendiente'}</strong><span>Predio extraído del IRM</span><strong>{identity.report.join(', ') || 'Sin identificar'}</strong></div>
           {!identity.report.length && <label>Número de predio que consta en el IRM<input type="text" inputMode="numeric" maxLength="25" placeholder="Consultar el documento" value={draft.manualIrmPredio || ''} onChange={event => update({manualIrmPredio: event.target.value, associationConfirmed: false, reviewed: false})}/><span className="footprint-fine">Referencia introducida por ti; no se ha extraído automáticamente.</span></label>}</div>
         <div className="footprint-irm-fields">{PLANNING_FIELDS.map(field => {const candidate = candidateField(irm, field.key); return <label key={field.key}>{field.label}{field.unit && <small>{field.unit}</small>}<input type="text" inputMode="decimal" value={draft.fields[field.key] || ''} placeholder="Pendiente" onChange={event => setField(field.key, event.target.value)}/><span>{candidate.text !== '' ? `Extraído: ${candidate.text}${field.unit ? ` ${field.unit}` : ''}${candidate.page ? ` · pág. ${candidate.page}` : ''}` : 'Sin un valor único extraído'}{candidate.evidence && <details><summary>Ver evidencia</summary><p>{candidate.evidence}</p></details>}</span></label>;})}</div>
+        <section className="footprint-edge-setup" aria-labelledby={`${titleId}-edges`}>
+          <div className="footprint-edge-heading"><div><span className="footprint-eyebrow">DIBUJA EL LÍMITE DE TU PROPUESTA</span><h4 id={`${titleId}-edges`}>¿Qué lado da a la calle?</h4></div><span className="footprint-badge">{classified}/{edges.length || '—'} lados identificados</span></div>
+          <p>Marca cada lindero como frontal, lateral o posterior según el IRM. Así aplicamos la distancia correcta en cada lado y mostramos la franja de retiro.</p>
+          <p className="footprint-fine">El frente mínimo del lote y el retiro frontal son medidas distintas. Usamos los valores de retiro revisados, no las dimensiones del esquema del PDF.</p>
+          {geometry ? <div className="footprint-edge-grid"><MapBoundary><Suspense fallback={<p>Preparando los lados del predio…</p>}><FootprintMap geometry={geometry} placement={draft.placement} placed={result?.placed} shapeChecks={shapeChecks} envelope={envelope} limitsActive={exactChecksActive} onPlacementChange={changePlacement} edgesVisible selectedEdge={selectedEdge} onSelectEdge={selectEdge} edgeKinds={draft.edgeKinds} edgeLimits={edgeLimits}/></Suspense></MapBoundary>
+            <div className="footprint-edge-list" aria-label="Clasificación de lados del predio">{edges.map(edge => <label key={edge.id} className={selectedEdge === edge.id ? 'is-selected' : ''} onFocus={() => setSelectedEdge(edge.id)}><span>{edge.label}{draft.edgeKinds[edge.id] && edgeLimits[draft.edgeKinds[edge.id]] !== '' && <small>Retiro: {edgeLimits[draft.edgeKinds[edge.id]]} m</small>}</span><select ref={node => {if (node) edgeSelects.current.set(edge.id, node); else edgeSelects.current.delete(edge.id);}} aria-label={`Clasificación de ${edge.label.toLowerCase()}`} value={draft.edgeKinds[edge.id] || ''} onChange={event => update(previous => ({...previous, edgeKinds: {...previous.edgeKinds, [edge.id]: event.target.value}}))}><option value="">Sin asignar</option>{Object.entries(EDGE_KINDS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>)}</div>
+          </div> : <p className="footprint-fine">Vincula el predio para identificar sus lados.</p>}
+          <IrmDiagramReference file={irmFile}/>
+        </section>
         <div className="footprint-counted-area"><h4>Área computable para el COS</h4><p>La huella geométrica no siempre coincide con el área útil o computable del municipio. Introduce el área final revisada de planta baja, incluyendo lo existente y la ampliación.</p>
           {draft.proposalChanged && <p className="footprint-notice" role="status">Cambió la ampliación. Revisa de nuevo las áreas computables de planta baja y del conjunto.</p>}
           <div className="footprint-review-grid"><label>Área útil/computable final en planta baja (m²)<input type="text" inputMode="decimal" placeholder="Pendiente de revisión" disabled={draft.footprintIsCountedArea} value={draft.proposal.ground_floor_counted_area_m2 || ''} onChange={event => update(previous => ({...previous, proposalChanged: false, proposal: {...previous.proposal, ground_floor_counted_area_m2: event.target.value}}))}/></label>
@@ -227,10 +287,6 @@ export default function FootprintPlanner({snapshot, parcel = null, parcelPropert
           <label className="footprint-check-label"><input type="checkbox" checked={draft.fullGroundFootprint} onChange={event => update({fullGroundFootprint: event.target.checked})}/><span>El contorno representa la planta baja y contiene toda la ocupación existente del terreno.</span></label>
           <label className="footprint-check-label"><input type="checkbox" checked={draft.reviewed} onChange={event => update({reviewed: event.target.checked, documentChanged: false})}/><span>Contrasté los valores introducidos y las condiciones aplicables con el IRM.</span></label>
           {!geometry && <p className="footprint-fine">Vincula primero el predio correspondiente para revisar la relación entre los documentos.</p>}</div>
-        <details className="footprint-advanced"><summary>Retiros: identificar los lados del predio <span>{classified}/{edges.length || '—'} asignados</span></summary><p>Selecciona cada lado en el mapa o en la lista y clasifícalo según el frente vial y el IRM. No se deduce el frente a partir del norte ni de la forma del lote.</p>
-          {geometry ? <div className="footprint-edge-grid"><MapBoundary><Suspense fallback={<p>Preparando los lados del predio…</p>}><FootprintMap geometry={geometry} placement={draft.placement} placed={result?.placed} shapeChecks={shapeChecks} onPlacementChange={changePlacement} edgesVisible selectedEdge={selectedEdge} onSelectEdge={setSelectedEdge} edgeKinds={draft.edgeKinds}/></Suspense></MapBoundary>
-            <div className="footprint-edge-list" aria-label="Clasificación de lados del predio">{edges.map(edge => <label key={edge.id} className={selectedEdge === edge.id ? 'is-selected' : ''} onFocus={() => setSelectedEdge(edge.id)}>{edge.label}<select aria-label={`Clasificación de ${edge.label.toLowerCase()}`} value={draft.edgeKinds[edge.id] || ''} onChange={event => update(previous => ({...previous, edgeKinds: {...previous.edgeKinds, [edge.id]: event.target.value}}))}><option value="">Sin asignar</option>{Object.entries(EDGE_KINDS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>)}</div>
-          </div> : <p className="footprint-fine">Los lados estarán disponibles cuando vincules un predio.</p>}</details>
         <details className="footprint-advanced"><summary>Altura, pisos y superficie total de la propuesta</summary><p>Introduce los totales finales del conjunto de edificaciones, incluyendo lo existente. La planta baja por sí sola no permite inferir estos valores.</p>
           <div className="footprint-review-grid">{[['height_m', 'Altura máxima final (m)'], ['floors', 'Número final de pisos'], ['total_floor_area_m2', 'Área computable final de todos los pisos (m²)']].map(([key, label]) => <label key={key}>{label}<input type="text" inputMode="decimal" placeholder="Pendiente" value={draft.proposal[key]} onChange={event => update(previous => ({...previous, proposal: {...previous.proposal, [key]: event.target.value}}))}/></label>)}</div></details>
         <StatusChecks result={result} pending={busy} error={error} onRetry={() => setRetry(value => value + 1)}/>
