@@ -25,7 +25,7 @@ function ProjectGuide() {
         <rect x="204" y="64" width="47" height="65" rx="3" fill="#e5ebe2" stroke="#a7b9aa" />
         <path d="M209 80H246M229 68V79" fill="none" stroke="#a7b9aa" />
         <text x="67" y="180" fontSize="9" fill="#648075" letterSpacing="1.8">SALA</text><text x="205" y="178" fontSize="8" fill="#648075" letterSpacing="1">ESTUDIO</text>
-        {proposal === 'table' && <g><rect x="94" y="116" width="48" height="27" rx="3" fill="#cee6d8" stroke="#246c52" strokeWidth="2" /><path d="M94 107V101M142 107V101M94 104H142" stroke="#246c52" strokeWidth=".8"/><text x="118" y="98" textAnchor="middle" fontSize="10" fill="#246c52">1,60 m</text><text x="150" y="133" fontSize="9" fill="#246c52">0,90 m</text></g>}
+        {proposal === 'table' && <g><rect x="94" y="128" width="48" height="27" rx="3" fill="#cee6d8" stroke="#246c52" strokeWidth="2" /><path d="M94 119V113M142 119V113M94 116H142" stroke="#246c52" strokeWidth=".8"/><text x="118" y="110" textAnchor="middle" fontSize="10" fill="#246c52">1,60 m</text><text x="150" y="145" fontSize="9" fill="#246c52">0,90 m</text></g>}
         {proposal === 'circle' && <g><circle cx="118" cy="130" r="18" fill="#cee6d8" stroke="#246c52" strokeWidth="2"/><path d="M100 130H136" stroke="#246c52" strokeWidth=".8"/><text x="118" y="104" textAnchor="middle" fontSize="10" fill="#246c52">Ø 1,20 m</text></g>}
         {proposal === 'extension' && <g><path d="M272 116H332V200H272Z" fill="#f6debd" fillOpacity=".85" stroke="#b96d34" strokeWidth="2" strokeDasharray="5 3"/><path d="M272 108V101M332 108V101M272 104H332" stroke="#b96d34" strokeWidth=".8"/><text x="302" y="98" textAnchor="middle" fontSize="10" fill="#9e592a">2,00 m</text><text x="302" y="154" textAnchor="middle" fontSize="11" fill="#9e592a">5,60 m²</text><text x="302" y="170" textAnchor="middle" fontSize="8" fill="#9e592a">PROPUESTA</text></g>}
         <path d="M44 220H104M44 216V224M74 217V223M104 216V224" stroke="#6d8277" fill="none"/><text x="44" y="236" fontSize="8" fill="#6d8277">0</text><text x="101" y="236" fontSize="8" fill="#6d8277">2 m</text>
@@ -99,7 +99,7 @@ export default function ProductOverview({ onExplore, onConsult, onBlueprints, on
     <section className="po-workflow" aria-labelledby="po-workflow-title">
       <div className="po-section-heading"><p className="po-eyebrow">CÓMO FUNCIONA EL PILOTO</p><h2 id="po-workflow-title">Del plano a una revisión con contexto.</h2></div>
       <ol className="po-steps po-home-steps">
-        <li><span className="po-step-number">01</span><h3>Elige la actividad y aporta tu plano</h3><p>PDF, DXF o DWG autorizado; usa un ZIP si tienes varios dibujos. Para pintura o cambio de acabado de piso puedes empezar sin consulta predial ni IRM.</p></li>
+        <li><span className="po-step-number">01</span><h3>Elige la actividad y aporta tu plano</h3><p>PDF, DXF o DWG autorizado; usa un ZIP si tienes varios dibujos. Puedes medir y explorar ideas antes de tener el predio o el IRM; agrégalos para revisar la propuesta en su contexto.</p></li>
         <li><span className="po-step-number">02</span><h3>Mide y prueba tu propuesta</h3><p>Confirma la escala, explora los elementos y añade figuras con medidas reales. Selecciona la huella de planta baja para continuar con la implantación.</p></li>
         <li><span className="po-step-number">03</span><h3>Completa el contexto de tu vivienda</h3><p>Vincula el predio y aporta el IRM cuando corresponda a la revisión. La solicitud de documentos municipales la haces tú o tu representante.</p></li>
       </ol>
