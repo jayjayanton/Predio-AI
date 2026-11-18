@@ -97,8 +97,9 @@
 .product-overview .po-preview-options button { flex: 1; min-height: 36px; border: 1px solid #c7d5c2; border-radius: 6px; background: #f5f8f0; color: #54704f; padding: 7px 9px; font-size: 11px; }
 .product-overview .po-preview-options button[aria-pressed="true"] { background: #27543e; color: #fff; border-color: #27543e; }
 .product-overview .po-preview-options button:focus-visible { outline: 2px solid #315b41; outline-offset: 3px; }
-.product-overview .po-project-guide .po-guide-result { margin-top: 0; background: transparent; padding: 15px 0 0; border-top: 1px solid #c7d5c0; border-radius: 0; }
-.product-overview .po-project-guide .po-guide-result p { margin-block: 7px; }
+.product-overview .po-project-guide .po-guide-result { margin-top: 0; background: transparent; padding: 15px 0 0; border-top: 1px solid #c7d5c0; border-radius: 0; color: #2b5141; }
+.product-overview .po-project-guide .po-guide-result p { margin-block: 7px; color: #4e6652; }
+.product-overview .po-project-guide .po-guide-result small { color: #5f735e; }
 
 @media (min-width: 1400px) { .planning-studio .cad-stage { min-height: 600px; } }
 @media (max-width: 1000px) {
