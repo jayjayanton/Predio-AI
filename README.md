@@ -252,12 +252,12 @@ Validate before release. Passing CI does not verify municipal service availabili
 | Scaled layout and footprint | Browser-local metric shapes, per-view draft/history, validated selected contour and local JSON export |
 | Placement and numeric IRM study | Shapely polygon operations and pyproj local metric projection, reviewed inputs and proposed WGS84 GeoJSON export |
 | Hosting | GitHub Pages frontend + Render FastAPI backend |
-| Optional desktop IRM assistant | Local Python bridge + Playwright / Chromium |
+| Optional desktop IRM assistant | Local Docker container with Playwright, Chromium and browser-accessible desktop |
 
 ```text
 frontend/       React application, browser IRM parsing, comparison and tests
 backend/        FastAPI services, spatial/document analysis and tests
-automation/     Optional local IRM desktop assistant
+automation/     Optional Dockerized IRM desktop assistant
 docs/           Architectural methodology, product scope and screenshots
 .github/        Validation and GitHub Pages workflows
 render.yaml     Existing Render backend configuration
@@ -340,17 +340,15 @@ The existing Pages project demonstration uses Vite's `/Predio-AI/` base path. `V
 
 ### Optional desktop IRM assistant
 
-The manual portal workflow needs no additional software. The experimental assistant sends the selected predio number to a local bridge at `127.0.0.1:8765`, opens Chromium and waits for manual CAPTCHA/report navigation. Import back into PredioAI remains manual.
+The manual portal workflow needs no additional software. The experimental assistant sends the selected predio number to a Docker bridge at `127.0.0.1:8765`, opens containerized Chromium on a local browser screen and waits for manual CAPTCHA/report navigation. Import back into PredioAI remains manual.
 
-On Windows, `automation/setup_windows.bat` installs dependencies and configures the bridge. Manual installation from the repository root:
+On Windows, install and start Docker Desktop, then double-click:
 
 ```powershell
-py -m pip install -r automation/requirements.txt
-py -m playwright install chromium
-py automation/irm_bridge.py
+automation\start_docker_windows.bat
 ```
 
-Playwright is optional desktop software, not a Render backend requirement. Browser local-network permissions may affect the bridge. See [automation/README.md](automation/README.md).
+The launcher builds and starts the local image, opens the browser view at `127.0.0.1:6080`, and maps generated PDFs to the user's Downloads folder. Python, Playwright and Chromium do not need to be installed on the host. Docker remains optional desktop software and is not a Render backend requirement. Browser local-network permissions may affect the bridge. See [automation/README.md](automation/README.md).
 
 ## Sources and interpretation
 

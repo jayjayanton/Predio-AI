@@ -1,71 +1,79 @@
-# Consulta IRM asistida — prototipo de escritorio
+# Consulta IRM asistida — Docker local
 
-Este módulo es **opcional** y funciona **localmente en Windows/macOS/Linux**. No se ejecuta automáticamente desde GitHub Pages ni desde Render. El usuario debe iniciar el script en su propio computador; el navegador Chromium que se abre pertenece a esa sesión local.
+Este módulo opcional ejecuta Python, Playwright y Chromium dentro de Docker. El usuario no necesita instalar Python, abrir PowerShell ni escribir comandos. El CAPTCHA del portal municipal se completa manualmente en un navegador local visible.
 
-## Instalación rápida en Windows (sin terminal permanente)
+El asistente sigue siendo software local: no se ejecuta en Render, no intenta evadir el CAPTCHA y no envía el IRM a PredioAI. Después de obtenerlo, el usuario revisa el PDF y lo adjunta manualmente.
 
-Desde la carpeta del repositorio, ejecute una vez `automation/setup_windows.bat`. Instala las dependencias, descarga Chromium y crea un acceso directo **PredioAI IRM Bridge** en la carpeta **Inicio** de Windows. El puente se inicia en segundo plano inmediatamente y automáticamente al iniciar sesión. **No hace falta mantener PowerShell abierto** para usar el botón «Consultar IRM con Playwright».
+## Inicio en Windows
 
-Si ya instaló Playwright, ejecute solo el siguiente comando una vez desde la raíz del repositorio (sin reinstalar Chromium):
+1. Instale y abra [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+2. Descargue esta carpeta `automation` junto con el `Dockerfile` y los archivos del repositorio.
+3. Haga doble clic en `automation/start_docker_windows.bat`.
+4. En el primer inicio, espere mientras Docker prepara la imagen. Al terminar se abre el navegador local del asistente en `http://127.0.0.1:6080`.
+5. Abra PredioAI, seleccione un predio y pulse **Consulta asistida en escritorio**.
+6. Regrese al navegador local del asistente, complete el CAPTCHA y pulse **CONSULTAR**.
+7. Cuando se valide el informe, el archivo `IRM_<predio>.pdf` aparece en la carpeta **Descargas** de Windows.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File automation/install_background_bridge.ps1
+Para detener el asistente, haga doble clic en `automation/stop_docker_windows.bat`. Docker puede volver a iniciarlo posteriormente con el archivo de inicio.
+
+`automation/setup_windows.bat` se conserva como acceso compatible y ahora abre el mismo iniciador de Docker.
+
+## Qué incluye el contenedor
+
+- Python y la versión fijada de Playwright.
+- Chromium y sus dependencias del sistema.
+- Una pantalla virtual local accesible mediante noVNC en `127.0.0.1:6080`.
+- El puente local de PredioAI en `127.0.0.1:8765`.
+- Un volumen que escribe el PDF generado en Descargas, fuera del contenedor.
+
+Los puertos se publican únicamente en `127.0.0.1`; otros equipos de la red no pueden conectarse a ellos. La pantalla noVNC no usa contraseña porque solo está disponible en el mismo computador. El puente comprueba el origen exacto, valida el número de predio y permite una sola consulta activa.
+
+## Integración con PredioAI
+
+La aplicación envía el número seleccionado a `http://127.0.0.1:8765/irm/start`. El contenedor abre el portal municipal en Chromium, rellena el número y espera hasta cinco minutos a que el usuario resuelva el CAPTCHA y abra el informe.
+
+El flujo es:
+
+`PredioAI → número de predio → puente Docker local → Chromium visible → CAPTCHA manual → validación básica → PDF en Descargas → carga manual a PredioAI`
+
+Chrome o Edge pueden pedir permiso para que una página HTTPS acceda a un servicio de red local. Ese permiso debe concederse para usar el botón integrado. Si el navegador bloquea la conexión, use **Copiar número**, abra el portal oficial y pegue el número manualmente.
+
+## Dominio comercial
+
+El contenedor acepta de forma predeterminada el demo de GitHub Pages y los orígenes locales de desarrollo. Cuando exista el dominio comercial, añada su origen HTTPS exacto a `IRM_ALLOWED_ORIGINS`.
+
+Para una configuración local, copie `automation/.env.example` como `automation/.env` y cambie la variable, por ejemplo:
+
+```text
+IRM_ALLOWED_ORIGINS=https://app.predioai.ec,https://jayjayanton.github.io
 ```
 
-La automatización abre Chromium **visible** para completar el CAPTCHA manualmente. Solo el puente permanece oculto. La instalación de inicio automático es por usuario y depende de la ubicación actual del repositorio; si mueve la carpeta, ejecute nuevamente el instalador.
+No use `*` y no incluya rutas ni barras finales. El archivo `.env` no se confirma en Git.
 
-**Desinstalar el inicio automático:** abra `Win+R`, escriba `shell:startup` y elimine el acceso directo **PredioAI IRM Bridge**. Para detener la instancia que ya se está ejecutando, cierre sesión en Windows o detenga específicamente el proceso Python del puente; eliminar el acceso directo no termina un proceso en ejecución.
+## Ejecución avanzada
 
-Requiere tener Python y su lanzador `py` instalados. Chromium es una descarga separada, no un paquete de `requirements.txt`.
+Desde la carpeta `automation`, la configuración equivalente es:
 
-## Instalar (PowerShell, desde la raíz del repositorio)
+```powershell
+docker compose up -d --build
+docker compose down
+```
+
+El modo Python local anterior continúa disponible para desarrollo:
 
 ```powershell
 py -m pip install -r automation/requirements.txt
 py -m playwright install chromium
-```
-
-## Integración con PredioAI (puente local experimental)
-
-1. Instale las dependencias indicadas arriba y descargue/actualice el repositorio en su PC.
-2. Si no instaló el inicio automático, en PowerShell desde la raíz del repositorio ejecute:
-
-```powershell
 py automation/irm_bridge.py
 ```
 
-3. Si utilizó el comando manual, mantenga abierta esa ventana de PowerShell. Si instaló el puente en segundo plano, no hace falta terminal. Abra **https://jayjayanton.github.io/Predio-AI/** en Chrome o Edge, busque el predio y pulse **«Consultar IRM con Playwright (escritorio)»**.
-4. El navegador Chromium de Playwright se abrirá con el número del predio rellenado. Complete el CAPTCHA **manualmente**, pulse CONSULTAR y espere a que el script valide el informe y genere `~/Downloads/IRM_<predio>.pdf`.
-5. Revise el PDF y adjúntelo a PredioAI. **La importación automática del PDF no está implementada.**
+El contenedor es la opción destinada a usuarios de escritorio porque evita instalar y mantener esas dependencias por separado.
 
-El puente escucha **solo** en `127.0.0.1:8765`, valida el origen de la solicitud, acepta únicamente números de predio y rechaza una segunda sesión mientras otra está en marcha. No necesita exponer puertos a Internet ni ejecutar el servicio en Render. No automatiza CAPTCHA. **Chrome/Edge pueden bloquear solicitudes desde una página HTTPS pública a un servicio HTTP local** por controles de acceso a red local; si aparece un error de conexión, revise los permisos del navegador o utilice el método manual descrito abajo. La compatibilidad con navegadores reales debe probarse en el equipo del usuario.
+## Límites
 
-**Reversión inmediata:** no ejecute el puente y use los botones existentes «Copiar número» + «Abrir consulta IRM oficial». La función original no se elimina.
-
-## Ejecutar con el predio real
-
-En PredioAI, consulte un predio y anote su **número de predio** (no la clave catastral). Luego:
-
-```powershell
-py automation/irm_playwright.py 627739
-```
-
-Sustituya `627739` por el número real seleccionado en PredioAI. Este método manual no requiere el puente local. Para enviar el número automáticamente desde PredioAI, siga la sección «Integración con PredioAI» anterior.
-
-1. Abre el portal oficial `buscarPredio.jsf` en Chromium visible.
-2. Rellena el número de predio indicado.
-3. **El usuario resuelve el CAPTCHA y pulsa CONSULTAR**. No se automatiza ni evade el CAPTCHA.
-4. Espera hasta cinco minutos para detectar `/irm/irm.jsf` en la sesión del navegador (misma pestaña o pestaña nueva).
-5. Verifica automáticamente que la página contiene la sección **Datos del Predio** y el número solicitado. Si falla, no exporta el archivo.
-6. Genera `~/Downloads/IRM_<predio>.pdf` mediante impresión Chromium.
-7. El usuario verifica que el PDF contenga todas las páginas y luego lo adjunta manualmente en **PredioAI → Proyecto y planos → IRM**.
-
-**Destino de descarga:** por defecto se guarda en la carpeta **Descargas / Downloads** del usuario del sistema operativo, fuera del repositorio. Puede cambiarse con `--output-dir` cuando ejecute `irm_playwright.py` directamente. Los informes son archivos locales y no se suben a GitHub.
-
-**Limitaciones:** La detección de URL y las comprobaciones automáticas no garantizan que el informe esté completo; la salida de Chromium puede diferir de la opción de impresión oficial del Municipio. No se ha validado la exportación de un informe real. No suba informes sensibles a un sitio público sin revisar su tratamiento. El script no está conectado al backend Render ni al frontend GitHub Pages. Si el portal cambia de estructura, habrá que actualizar selectores y detección.
-
-## Arquitectura prevista
-
-`PredioAI (consulta catastral) → número de predio → ejecución local de Playwright → CAPTCHA manual → página IRM detectada → validación automática básica → PDF local → carga manual a PredioAI`
-
-La transferencia del número está implementada mediante el puente local experimental; la importación directa del PDF sigue **pendiente**. No requieren modificar el servicio Render para probar este prototipo.
+- El usuario siempre resuelve el CAPTCHA.
+- La importación automática del PDF a PredioAI no está implementada.
+- La detección de la página y del número de predio no certifica que el informe esté completo.
+- La impresión de Chromium puede diferir de la opción oficial del portal.
+- Si el portal cambia sus campos, URL o estructura, habrá que actualizar los selectores.
+- Docker Desktop sigue siendo un requisito. Para distribución comercial a usuarios sin Docker, el siguiente paso sería empaquetar un instalador de escritorio firmado o publicar una imagen preconstruida y un iniciador controlado.

@@ -1,0 +1,12 @@
+.git
+.github
+.cad
+.venv
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/dist
+*.pyc
+.env
+.env.*
+!.env.example

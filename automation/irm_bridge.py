@@ -1,9 +1,11 @@
-"""Local-only PredioAI -> Playwright bridge. Start with: py automation/irm_bridge.py
+"""Local-only PredioAI -> Playwright bridge.
 
 Only binds loopback, checks exact Origin, validates the predio and allows one
-active browser session. CAPTCHA is completed manually in visible Chromium.
+active browser session. In Docker, the host publishes this bridge on loopback
+and Chromium remains visible through the local noVNC page.
 """
 import json
+import os
 import re
 import subprocess
 import sys
@@ -11,13 +13,17 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-HOST = "127.0.0.1"
-PORT = 8765
+HOST = os.getenv("IRM_BRIDGE_HOST", "127.0.0.1").strip()
+PORT = int(os.getenv("IRM_BRIDGE_PORT", "8765"))
 ALLOWED_ORIGINS = {
-    "https://jayjayanton.github.io",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    origin.strip()
+    for origin in os.getenv(
+        "IRM_ALLOWED_ORIGINS",
+        "https://jayjayanton.github.io,http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
 }
+OUTPUT_DIR = os.getenv("IRM_OUTPUT_DIR", "").strip()
 SCRIPT = Path(__file__).with_name("irm_playwright.py")
 _lock = threading.Lock()
 _process = None
@@ -80,8 +86,11 @@ class Handler(BaseHTTPRequestHandler):
             if _process is not None and _process.poll() is None:
                 return self._reply(409, {"error": "An IRM session is already running"})
             try:
+                command = [sys.executable, str(SCRIPT), predio]
+                if OUTPUT_DIR:
+                    command.extend(["--output-dir", OUTPUT_DIR])
                 _process = subprocess.Popen(
-                    [sys.executable, str(SCRIPT), predio],
+                    command,
                     cwd=str(SCRIPT.parent.parent),
                 )
             except OSError:
@@ -94,5 +103,5 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"PredioAI IRM bridge listening on http://{HOST}:{PORT}")
-    print("Keep this terminal open. Only the configured PredioAI origins are accepted.")
+    print("Only the configured PredioAI origins are accepted.")
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

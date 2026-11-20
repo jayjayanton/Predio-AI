@@ -1,0 +1,17 @@
+services:
+  irm-assistant:
+    build:
+      context: ..
+      dockerfile: automation/Dockerfile
+    environment:
+      IRM_BRIDGE_HOST: 0.0.0.0
+      IRM_BRIDGE_PORT: 8765
+      IRM_OUTPUT_DIR: /downloads
+      IRM_ALLOWED_ORIGINS: ${IRM_ALLOWED_ORIGINS:-https://jayjayanton.github.io,http://localhost:5173,http://127.0.0.1:5173}
+    ports:
+      - "127.0.0.1:8765:8765"
+      - "127.0.0.1:6080:6080"
+    shm_size: 1gb
+    volumes:
+      - "${PREDIOAI_DOWNLOADS:-./downloads}:/downloads"
+    restart: unless-stopped

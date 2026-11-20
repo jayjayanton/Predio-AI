@@ -44,6 +44,7 @@ function updatePlanningRecord(records, drawing, field, value) {
 
 const API =
   import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const IRM_DESKTOP_URL = 'http://127.0.0.1:6080/vnc.html?autoconnect=true&resize=scale';
 
 // Optional valuation display helpers. Values remain cadastral, not market prices.
 // Explanations of cadastral concepts. The AVALUO_C_1..6 labels are inferred
@@ -554,7 +555,7 @@ export default function App() {
       return;
     }
     setIrmBridgeBusy(true);
-    setIrmCopyStatus('Conectando con Playwright en su computadora…');
+    setIrmCopyStatus('Conectando con el asistente local de Docker…');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
@@ -566,9 +567,9 @@ export default function App() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'El puente local no respondió correctamente.');
-      setIrmCopyStatus('Playwright iniciado para el predio ' + predio + '. Complete el CAPTCHA en la ventana Chromium que se abrió.');
+      setIrmCopyStatus('Consulta preparada para el predio ' + predio + '. Abra el navegador local del asistente y complete el CAPTCHA.');
     } catch (error) {
-      setIrmCopyStatus('No se pudo conectar con Playwright local. Inicie «py automation/irm_bridge.py» en su computadora y vuelva a intentar. También puede usar «Copiar número» y abrir el portal manualmente. Detalle: ' + (error?.message || 'conexión bloqueada'));
+      setIrmCopyStatus('No se pudo conectar con el asistente local. Inicie Docker Desktop y haga doble clic en «automation/start_docker_windows.bat». También puede usar «Copiar número» y abrir el portal manualmente. Detalle: ' + (error?.message || 'conexión bloqueada'));
     } finally {
       clearTimeout(timeout);
       setIrmBridgeBusy(false);
@@ -1970,10 +1971,11 @@ export default function App() {
             </div>
             {irmCopyStatus && <p role="status" className="note">{irmCopyStatus}</p>}
             <button type="button" className="secondary" disabled={irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consulta asistida en escritorio'}</button>
+            <a className="irm-open-link" href={IRM_DESKTOP_URL} target="_blank" rel="noopener noreferrer">Abrir navegador local del asistente ↗</a>
                     <a className="irm-open-link" href="https://pam.quito.gob.ec/mdmq_web_irm/irm/buscarPredio.jsf" target="_blank" rel="noopener noreferrer">Abrir consulta IRM oficial ↗</a>
-            <p className="note">Complete el CAPTCHA manualmente. La consulta asistida requiere iniciar el puente local en su computadora. Si no está disponible, utilice el enlace oficial y pegue el número manualmente.</p>
+            <p className="note">Complete el CAPTCHA manualmente. La consulta asistida se ejecuta localmente con Docker Desktop; no requiere instalar Python ni Playwright. Si no está disponible, utilice el enlace oficial y pegue el número manualmente.</p>
             <details><summary>Consulta asistida desde computadora</summary>
-              <p>El prototipo local puede abrir el portal y esperar la verificación manual.</p>
+              <p>El contenedor local abre el portal y espera la verificación manual. El PDF se guarda en Descargas.</p>
               <a href="https://github.com/jayjayanton/Predio-AI/blob/main/automation/README.md" target="_blank" rel="noopener noreferrer">Instrucciones de Playwright ↗</a>
             </details>
             <label htmlFor="developer-irm-upload"><strong>Adjuntar IRM obtenido (PDF)</strong></label>
@@ -2322,8 +2324,9 @@ export default function App() {
                   <details className="irm-desktop-guide">
                     <summary>Alternativa experimental: consulta IRM asistida en computadora</summary>
                     <button type="button" className="secondary" disabled={!properties || irmBridgeBusy} onClick={startIrmDesktop}>{irmBridgeBusy ? 'Conectando…' : 'Consulta asistida en escritorio'}</button>
-                    <p>Si trabaja desde una computadora, puede ejecutar el prototipo local con Playwright. El programa abre Chromium, introduce el número de predio y espera a que usted complete el CAPTCHA. Después de verificar el informe, permite guardarlo como PDF.</p>
-                    <p>Requiere instalar Python y Playwright en su equipo. No se ejecuta automáticamente desde esta página.</p>
+                    <a className="irm-open-link" href={IRM_DESKTOP_URL} target="_blank" rel="noopener noreferrer">Abrir navegador local del asistente ↗</a>
+                    <p>Si trabaja desde una computadora, el contenedor local abre Chromium, introduce el número de predio y espera a que usted complete el CAPTCHA. Después de verificar el informe, guarda el PDF en Descargas.</p>
+                    <p>Requiere Docker Desktop, pero no requiere instalar Python, Playwright ni Chromium. El asistente debe iniciarse una vez con el acceso de doble clic incluido.</p>
                     <a href="https://github.com/jayjayanton/Predio-AI/blob/main/automation/README.md" target="_blank" rel="noopener noreferrer">Ver instrucciones de instalación y ejecución ↗</a>
                   </details>
                   <h4>¿Cómo obtener y guardar su IRM?</h4>
